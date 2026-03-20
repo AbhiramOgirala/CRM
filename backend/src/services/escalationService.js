@@ -1,5 +1,6 @@
 'use strict';
 const { supabase } = require('../config/supabase');
+const { notifyStatusChange } = require('./whatsappService');
 
 const ESCALATION_TO = { 1:'Department Head', 2:'District Officer', 3:'Commissioner' };
 const UPGRADE = { low:'medium', medium:'high', high:'critical', critical:'critical' };
@@ -41,6 +42,9 @@ const runEscalation = async () => {
           message:`Your complaint "${c.title}" (${c.ticket_number}) escalated to ${ESCALATION_TO[lvl]}.`,
           complaint_id:c.id
         });
+        // WhatsApp notification
+        const { data: citizen } = await supabase.from('users').select('phone').eq('id', c.citizen_id).single();
+        if (citizen?.phone) notifyStatusChange(citizen.phone, c.ticket_number, 'escalated').catch(console.error);
       }
 
       if (lvl >= 2) {
