@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { leaderboardAPI, locationAPI } from '../../services/api';
 
-const CITIZEN_BADGE_ICONS = { newcomer:'🌱', contributor:'⭐', active_citizen:'🏆', champion:'🎖️', civic_hero:'🦸' };
 const GOVT_BADGE_ICONS = { new_officer:'🔰', active_officer:'⚙️', efficient_officer:'🌟', star_officer:'💫', excellence_award:'🏅' };
 
 const medalEmoji = (i) => ['🥇','🥈','🥉'][i] ?? null;
@@ -57,8 +56,7 @@ function RankCard({ item, rank, primary, secondary, badge, badgeMap, extra }) {
 }
 
 export default function Leaderboard() {
-  const [tab, setTab] = useState('citizens');
-  const [citizens, setCitizens] = useState([]);
+  const [tab, setTab] = useState('officers');
   const [depts, setDepts] = useState([]);
   const [officers, setOfficers] = useState([]);
   const [areaData, setAreaData] = useState([]);
@@ -76,14 +74,12 @@ export default function Leaderboard() {
       setLoading(true);
       try {
         const params = selectedState ? { state_id: selectedState } : {};
-        const [c, d, o, a, dist] = await Promise.all([
-          leaderboardAPI.getCitizens({ limit: 20, ...params }),
+        const [d, o, a, dist] = await Promise.all([
           leaderboardAPI.getDepts(),
           leaderboardAPI.getOfficers(params),
           leaderboardAPI.getArea(params),
           leaderboardAPI.getDistrict(params)
         ]);
-        setCitizens(c.leaderboard || []);
         setDepts(d.leaderboard || []);
         setOfficers(o.leaderboard || []);
         setAreaData(a.leaderboard || []);
@@ -98,7 +94,6 @@ export default function Leaderboard() {
   }, [selectedState]);
 
   const TABS = [
-    { key: 'citizens',   label: '👥 Citizens',    count: citizens.length },
     { key: 'officers',   label: '👮 Officers',    count: officers.length },
     { key: 'departments',label: '🏢 Departments', count: depts.length },
     { key: 'area',       label: '📍 Area-wise',   count: areaData.length },
@@ -110,7 +105,7 @@ export default function Leaderboard() {
       <div className="page-header">
         <div>
           <h1 className="page-title">🏆 Leaderboard</h1>
-          <p className="page-subtitle">Rankings across all levels — citizens, officers, departments & regions</p>
+          <p className="page-subtitle">Rankings across all levels — officers, departments & regions</p>
         </div>
         <select className="form-control" style={{ width: 200 }} value={selectedState}
           onChange={e => setSelectedState(e.target.value)}>
@@ -125,7 +120,6 @@ export default function Leaderboard() {
         borderRadius: 'var(--radius)', padding: '14px 20px', marginBottom: 20,
         color: 'white', fontSize: '0.875rem', display: 'flex', gap: 20, flexWrap: 'wrap'
       }}>
-        <div>🌱 <strong>Citizens</strong> earn points for filing, upvotes, resolutions</div>
         <div>🏅 <strong>Officers</strong> earn points per complaint resolved (priority-based)</div>
         <div>🏢 <strong>Departments</strong> ranked monthly by resolution rate</div>
         <div>📍 <strong>Area/District</strong> — inter-level competition for best performance</div>
@@ -147,33 +141,6 @@ export default function Leaderboard() {
         </div>
       ) : (
         <>
-          {/* ── Citizens ──────────────────────────────────────────── */}
-          {tab === 'citizens' && (
-            <div>
-              <div style={{ background: 'var(--secondary-light)', borderRadius: 8, padding: '10px 16px', marginBottom: 16, fontSize: '0.82rem', color: 'var(--secondary)', fontWeight: 600 }}>
-                🌱 Points: File complaint +10 • Upvote received +2 • Complaint resolved +5 • Duplicate verified +3
-              </div>
-              {citizens.length === 0
-                ? <div className="card"><div className="empty-state"><div className="empty-state-icon">👥</div><p className="empty-state-title">No citizen data yet</p></div></div>
-                : citizens.map((c, i) => (
-                  <RankCard key={c.user_id} rank={i+1}
-                    primary={c.users?.full_name || 'Citizen'}
-                    secondary={`📋 ${c.total_complaints || 0} complaints filed`}
-                    badge={c.badge}
-                    badgeMap={CITIZEN_BADGE_ICONS}
-                    extra={
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <span style={{ background: '#E8EAF6', color: '#3949AB', borderRadius: 20, padding: '2px 10px', fontSize: '0.72rem', fontWeight: 700 }}>
-                          ⭐ {c.points || 0} pts
-                        </span>
-                      </div>
-                    }
-                  />
-                ))
-              }
-            </div>
-          )}
-
           {/* ── Officers ─────────────────────────────────────────── */}
           {tab === 'officers' && (
             <div>

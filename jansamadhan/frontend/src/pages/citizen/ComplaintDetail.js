@@ -1,9 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import L from 'leaflet';
 import toast from 'react-hot-toast';
 import { complaintsAPI } from '../../services/api';
 import { StatusBadge, PriorityBadge, CategoryChip, Modal } from '../../components/common';
 import useAuthStore from '../../store/authStore';
+
+// Fix Leaflet default marker icon broken by webpack
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
 
 export default function ComplaintDetail() {
   const { id } = useParams();
@@ -249,17 +259,38 @@ export default function ComplaintDetail() {
           <div className="card">
             <h2 className="card-title" style={{ marginBottom: 12 }}>📍 Location</h2>
             <div style={{ fontSize: '0.85rem', display: 'grid', gap: 6 }}>
+              {complaint.reporter_name && (
+                <div>👤 <strong>Reported by:</strong> {complaint.reporter_name}</div>
+              )}
               {complaint.states && <div>🏛️ <strong>State:</strong> {complaint.states.name}</div>}
               {complaint.districts && <div>🏙️ <strong>District:</strong> {complaint.districts.name}</div>}
               {complaint.mandals && <div>🗺️ <strong>Mandal:</strong> {complaint.mandals.name}</div>}
               {complaint.address && <div>📮 <strong>Address:</strong> {complaint.address}</div>}
               {complaint.pincode && <div>📮 <strong>Pincode:</strong> {complaint.pincode}</div>}
               {complaint.latitude && complaint.longitude && (
-                <a href={`https://maps.google.com/?q=${complaint.latitude},${complaint.longitude}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="btn btn-ghost btn-sm" style={{ marginTop: 8, width: '100%' }}>
-                  🗺️ View on Google Maps
-                </a>
+                <div style={{ marginTop: 8 }}>
+                  <MapContainer
+                    center={[parseFloat(complaint.latitude), parseFloat(complaint.longitude)]}
+                    zoom={15}
+                    style={{ height: 180, width: '100%', borderRadius: 8, zIndex: 0 }}
+                    scrollWheelZoom={false}
+                  >
+                    <TileLayer
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      attribution='&copy; OpenStreetMap contributors'
+                    />
+                    <Marker position={[parseFloat(complaint.latitude), parseFloat(complaint.longitude)]}>
+                      <Popup>{complaint.title}</Popup>
+                    </Marker>
+                  </MapContainer>
+                  <a
+                    href={`https://maps.google.com/?q=${complaint.latitude},${complaint.longitude}`}
+                    target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'block', textAlign: 'center', marginTop: 6, fontSize: '0.78rem', color: 'var(--primary)' }}
+                  >
+                    Open in Google Maps ↗
+                  </a>
+                </div>
               )}
             </div>
           </div>

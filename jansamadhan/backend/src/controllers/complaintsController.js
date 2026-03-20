@@ -188,7 +188,8 @@ exports.getComplaints = async (req, res) => {
       sla_hours_allotted,escalation_level,escalated_to,citizen_id,assigned_officer_id,
       department_id,state_id,district_id,mandal_id,nlp_confidence,nlp_category,
       departments:department_id(name,code),
-      states:state_id(name), districts:district_id(name), mandals:mandal_id(name)
+      states:state_id(name), districts:district_id(name), mandals:mandal_id(name),
+      users:citizen_id(full_name)
     `,{count:'exact'});
 
     const role = req.user?.role;
@@ -215,6 +216,7 @@ exports.getComplaints = async (req, res) => {
     const masked = (data||[]).map(c=>({
       ...c,
       citizen_id:c.is_anonymous?null:c.citizen_id,
+      reporter_name: c.is_anonymous ? 'Anonymous' : (c.users?.full_name || null),
       is_own_dept: role==='officer'?c.department_id===req.user?.department_id:undefined
     }));
 
@@ -235,7 +237,8 @@ exports.getComplaintById = async (req, res) => {
       states:state_id(name), districts:district_id(name),
       corporations:corporation_id(name), municipalities:municipality_id(name),
       talukas:taluka_id(name), mandals:mandal_id(name),
-      gram_panchayats:gram_panchayat_id(name)
+      gram_panchayats:gram_panchayat_id(name),
+      users:citizen_id(full_name)
     `).eq('id',id).single();
 
     if (error||!complaint) return res.status(404).json({ error:'Complaint not found' });
@@ -257,7 +260,8 @@ exports.getComplaintById = async (req, res) => {
       userUpvoted = !!uv;
     }
 
-    return res.json({ complaint:{...complaint,view_count:(complaint.view_count||0)+1}, timeline:timeline||[], comments:comments||[], linkedComplaints:linked||[], userUpvoted });
+    const reporterName = complaint.is_anonymous ? 'Anonymous' : (complaint.users?.full_name || null);
+    return res.json({ complaint:{...complaint, reporter_name: reporterName, view_count:(complaint.view_count||0)+1}, timeline:timeline||[], comments:comments||[], linkedComplaints:linked||[], userUpvoted });
   } catch (err) {
     console.error('getComplaintById:', err);
     return res.status(500).json({ error:'Internal server error' });
@@ -365,7 +369,7 @@ exports.getHotspots = async (req, res) => {
   try {
     const { state_id, district_id, mandal_id, category, days=30 } = req.query;
     const since = new Date(Date.now()-parseInt(days)*24*3600000).toISOString();
-    let q = supabase.from('complaints').select('id,latitude,longitude,category,priority,status,address,title,escalation_level').eq('is_public',true).not('latitude','is',null).gte('created_at',since);
+    let q = supabase.from('complaints').select('id,latitude,longitude,category,priority,status,address,title,escalation_level,is_anonymous').eq('is_public',true).not('latitude','is',null).gte('created_at',since);
     if (state_id) q=q.eq('state_id',state_id);
     if (district_id) q=q.eq('district_id',district_id);
     if (mandal_id) q=q.eq('mandal_id',mandal_id);
