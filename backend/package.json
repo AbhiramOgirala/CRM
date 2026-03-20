@@ -23,6 +23,7 @@
     "multer": "^1.4.5-lts.1",
     "natural": "^6.10.4",
     "node-cache": "^5.1.2",
+    "twilio": "^5.13.0",
     "uuid": "^9.0.0",
     "wink-eng-lite-web-model": "^1.0.0",
     "wink-nlp": "^2.2.0"
