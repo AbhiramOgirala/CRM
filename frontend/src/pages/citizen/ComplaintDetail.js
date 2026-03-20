@@ -6,6 +6,9 @@ import toast from 'react-hot-toast';
 import { complaintsAPI } from '../../services/api';
 import { StatusBadge, PriorityBadge, CategoryChip, Modal } from '../../components/common';
 import useAuthStore from '../../store/authStore';
+import SpeakButton from '../../components/ui/SpeakButton';
+import { buildComplaintReadout, buildDescriptionReadout } from '../../hooks/useTextToSpeech';
+import { useLanguage } from '../../context/LanguageContext';
 
 // Fix Leaflet default marker icon broken by webpack
 delete L.Icon.Default.prototype._getIconUrl;
@@ -103,6 +106,7 @@ export default function ComplaintDetail() {
   const { complaint, timeline, comments, linkedComplaints, userUpvoted } = data;
   const isOwner = user?.id === complaint.citizen_id;
   const isOfficer = user?.role === 'officer' || user?.role === 'admin' || user?.role === 'super_admin';
+  const { activeLang } = useLanguage();
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -122,6 +126,15 @@ export default function ComplaintDetail() {
             <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.4rem', fontWeight: 800 }}>
               {complaint.title}
             </h1>
+            <div className="detail-title-row" style={{ marginTop: 8 }}>
+              <SpeakButton
+                text={buildComplaintReadout(complaint, activeLang)}
+                lang={activeLang}
+                variant="pill"
+                label="Read complaint"
+                translate={false}
+              />
+            </div>
           </div>
           {isOfficer && (
             <button className="btn btn-primary" onClick={() => setShowUpdateModal(true)}>
@@ -136,7 +149,15 @@ export default function ComplaintDetail() {
         <div style={{ display: 'grid', gap: 16 }}>
           {/* Description */}
           <div className="card">
-            <h2 className="card-title" style={{ marginBottom: 12 }}>📄 Description</h2>
+            <div className="detail-section-header">
+              <h2 className="card-title" style={{ marginBottom: 12 }}>📄 Description</h2>
+              <SpeakButton
+                text={buildDescriptionReadout(complaint.description, activeLang).text}
+                lang={activeLang}
+                size="sm"
+                variant="icon"
+              />
+            </div>
             <p style={{ lineHeight: 1.7, color: 'var(--text-secondary)', fontSize: '0.95rem' }}>{complaint.description}</p>
 
             {complaint.images?.length > 0 && (
@@ -159,17 +180,17 @@ export default function ComplaintDetail() {
               onClick={handleUpvote}
               disabled={upvoting}
             >
-              👍 {complaint.upvote_count || 0} Upvotes {!userUpvoted ? '(Click to support)' : '(Supported)'}
+              Support: {complaint.upvote_count || 0} Upvotes {!userUpvoted ? '(Click to support)' : '(Supported)'}
             </button>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-              💬 {comments?.length || 0} comments
+              {comments?.length || 0} comments
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-              👁️ {complaint.view_count || 0} views
+              {complaint.view_count || 0} views
             </span>
             {complaint.duplicate_count > 0 && (
               <span style={{ background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 20, padding: '4px 12px', fontSize: '0.8rem', fontWeight: 700 }}>
-                🔗 {complaint.duplicate_count} similar reports
+                {complaint.duplicate_count} similar reports
               </span>
             )}
           </div>
@@ -177,7 +198,7 @@ export default function ComplaintDetail() {
           {/* Linked duplicates */}
           {linkedComplaints?.length > 0 && (
             <div className="card">
-              <h2 className="card-title" style={{ marginBottom: 12 }}>🔗 Similar Reports ({linkedComplaints.length})</h2>
+              <h2 className="card-title" style={{ marginBottom: 12 }}>Similar Reports ({linkedComplaints.length})</h2>
               {linkedComplaints.map(lc => (
                 <div key={lc.id} style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 8, cursor: 'pointer', fontSize: '0.85rem' }}
                   onClick={() => navigate(`/complaint/${lc.id}`)}>
@@ -190,7 +211,7 @@ export default function ComplaintDetail() {
 
           {/* Comments */}
           <div className="card">
-            <h2 className="card-title" style={{ marginBottom: 16 }}>💬 Comments & Updates</h2>
+            <h2 className="card-title" style={{ marginBottom: 16 }}>Comments & Updates</h2>
 
             {user && (
               <form onSubmit={handleComment} style={{ marginBottom: 20 }}>
@@ -203,7 +224,7 @@ export default function ComplaintDetail() {
                   style={{ marginBottom: 8 }}
                 />
                 <button type="submit" className="btn btn-primary btn-sm" disabled={submittingComment || !comment.trim()}>
-                  {submittingComment ? 'Posting...' : isOfficer ? '📢 Post Official Response' : '💬 Add Comment'}
+                  {submittingComment ? 'Posting...' : isOfficer ? 'Post Official Response' : 'Add Comment'}
                 </button>
               </form>
             )}
@@ -222,7 +243,7 @@ export default function ComplaintDetail() {
                 }}>
                   <div style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                     <strong style={{ fontSize: '0.875rem' }}>{c.users?.full_name}</strong>
-                    {c.is_official && <span className="badge" style={{ background: 'var(--info-bg)', color: 'var(--info)', borderColor: '#90CAF9' }}>📢 Official</span>}
+                    {c.is_official && <span className="badge" style={{ background: 'var(--info-bg)', color: 'var(--info)', borderColor: '#90CAF9' }}>Official</span>}
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>
                       {new Date(c.created_at).toLocaleString('en-IN')}
                     </span>
@@ -238,7 +259,7 @@ export default function ComplaintDetail() {
         <div style={{ display: 'grid', gap: 16, alignContent: 'start' }}>
           {/* Details */}
           <div className="card">
-            <h2 className="card-title" style={{ marginBottom: 12 }}>📊 Complaint Details</h2>
+            <h2 className="card-title" style={{ marginBottom: 12 }}>Complaint Details</h2>
             {[
               { label: 'Ticket No', value: `#${complaint.ticket_number}` },
               { label: 'Status', value: <StatusBadge status={complaint.status} /> },
@@ -257,16 +278,16 @@ export default function ComplaintDetail() {
 
           {/* Location */}
           <div className="card">
-            <h2 className="card-title" style={{ marginBottom: 12 }}>📍 Location</h2>
+            <h2 className="card-title" style={{ marginBottom: 12 }}>Location</h2>
             <div style={{ fontSize: '0.85rem', display: 'grid', gap: 6 }}>
               {complaint.reporter_name && (
-                <div>👤 <strong>Reported by:</strong> {complaint.reporter_name}</div>
+                <div><strong>Reported by:</strong> {complaint.reporter_name}</div>
               )}
-              {complaint.states && <div>🏛️ <strong>State:</strong> {complaint.states.name}</div>}
-              {complaint.districts && <div>🏙️ <strong>District:</strong> {complaint.districts.name}</div>}
-              {complaint.mandals && <div>🗺️ <strong>Mandal:</strong> {complaint.mandals.name}</div>}
-              {complaint.address && <div>📮 <strong>Address:</strong> {complaint.address}</div>}
-              {complaint.pincode && <div>📮 <strong>Pincode:</strong> {complaint.pincode}</div>}
+              {complaint.states && <div><strong>State:</strong> {complaint.states.name}</div>}
+              {complaint.districts && <div><strong>District:</strong> {complaint.districts.name}</div>}
+              {complaint.mandals && <div><strong>Mandal:</strong> {complaint.mandals.name}</div>}
+              {complaint.address && <div><strong>Address:</strong> {complaint.address}</div>}
+              {complaint.pincode && <div><strong>Pincode:</strong> {complaint.pincode}</div>}
               {complaint.latitude && complaint.longitude && (
                 <div style={{ marginTop: 8 }}>
                   <MapContainer
@@ -297,7 +318,7 @@ export default function ComplaintDetail() {
 
           {/* Timeline */}
           <div className="card">
-            <h2 className="card-title" style={{ marginBottom: 16 }}>🕐 Timeline</h2>
+            <h2 className="card-title" style={{ marginBottom: 16 }}>Timeline</h2>
             <div className="timeline">
               {timeline?.map(t => (
                 <div key={t.id} className="timeline-item">
@@ -318,14 +339,14 @@ export default function ComplaintDetail() {
           {/* Resolution notes if resolved */}
           {complaint.status === 'resolved' && complaint.resolution_notes && (
             <div className="card" style={{ background: 'var(--success-bg)', borderColor: '#A5D6A7' }}>
-              <h2 style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--success)', marginBottom: 8 }}>✅ Resolution Notes</h2>
+              <h2 style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--success)', marginBottom: 8 }}>Resolution Notes</h2>
               <p style={{ fontSize: '0.875rem', color: 'var(--success)', marginBottom: complaint.proof_images?.length ? 12 : 0 }}>
                 {complaint.resolution_notes}
               </p>
               {complaint.proof_images?.length > 0 && (
                 <>
                   <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--success)', marginBottom: 8 }}>
-                    📷 Proof of Work Photos:
+                    Proof of Work Photos:
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {complaint.proof_images.map((img, i) => (
@@ -342,7 +363,7 @@ export default function ComplaintDetail() {
           {/* Escalation info */}
           {complaint.escalation_level > 0 && (
             <div className="card" style={{ background: '#FFF8E1', borderColor: '#FFCC02' }}>
-              <h2 style={{ fontWeight: 700, fontSize: '0.9rem', color: '#E65100', marginBottom: 8 }}>🔺 Escalation Status</h2>
+              <h2 style={{ fontWeight: 700, fontSize: '0.9rem', color: '#E65100', marginBottom: 8 }}>Escalation Status</h2>
               <div style={{ fontSize: '0.875rem' }}>
                 <div><strong>Level:</strong> {complaint.escalation_level} — {complaint.escalated_to}</div>
                 {complaint.escalated_at && (
@@ -378,9 +399,9 @@ export default function ComplaintDetail() {
               <option value="">Select status</option>
               <option value="assigned">Assigned</option>
               <option value="in_progress">In Progress</option>
-              <option value="resolved">Resolved ✅</option>
-              <option value="rejected">Rejected ❌</option>
-              <option value="escalated">Escalated 🔺</option>
+              <option value="resolved">Resolved</option>
+              <option value="rejected">Rejected</option>
+              <option value="escalated">Escalated</option>
             </select>
           </div>
           {updateForm.status === 'resolved' && (

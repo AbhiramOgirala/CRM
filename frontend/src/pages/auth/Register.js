@@ -78,9 +78,9 @@ export default function Register() {
             address: addressStr || d.display_name || '',
             pincode: addr?.postcode || prev.pincode
           }));
-          toast.success('📍 Location detected! Your address has been filled in automatically.');
+          toast.success('Location detected! Your address has been filled in automatically.');
         } catch {
-          toast('📍 GPS captured. Please fill in the location dropdowns manually.');
+          toast('GPS captured. Please fill in the location dropdowns manually.');
         }
         setGettingGPS(false);
       },
@@ -115,7 +115,7 @@ export default function Register() {
         address: form.address, pincode: form.pincode,
         preferred_language: form.preferred_language
       });
-      toast.success('Registration successful! Welcome to JanSamadhan 🎉');
+      toast.success('Registration successful! Welcome to JanSamadhan');
       await login(form.email, form.password);
       navigate('/dashboard');
     } catch (err) {
@@ -134,7 +134,7 @@ export default function Register() {
         {/* Header */}
         <div style={{ background: 'var(--secondary)', padding: '20px 28px', color: 'white' }}>
           <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1.4rem', fontWeight: 800, color: '#FFD54F' }}>
-            🇮🇳 JanSamadhan — Citizen Registration
+            JanSamadhan — Citizen Registration
           </div>
           <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.82rem', marginTop: 4 }}>
             Register to file and track civic complaints
@@ -206,7 +206,7 @@ export default function Register() {
                 }}>
                 {gettingGPS
                   ? <><div className="loading-spinner" style={{ width: 16, height: 16, borderWidth: 2, borderTopColor: 'white' }} /> Detecting location...</>
-                  : '📍 Use My Current Location (Auto-fill Address)'
+                  : 'Use My Current Location (Auto-fill Address)'
                 }
               </button>
               <div style={{ textAlign: 'center', margin: '0 0 14px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
@@ -279,10 +279,10 @@ export default function Register() {
               {/* Summary */}
               <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: 16, fontSize: '0.85rem' }}>
                 <div style={{ fontWeight: 700, marginBottom: 8 }}>Registration Summary</div>
-                <div>👤 {form.full_name}</div>
-                <div>📧 {form.email}</div>
-                <div>📱 {form.phone}</div>
-                {form.state_id && <div>📍 {states.find(s => s.id === form.state_id)?.name}</div>}
+                <div>Name: {form.full_name}</div>
+                <div>Email: {form.email}</div>
+                <div>Phone: {form.phone}</div>
+                {form.state_id && <div>Location: {states.find(s => s.id === form.state_id)?.name}</div>}
               </div>
 
               <div style={{ display: 'flex', gap: 10 }}>
@@ -290,7 +290,7 @@ export default function Register() {
                 <button type="submit" className="btn btn-primary w-full" disabled={loading}>
                   {loading ? (
                     <><div className="loading-spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> Registering...</>
-                  ) : '✅ Register'}
+                  ) : 'Register'}
                 </button>
               </div>
             </div>

@@ -54,25 +54,24 @@ export default function AdminDashboard() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">⚙️ Admin Dashboard</h1>
+          <h1 className="page-title">Admin Dashboard</h1>
           <p className="page-subtitle">System-wide overview and management</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Link to="/admin/users" className="btn btn-outline btn-sm">👥 Manage Users</Link>
-          <Link to="/admin/complaints" className="btn btn-primary btn-sm">📋 All Complaints</Link>
+          <Link to="/admin/users" className="btn btn-outline btn-sm">Manage Users</Link>
+          <Link to="/admin/complaints" className="btn btn-primary btn-sm">All Complaints</Link>
         </div>
       </div>
 
       {/* System stats */}
       <div className="grid-4" style={{ marginBottom: 24 }}>
         {[
-          { label: 'Registered Citizens', value: stats?.citizens || 0, icon: '👥', bg: 'var(--secondary-light)', color: 'var(--secondary)' },
-          { label: 'Dept Officers', value: stats?.officers || 0, icon: '👮', bg: 'var(--accent-light)', color: 'var(--accent)' },
-          { label: 'Total Complaints', value: stats?.totalComplaints || 0, icon: '📋', bg: 'var(--warning-bg)', color: 'var(--warning)' },
-          { label: 'Resolved', value: stats?.resolved || 0, icon: '✅', bg: 'var(--success-bg)', color: 'var(--success)' },
+          { label: 'Registered Citizens', value: stats?.citizens || 0, bg: 'var(--secondary-light)', color: 'var(--secondary)' },
+          { label: 'Dept Officers', value: stats?.officers || 0, bg: 'var(--accent-light)', color: 'var(--accent)' },
+          { label: 'Total Complaints', value: stats?.totalComplaints || 0, bg: 'var(--warning-bg)', color: 'var(--warning)' },
+          { label: 'Resolved', value: stats?.resolved || 0, bg: 'var(--success-bg)', color: 'var(--success)' },
         ].map(s => (
           <div key={s.label} className="stat-card">
-            <div className="stat-icon" style={{ background: s.bg }}><span style={{ fontSize: '1.3rem' }}>{s.icon}</span></div>
             <div className="stat-info">
               <div className="stat-value" style={{ color: s.color }}>{s.value}</div>
               <div className="stat-label">{s.label}</div>
@@ -84,13 +83,12 @@ export default function AdminDashboard() {
       {/* Complaint stats */}
       <div className="grid-4" style={{ marginBottom: 24 }}>
         {[
-          { label: 'Pending', value: dashboardData?.stats?.pending || 0, icon: '⏳', bg: 'var(--warning-bg)', color: 'var(--warning)' },
-          { label: 'In Progress', value: dashboardData?.stats?.inProgress || 0, icon: '🔄', bg: 'var(--info-bg)', color: 'var(--info)' },
-          { label: 'Escalated', value: dashboardData?.stats?.escalated || 0, icon: '🔺', bg: '#FCE4EC', color: '#C2185B' },
-          { label: 'Resolution Rate', value: `${dashboardData?.stats?.resolutionRate || 0}%`, icon: '📈', bg: 'var(--success-bg)', color: 'var(--success)' },
+          { label: 'Pending', value: dashboardData?.stats?.pending || 0, bg: 'var(--warning-bg)', color: 'var(--warning)' },
+          { label: 'In Progress', value: dashboardData?.stats?.inProgress || 0, bg: 'var(--info-bg)', color: 'var(--info)' },
+          { label: 'Escalated', value: dashboardData?.stats?.escalated || 0, bg: '#FCE4EC', color: '#C2185B' },
+          { label: 'Resolution Rate', value: `${dashboardData?.stats?.resolutionRate || 0}%`, bg: 'var(--success-bg)', color: 'var(--success)' },
         ].map(s => (
           <div key={s.label} className="stat-card">
-            <div className="stat-icon" style={{ background: s.bg }}><span style={{ fontSize: '1.3rem' }}>{s.icon}</span></div>
             <div className="stat-info">
               <div className="stat-value" style={{ color: s.color }}>{s.value}</div>
               <div className="stat-label">{s.label}</div>
@@ -102,7 +100,7 @@ export default function AdminDashboard() {
       {/* Charts */}
       <div className="grid-2" style={{ marginBottom: 24 }}>
         <div className="card">
-          <h2 className="card-title" style={{ marginBottom: 16 }}>📊 Complaints by Category</h2>
+          <h2 className="card-title" style={{ marginBottom: 16 }}>Complaints by Category</h2>
           {barData ? (
             <Bar data={barData} options={{ ...chartOptions, plugins: { ...chartOptions.plugins, title: { display: false } } }} height={200} />
           ) : (
@@ -110,7 +108,7 @@ export default function AdminDashboard() {
           )}
         </div>
         <div className="card">
-          <h2 className="card-title" style={{ marginBottom: 16 }}>📈 Monthly Trends</h2>
+          <h2 className="card-title" style={{ marginBottom: 16 }}>Monthly Trends</h2>
           {lineData ? (
             <Line data={lineData} options={chartOptions} height={200} />
           ) : (
@@ -121,14 +119,14 @@ export default function AdminDashboard() {
 
       {/* Quick admin actions */}
       <div className="card">
-        <h2 className="card-title" style={{ marginBottom: 16 }}>⚡ Quick Actions</h2>
+        <h2 className="card-title" style={{ marginBottom: 16 }}>Quick Actions</h2>
         <div className="grid-3">
           {[
-            { to: '/admin/users', icon: '👥', label: 'Manage Users', desc: 'Add officers, manage accounts', color: 'var(--secondary)' },
-            { to: '/admin/complaints', icon: '📋', label: 'All Complaints', desc: 'View and assign all complaints', color: 'var(--primary)' },
-            { to: '/leaderboard', icon: '🏆', label: 'Leaderboard', desc: 'View citizen & officer rankings', color: 'var(--accent)' },
-            { to: '/map', icon: '🗺️', label: 'Hotspot Map', desc: 'Identify problem areas geographically', color: '#880E4F' },
-            { to: '/feed', icon: '📢', label: 'Public Feed', desc: 'Monitor public complaint activity', color: '#004D40' },
+            { to: '/admin/users', label: 'Manage Users', desc: 'Add officers, manage accounts', color: 'var(--secondary)' },
+            { to: '/admin/complaints', label: 'All Complaints', desc: 'View and assign all complaints', color: 'var(--primary)' },
+            { to: '/leaderboard', label: 'Leaderboard', desc: 'View citizen & officer rankings', color: 'var(--accent)' },
+            { to: '/map', label: 'Hotspot Map', desc: 'Identify problem areas geographically', color: '#880E4F' },
+            { to: '/feed', label: 'Public Feed', desc: 'Monitor public complaint activity', color: '#004D40' },
           ].map(a => (
             <Link key={a.to} to={a.to} style={{ textDecoration: 'none' }}>
               <div style={{
@@ -139,7 +137,6 @@ export default function AdminDashboard() {
                 onMouseOver={e => { e.currentTarget.style.borderColor = a.color; e.currentTarget.style.transform = 'translateY(-2px)'; }}
                 onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.transform = 'none'; }}
               >
-                <div style={{ fontSize: '1.8rem' }}>{a.icon}</div>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{a.label}</div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{a.desc}</div>

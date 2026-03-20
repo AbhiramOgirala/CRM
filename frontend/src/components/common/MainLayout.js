@@ -12,8 +12,11 @@ export default function MainLayout({ children }) {
       <Navbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
       <div className="main-layout">
         {user && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
-        <main className={`main-content ${!user ? 'full-width' : ''}`}
+        <main 
+          id="main-content" 
+          className={`main-content ${!user ? 'full-width' : ''}`}
           style={!user ? { marginLeft: 0 } : {}}
+          tabIndex="-1"
         >
           {children}
         </main>

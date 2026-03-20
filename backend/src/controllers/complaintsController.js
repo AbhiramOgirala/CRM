@@ -3,6 +3,7 @@ const { supabase } = require('../config/supabase');
 const nlp = require('../services/nlpService');
 const geocoding = require('../services/geocodingService');
 const { addCitizenPoints, addOfficerPoints, POINTS } = require('../services/gamificationService');
+const notificationService = require('../services/notificationService');
 const { notifyStatusChange } = require('../services/whatsappService');
 
 // ── Ticket number ─────────────────────────────────────────────────────────────
@@ -119,18 +120,14 @@ exports.fileComplaint = async (req, res) => {
     // Points
     await addCitizenPoints(req.user.id, POINTS.COMPLAINT_FILED);
 
-    // Notify officers
+    // Notify citizen and officers via notification service
+    const { data: citizen } = await supabase.from('users').select('id,email,phone,full_name').eq('id',req.user.id).single();
+    let officers = [];
     if (dept?.id) {
-      const { data: officers } = await supabase.from('users').select('id').eq('department_id',dept.id).eq('role','officer').eq('is_active',true);
-      if (officers?.length) {
-        await supabase.from('notifications').insert(officers.map(o=>({
-          user_id:o.id, type:'assignment',
-          title:`New ${r.priority.toUpperCase()} Complaint`,
-          message:`${r.category.replace(/_/g,' ')}: "${finalTitle}" — SLA: ${slaHours}h`,
-          complaint_id:complaint.id
-        })));
-      }
+      const { data: officerRows } = await supabase.from('users').select('id,email,phone').eq('department_id',dept.id).eq('role','officer').eq('is_active',true);
+      officers = officerRows || [];
     }
+    notificationService.notifyComplaintFiled(complaint, citizen || req.user, dept, officers).catch(err => console.error('[Notification] notifyComplaintFiled failed:', err.message));
 
     return res.status(201).json({
       message:'Complaint filed successfully',
@@ -165,13 +162,19 @@ const _checkDuplicates = async (newC) => {
   }
   if (!parentId) return;
   await supabase.from('complaints').update({ is_duplicate:true, parent_complaint_id:parentId }).eq('id',newC.id);
-  const { data: parent } = await supabase.from('complaints').select('duplicate_count,priority,citizen_id').eq('id',parentId).single();
+  const { data: parent } = await supabase.from('complaints').select('duplicate_count,priority,citizen_id,title').eq('id',parentId).single();
   if (parent) {
     const cnt = (parent.duplicate_count||0)+1;
     let p = parent.priority;
     if (cnt>=10) p='critical'; else if (cnt>=5) p='high'; else if (cnt>=3) p='medium';
     await supabase.from('complaints').update({ duplicate_count:cnt, priority:p }).eq('id',parentId);
     if (parent.citizen_id) await addCitizenPoints(parent.citizen_id, POINTS.DUPLICATE_VERIFIED);
+    // Notify both: filer (duplicate detected) and parent's citizen (milestone)
+    await notificationService.notifyDuplicateDetected(
+      { ...newC },
+      { id: parentId, citizen_id: parent.citizen_id, title: parent.title },
+      cnt
+    );
   }
 };
 
@@ -317,15 +320,13 @@ exports.updateComplaintStatus = async (req, res) => {
       await addOfficerPoints(req.user.id, req.user.department_id, complaint.priority, !updated.sla_breached);
       if (complaint.citizen_id) {
         await addCitizenPoints(complaint.citizen_id, POINTS.COMPLAINT_RESOLVED);
-        await supabase.from('notifications').insert({ user_id:complaint.citizen_id, type:'resolution', title:'✅ Complaint Resolved!', message:`Your complaint "${complaint.title}" (${complaint.ticket_number}) has been resolved.`, complaint_id:id });
       }
     }
 
-    if (complaint.citizen_id && status!=='resolved') {
-      const msgs = { assigned:'has been assigned to a department', in_progress:'is now being worked on', rejected:`was rejected: ${rejection_reason}`, escalated:'has been escalated for priority attention' };
-      if (msgs[status]) {
-        await supabase.from('notifications').insert({ user_id:complaint.citizen_id, type:'update', title:'Complaint Status Updated', message:`Your complaint "${complaint.title}" ${msgs[status]}`, complaint_id:id });
-      }
+    // Unified notification via service (handles in-app + email + SMS per matrix)
+    if (complaint.citizen_id) {
+      const { data: citizen } = await supabase.from('users').select('id,email,phone,full_name').eq('id',complaint.citizen_id).single();
+      notificationService.notifyStatusUpdate(complaint, citizen, status, notes||rejection_reason).catch(err => console.error('[Notification] notifyStatusUpdate failed:', err.message));
     }
 
     // ── WhatsApp notification (non-blocking) ─────────────────────
@@ -352,7 +353,10 @@ exports.assignComplaint = async (req, res) => {
     if (!c) return res.status(404).json({ error:'Not found' });
     const { data: updated } = await supabase.from('complaints').update({ assigned_officer_id:officer_id, department_id:department_id||c.department_id, assigned_at:new Date().toISOString(), status:'assigned' }).eq('id',id).select().single();
     await supabase.from('complaint_timeline').insert({ complaint_id:id, actor_id:req.user.id, actor_role:req.user.role, action:'assigned', notes });
-    if (officer_id) await supabase.from('notifications').insert({ user_id:officer_id, type:'assignment', title:'Complaint Assigned to You', message:`"${c.title}" assigned to you`, complaint_id:id });
+    if (officer_id) {
+      const { data: officer } = await supabase.from('users').select('id,email,phone').eq('id',officer_id).single();
+      notificationService.notifyOfficerAssignment(c, officer || { id: officer_id }).catch(() => {});
+    }
     return res.json({ message:'Assigned', complaint:updated });
   } catch (err) { return res.status(500).json({ error:'Internal server error' }); }
 };

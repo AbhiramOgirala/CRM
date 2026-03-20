@@ -1,5 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import SpeakButton from '../ui/SpeakButton';
+import { buildComplaintReadout } from '../../hooks/useTextToSpeech';
+import { useLanguage } from '../../context/LanguageContext';
 
 // =============================================
 // STATUS BADGE
@@ -21,10 +24,11 @@ export function StatusBadge({ status }) {
 // PRIORITY BADGE
 // =============================================
 export function PriorityBadge({ priority }) {
-  const icons = { critical: '🔴', high: '🟠', medium: '🟡', low: '🟢' };
+  // Text-only labels, no emoji — formal government UI
+  const labels = { critical: 'Critical', high: 'High', medium: 'Medium', low: 'Low' };
   return (
     <span className={`badge badge-${priority}`}>
-      {icons[priority]} {priority}
+      {labels[priority] || priority}
     </span>
   );
 }
@@ -32,18 +36,11 @@ export function PriorityBadge({ priority }) {
 // =============================================
 // CATEGORY CHIP
 // =============================================
-const CAT_ICONS = {
-  roads: '🛣️', water_supply: '💧', electricity: '⚡', waste_management: '🗑️',
-  drainage: '🌊', infrastructure: '🏗️', parks: '🌳', health: '🏥',
-  education: '📚', public_services: '🏢', law_enforcement: '👮',
-  street_lights: '💡', noise_pollution: '🔊', other: '📌'
-};
-
 export function CategoryChip({ category }) {
   const label = category?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   return (
     <span className="category-chip">
-      {CAT_ICONS[category] || '📌'} {label}
+      {label}
     </span>
   );
 }
@@ -53,6 +50,7 @@ export function CategoryChip({ category }) {
 // =============================================
 export function ComplaintCard({ complaint, showCitizenInfo = false, actions }) {
   const navigate = useNavigate();
+  const { activeLang } = useLanguage();
 
   return (
     <div
@@ -66,11 +64,20 @@ export function ComplaintCard({ complaint, showCitizenInfo = false, actions }) {
             <StatusBadge status={complaint.status} />
             <PriorityBadge priority={complaint.priority} />
             {complaint.is_duplicate && (
-              <span className="badge" style={{ background: '#F3E5F5', color: '#7B1FA2' }}>🔗 Duplicate</span>
-            )}
+            <span className="badge" style={{ background: '#F3E5F5', color: '#7B1FA2' }}>Duplicate</span>
+          )}
           </div>
           <h3 className="complaint-title">{complaint.title}</h3>
         </div>
+        <SpeakButton
+          text={buildComplaintReadout(complaint, activeLang)}
+          lang={activeLang}
+          size="sm"
+          variant="icon"
+          translate={false}
+        />
+          variant="icon"
+        />
         {complaint.duplicate_count > 0 && (
           <div style={{
             textAlign: 'center', background: 'var(--danger-bg)',
@@ -87,40 +94,40 @@ export function ComplaintCard({ complaint, showCitizenInfo = false, actions }) {
 
         {complaint.reporter_name && (
           <span className="complaint-meta-item">
-            👤 {complaint.reporter_name}
+            Reported by: {complaint.reporter_name}
           </span>
         )}
 
         {complaint.address && (
           <span className="complaint-meta-item">
-            📍 {complaint.address?.split(',').slice(0, 2).join(',')}
+            Location: {complaint.address?.split(',').slice(0, 2).join(',')}
           </span>
         )}
 
         {complaint.districts && (
           <span className="complaint-meta-item">
-            🏙️ {complaint.districts.name}
+            District: {complaint.districts.name}
           </span>
         )}
 
         <span className="complaint-meta-item">
-          🕐 {new Date(complaint.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+          Filed: {new Date(complaint.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
         </span>
 
         {complaint.departments && (
           <span className="complaint-meta-item">
-            🏢 {complaint.departments.name}
+            Dept: {complaint.departments.name}
           </span>
         )}
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginTop: 10, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-        <span>👍 {complaint.upvote_count || 0} upvotes</span>
-        <span>💬 {complaint.comment_count || 0} comments</span>
+        <span>{complaint.upvote_count || 0} upvotes</span>
+        <span>{complaint.comment_count || 0} comments</span>
         {complaint.sla_deadline && (
           <span style={{ color: new Date(complaint.sla_deadline) < new Date() && complaint.status !== 'resolved' ? 'var(--danger)' : 'var(--text-muted)' }}>
-            ⏱️ SLA: {new Date(complaint.sla_deadline).toLocaleDateString('en-IN')}
-            {new Date(complaint.sla_deadline) < new Date() && complaint.status !== 'resolved' && ' ⚠️ Breached'}
+            SLA: {new Date(complaint.sla_deadline).toLocaleDateString('en-IN')}
+            {new Date(complaint.sla_deadline) < new Date() && complaint.status !== 'resolved' && ' [Breached]'}
           </span>
         )}
       </div>

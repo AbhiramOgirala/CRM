@@ -1,5 +1,6 @@
 'use strict';
 const { supabase } = require('../config/supabase');
+const notificationService = require('./notificationService');
 const { notifyStatusChange } = require('./whatsappService');
 
 const ESCALATION_TO = { 1:'Department Head', 2:'District Officer', 3:'Commissioner' };
@@ -48,13 +49,14 @@ const runEscalation = async () => {
       }
 
       if (lvl >= 2) {
-        const { data: admins } = await supabase.from('users').select('id').in('role',['admin','super_admin']).eq('is_active',true).limit(5);
-        if (admins?.length) {
-          await supabase.from('notifications').insert(
-            admins.map(a=>({ user_id:a.id, type:'escalation', title:`⚠️ Level ${lvl} Escalation — ${c.ticket_number}`, message:`"${c.title}" escalated to ${ESCALATION_TO[lvl]}. Priority: ${newPriority.toUpperCase()}.`, complaint_id:c.id }))
-          );
-        }
+        const { data: adminRows } = await supabase.from('users').select('id,email').in('role',['admin','super_admin']).eq('is_active',true).limit(5);
+        admins = adminRows || [];
       }
+      await notificationService.notifyEscalation(
+        { ...c, title: c.title, ticket_number: c.ticket_number, priority: newPriority },
+        lvl,
+        admins
+      );
     }
   } catch (err) { console.error('[Escalation] Error:', err.message); }
 };

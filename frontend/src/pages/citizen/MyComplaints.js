@@ -36,7 +36,7 @@ export default function MyComplaints() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">📋 My Complaints</h1>
+          <h1 className="page-title">My Complaints</h1>
           <p className="page-subtitle">Track status of all your filed complaints</p>
         </div>
         <span style={{ background: 'var(--primary-light)', color: 'var(--primary)', borderRadius: 20, padding: '4px 12px', fontWeight: 700, fontSize: '0.85rem' }}>
@@ -48,7 +48,7 @@ export default function MyComplaints() {
       <div className="filter-bar">
         <input
           className="form-control"
-          placeholder="🔍 Search by title or ticket..."
+          placeholder="Search by title or ticket..."
           value={filters.search}
           onChange={e => setFilter('search', e.target.value)}
           style={{ flex: 2 }}
@@ -77,7 +77,9 @@ export default function MyComplaints() {
       ) : complaints.length === 0 ? (
         <div className="card">
           <div className="empty-state">
-            <div className="empty-state-icon">📭</div>
+            <div className="empty-state-icon" style={{ opacity: 0.5 }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+            </div>
             <h3 className="empty-state-title">No complaints found</h3>
             <p className="empty-state-desc">
               {filters.search || filters.status || filters.category

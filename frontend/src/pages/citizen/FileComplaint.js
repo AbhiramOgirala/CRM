@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { complaintsAPI, nlpAPI, locationAPI } from '../../services/api';
 import { LocationSelector } from '../../components/common';
+import SpeakButton from '../../components/ui/SpeakButton';
+import { buildFieldPrompt, buildDescriptionReadout, buildClassificationReadout } from '../../hooks/useTextToSpeech';
+import { useLanguage } from '../../context/LanguageContext';
 
 const LANG_CODES = {
   en: 'en-IN', hi: 'hi-IN', te: 'te-IN', ta: 'ta-IN',
@@ -31,7 +34,13 @@ export default function FileComplaint() {
   const [nlpResult, setNlpResult] = useState(null);
   const [nlpLoading, setNlpLoading] = useState(false);
   const nlpTimer = useRef(null);
-  const [selectedLang, setSelectedLang] = useState('en');
+  const [selectedLang, setSelectedLangLocal] = useState('en');
+  const { setActiveLang } = useLanguage();
+
+  const setSelectedLang = (code) => {
+    setSelectedLangLocal(code);
+    setActiveLang(LANG_CODES[code] || 'en-IN');
+  };
 
   const [form, setForm] = useState({
     title: '', description: '', audio_transcript: '',
@@ -119,7 +128,7 @@ export default function FileComplaint() {
           setForm(p => ({ ...p, address: addr || d.display_name, pincode: d.address?.postcode || '' }));
         } catch {}
         setGettingGPS(false);
-        toast.success('📍 GPS location captured!');
+        toast.success('GPS location captured!');
       },
       () => { setGettingGPS(false); toast.error('Could not get location. Please enter manually.'); },
       { timeout: 10000, enableHighAccuracy: true }
@@ -163,7 +172,7 @@ export default function FileComplaint() {
       const res = await complaintsAPI.file(form);
       const { complaint, auto_detection } = res;
       toast.success(
-        `✅ Complaint filed!\nTicket: ${complaint.ticket_number}\nRouted to: ${auto_detection?.department}`,
+        `Complaint filed!\nTicket: ${complaint.ticket_number}\nRouted to: ${auto_detection?.department}`,
         { duration: 5000 }
       );
       navigate(`/complaint/${complaint.id}`);
@@ -181,7 +190,7 @@ export default function FileComplaint() {
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
       <div className="page-header">
         <div>
-          <h1 className="page-title">✍️ File a Complaint</h1>
+          <h1 className="page-title">File a Complaint</h1>
           <p className="page-subtitle">Describe your issue — we'll automatically detect the right department</p>
         </div>
       </div>
@@ -266,7 +275,9 @@ export default function FileComplaint() {
                   animation: isRecording ? 'pulse 1.5s infinite' : 'none'
                 }}
               >
-                <span style={{ fontSize: '1.6rem' }}>{isRecording ? '🔴' : '🎤'}</span>
+                <div style={{ fontSize: '0.8rem', fontWeight: 700, padding: '4px 8px', borderRadius: 4, background: isRecording ? '#C62828' : 'var(--text-secondary)', color: 'white' }}>
+                  {isRecording ? 'REC' : 'MIC'}
+                </div>
                 <div>
                   <div>{isRecording ? 'Recording... Tap to stop' : `Speak in ${LANG_LABELS[selectedLang]}`}</div>
                   {isRecording && <div style={{ fontSize: '0.75rem', opacity: 0.7, fontWeight: 400 }}>Listening for your complaint...</div>}
@@ -288,7 +299,15 @@ export default function FileComplaint() {
 
             {/* Title */}
             <div className="form-group">
-              <label className="form-label">Complaint Title <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional — auto-generated if blank)</span></label>
+              <div className="form-label-row">
+                <label className="form-label">Complaint Title <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional — auto-generated if blank)</span></label>
+                <SpeakButton
+                  text={buildFieldPrompt('complaintTitle', '', LANG_CODES[selectedLang] || 'en-IN')}
+                  lang={LANG_CODES[selectedLang] || 'en-IN'}
+                  size="sm"
+                  translate={false}
+                />
+              </div>
               <input
                 className="form-control"
                 placeholder="e.g., Road pothole near market, No water supply in colony..."
@@ -300,9 +319,17 @@ export default function FileComplaint() {
 
             {/* Description */}
             <div className="form-group">
-              <label className="form-label">
-                Describe the Problem <span className="required">*</span>
-              </label>
+              <div className="form-label-row">
+                <label className="form-label">
+                  Describe the Problem <span className="required">*</span>
+                </label>
+                <SpeakButton
+                  text={buildFieldPrompt('describeIssue', '', LANG_CODES[selectedLang] || 'en-IN')}
+                  lang={LANG_CODES[selectedLang] || 'en-IN'}
+                  size="sm"
+                  translate={false}
+                />
+              </div>
               <textarea
                 className="form-control"
                 placeholder={`Type your complaint here in ${LANG_LABELS[selectedLang]}...\n\nExample: There is a large pothole on the main road near the railway station. It has been there for 2 weeks and caused 3 accidents already. Please repair urgently.`}
@@ -315,6 +342,15 @@ export default function FileComplaint() {
                 <span className="form-hint">More detail = faster resolution. Include location, duration, impact.</span>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{form.description.length} chars</span>
               </div>
+              {form.description.trim().length > 0 && (
+                <div className="description-readout-row" style={{ marginTop: 8 }}>
+                  <SpeakButton
+                    {...buildDescriptionReadout(form.description, LANG_CODES[selectedLang] || 'en-IN')}
+                    variant="pill"
+                    label="Hear description"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Live NLP Preview Card */}
@@ -325,7 +361,6 @@ export default function FileComplaint() {
                 background: `${deptColor}08`
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                  <span style={{ fontSize: '1.2rem' }}>🤖</span>
                   <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1A1A2E' }}>
                     AI Auto-Detection
                   </span>
@@ -337,7 +372,7 @@ export default function FileComplaint() {
                     <div style={{ background: 'white', borderRadius: 8, padding: '10px 14px', border: '1px solid #E0E3EF' }}>
                       <div style={{ fontSize: '0.7rem', color: '#9EA3B8', marginBottom: 2, textTransform: 'uppercase', letterSpacing: 1 }}>Department Routed To</div>
                       <div style={{ fontWeight: 800, fontSize: '0.95rem', color: deptColor }}>
-                        🏢 {nlpResult.department}
+                        {nlpResult.department}
                       </div>
                       <div style={{ fontSize: '0.72rem', color: '#5C6080', marginTop: 4 }}>
                         {nlpResult.routing_reason}
@@ -355,7 +390,7 @@ export default function FileComplaint() {
                           {nlpResult.priority?.toUpperCase()}
                         </span>
                         <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1A1A2E' }}>
-                          ⏱️ {nlpResult.slaHours}h to resolve
+                          {nlpResult.slaHours}h to resolve
                         </span>
                       </div>
                       <div style={{ fontSize: '0.72rem', color: '#5C6080', marginTop: 4 }}>
@@ -387,18 +422,29 @@ export default function FileComplaint() {
                     )}
                   </div>
                 )}
+                {nlpResult && !nlpLoading && (
+                  <div className="description-readout-row" style={{ marginTop: 12 }}>
+                    <SpeakButton
+                      text={buildClassificationReadout(nlpResult, LANG_CODES[selectedLang] || 'en-IN')}
+                      lang={LANG_CODES[selectedLang] || 'en-IN'}
+                      variant="pill"
+                      label="Hear classification"
+                      translate={false}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
             {/* Photo upload */}
             <div className="form-group">
-              <label className="form-label">📷 Add Photos <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional, max 5)</span></label>
+              <label className="form-label">Add Photos <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional, max 5)</span></label>
               <div
                 className="image-upload-area"
                 onClick={() => fileInputRef.current?.click()}
                 style={{ padding: 20 }}
               >
-                <div style={{ fontSize: '1.8rem', marginBottom: 6 }}>📸</div>
+                <div style={{ fontSize: '1.2rem', marginBottom: 6, fontWeight: 700, color: 'var(--text-secondary)' }}>UPLOAD</div>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
                   Click to upload photos of the issue
                 </p>
@@ -426,7 +472,7 @@ export default function FileComplaint() {
             </div>
 
             <button type="button" className="btn btn-primary w-full btn-lg" onClick={() => validateStep() && setStep(2)}>
-              Next: Add Location →
+              Next: Add Location
             </button>
           </div>
         )}
@@ -454,14 +500,14 @@ export default function FileComplaint() {
               {gettingGPS
                 ? <><div className="loading-spinner" style={{ width: 18, height: 18, borderWidth: 2, borderTopColor: 'white' }} /> Getting your location...</>
                 : form.latitude
-                  ? `✅ GPS Captured: ${parseFloat(form.latitude).toFixed(4)}, ${parseFloat(form.longitude).toFixed(4)}`
-                  : '📍 Use My Current GPS Location (Recommended)'
+                  ? `GPS Captured: ${parseFloat(form.latitude).toFixed(4)}, ${parseFloat(form.longitude).toFixed(4)}`
+                  : 'Use My Current GPS Location (Recommended)'
               }
             </button>
 
             {form.latitude && (
               <div style={{ background: '#E8F5E9', border: '1px solid #A5D6A7', borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: 16, fontSize: '0.85rem', color: '#2E7D32' }}>
-                📍 <strong>GPS location captured.</strong> Your complaint will be pinned on the map automatically.
+                <strong>GPS location captured.</strong> Your complaint will be pinned on the map automatically.
                 {form.address && <div style={{ marginTop: 4, color: '#388E3C' }}>Address: {form.address}</div>}
                 <button type="button" onClick={() => setForm(p => ({ ...p, latitude: '', longitude: '' }))}
                   style={{ marginTop: 6, background: 'none', border: 'none', color: '#C62828', cursor: 'pointer', fontSize: '0.8rem', padding: 0 }}>
@@ -498,9 +544,9 @@ export default function FileComplaint() {
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>
-              <button type="button" className="btn btn-ghost w-full" onClick={() => setStep(1)}>← Back</button>
+              <button type="button" className="btn btn-ghost w-full" onClick={() => setStep(1)}>Back</button>
               <button type="button" className="btn btn-primary w-full btn-lg" onClick={() => validateStep() && setStep(3)}>
-                Next: Review & Submit →
+                Next: Review & Submit
               </button>
             </div>
           </div>
@@ -515,7 +561,7 @@ export default function FileComplaint() {
 
             {/* Summary */}
             <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16, marginBottom: 20 }}>
-              <h3 style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 12, color: 'var(--text-secondary)' }}>📋 Complaint Summary</h3>
+              <h3 style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 12, color: 'var(--text-secondary)' }}>Complaint Summary</h3>
               <div style={{ display: 'grid', gap: 8, fontSize: '0.875rem' }}>
                 {form.title && <div><strong>Title:</strong> {form.title}</div>}
                 <div><strong>Description:</strong> {(form.description || form.audio_transcript || '').substring(0, 120)}...</div>
@@ -524,25 +570,25 @@ export default function FileComplaint() {
                   <>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
                       <span style={{ background: deptColor + '15', color: deptColor, borderRadius: 6, padding: '3px 10px', fontSize: '0.78rem', fontWeight: 700 }}>
-                        🏢 {nlpResult.department}
+                        {nlpResult.department}
                       </span>
                       <span style={{ background: priorityColor[nlpResult.priority] + '15', color: priorityColor[nlpResult.priority], borderRadius: 6, padding: '3px 10px', fontSize: '0.78rem', fontWeight: 700 }}>
-                        ⚡ {nlpResult.priority?.toUpperCase()} PRIORITY
+                        {nlpResult.priority?.toUpperCase()} PRIORITY
                       </span>
                       <span style={{ background: '#E8EAF6', color: '#3949AB', borderRadius: 6, padding: '3px 10px', fontSize: '0.78rem', fontWeight: 700 }}>
-                        ⏱️ SLA: {nlpResult.slaHours}h
+                        SLA: {nlpResult.slaHours}h
                       </span>
                     </div>
                   </>
                 )}
-                {form.images.length > 0 && <div>📷 {form.images.length} photo(s) attached</div>}
+                {form.images.length > 0 && <div>{form.images.length} photo(s) attached</div>}
               </div>
             </div>
 
             {/* Visibility options */}
             <div style={{ marginBottom: 16 }}>
               <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: 10 }}>
-                🔒 Identity Preference
+                Identity Preference
               </label>
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -551,7 +597,7 @@ export default function FileComplaint() {
               }}>
                 <div>
                   <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                    {form.is_anonymous ? '🎭 Filing Anonymously' : '👤 Filing as Yourself'}
+                    {form.is_anonymous ? 'Filing Anonymously' : 'Filing as Yourself'}
                   </div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
                     {form.is_anonymous
@@ -587,7 +633,7 @@ export default function FileComplaint() {
                     onChange={e => setForm(p => ({ ...p, is_public: e.target.checked }))}
                     style={{ width: 18, height: 18, marginTop: 2, accentColor: 'var(--primary)' }} />
                   <div>
-                    <div style={{ fontWeight: 600 }}>👥 Show on public feed</div>
+                    <div style={{ fontWeight: 600 }}>Show on public feed</div>
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
                       Other citizens can see, upvote and support your complaint — helps escalate faster
                     </div>
@@ -597,15 +643,15 @@ export default function FileComplaint() {
             </div>
 
             <div style={{ background: '#E3F2FD', border: '1px solid #90CAF9', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: '0.82rem', color: '#0277BD' }}>
-              ℹ️ By submitting you confirm this information is accurate. Filing false complaints may result in account suspension.
+              Note: By submitting you confirm this information is accurate. Filing false complaints may result in account suspension.
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>
-              <button type="button" className="btn btn-ghost w-full" onClick={() => setStep(2)}>← Back</button>
+              <button type="button" className="btn btn-ghost w-full" onClick={() => setStep(2)}>Back</button>
               <button type="submit" className="btn btn-primary w-full btn-lg" disabled={loading}>
                 {loading
                   ? <><div className="loading-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Submitting...</>
-                  : '🚀 Submit Complaint'
+                  : 'Submit Complaint'
                 }
               </button>
             </div>
