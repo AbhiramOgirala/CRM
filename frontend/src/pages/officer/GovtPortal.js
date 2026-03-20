@@ -100,7 +100,7 @@ export default function GovtPortal() {
     try {
       await complaintsAPI.updateStatus(selected.id, {
         ...updateForm,
-        completion_images: completionImages
+        proof_images: completionImages
       });
       toast.success('Complaint updated successfully');
       setSelected(null);

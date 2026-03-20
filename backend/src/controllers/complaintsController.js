@@ -3,6 +3,7 @@ const { supabase } = require('../config/supabase');
 const nlp = require('../services/nlpService');
 const geocoding = require('../services/geocodingService');
 const { addCitizenPoints, addOfficerPoints, POINTS } = require('../services/gamificationService');
+const { notifyStatusChange } = require('../services/whatsappService');
 
 // ── Ticket number ─────────────────────────────────────────────────────────────
 const genTicket = async () => {
@@ -324,6 +325,14 @@ exports.updateComplaintStatus = async (req, res) => {
       const msgs = { assigned:'has been assigned to a department', in_progress:'is now being worked on', rejected:`was rejected: ${rejection_reason}`, escalated:'has been escalated for priority attention' };
       if (msgs[status]) {
         await supabase.from('notifications').insert({ user_id:complaint.citizen_id, type:'update', title:'Complaint Status Updated', message:`Your complaint "${complaint.title}" ${msgs[status]}`, complaint_id:id });
+      }
+    }
+
+    // ── WhatsApp notification (non-blocking) ─────────────────────
+    if (complaint.citizen_id) {
+      const { data: citizen } = await supabase.from('users').select('phone').eq('id', complaint.citizen_id).single();
+      if (citizen?.phone) {
+        notifyStatusChange(citizen.phone, complaint.ticket_number, status, rejection_reason).catch(console.error);
       }
     }
 
