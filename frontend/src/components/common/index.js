@@ -76,8 +76,6 @@ export function ComplaintCard({ complaint, showCitizenInfo = false, actions }) {
           variant="icon"
           translate={false}
         />
-          variant="icon"
-        />
         {complaint.duplicate_count > 0 && (
           <div style={{
             textAlign: 'center', background: 'var(--danger-bg)',
@@ -204,7 +202,15 @@ export function LocationSelector({ value, onChange, required = false }) {
 
   React.useEffect(() => {
     import('../../services/api').then(({ locationAPI }) => {
-      locationAPI.getStates().then(res => setStates(res.states || []));
+      locationAPI.getStates().then(res => {
+        const all = res.states || [];
+        setStates(all);
+        // Auto-select Delhi and load its districts
+        const delhi = all.find(s => s.name === 'Delhi');
+        if (delhi && !value.state_id) {
+          handleStateChange(delhi.id);
+        }
+      });
     });
   }, []);
 
