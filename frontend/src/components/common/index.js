@@ -197,7 +197,15 @@ export function LocationSelector({ value, onChange, required = false }) {
 
   React.useEffect(() => {
     import('../../services/api').then(({ locationAPI }) => {
-      locationAPI.getStates().then(res => setStates(res.states || []));
+      locationAPI.getStates().then(res => {
+        const all = res.states || [];
+        setStates(all);
+        // Auto-select Delhi and load its districts
+        const delhi = all.find(s => s.name === 'Delhi');
+        if (delhi && !value.state_id) {
+          handleStateChange(delhi.id);
+        }
+      });
     });
   }, []);
 
@@ -246,7 +254,7 @@ export function LocationSelector({ value, onChange, required = false }) {
   return (
     <div>
       <div className="grid-2" style={{ gap: 12 }}>
-        <div className="form-group">
+        <div className="form-group" style={{ display: 'none' }}>
           <label className="form-label">State {required && <span className="required">*</span>}</label>
           <select className="form-control" value={value.state_id || ''} onChange={e => handleStateChange(e.target.value)}>
             <option value="">Select State</option>

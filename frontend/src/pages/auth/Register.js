@@ -23,7 +23,14 @@ export default function Register() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    locationAPI.getStates().then(res => setStates(res.states || []));
+    locationAPI.getStates().then(res => {
+      const all = res.states || [];
+      setStates(all);
+      const delhi = all.find(s => s.name === 'Delhi');
+      if (delhi) {
+        handleStateChange(delhi.id);
+      }
+    });
   }, []);
 
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
@@ -205,7 +212,7 @@ export default function Register() {
               <div style={{ textAlign: 'center', margin: '0 0 14px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
                 — or select manually below —
               </div>
-              <div className="form-group">
+              <div className="form-group" style={{ display: 'none' }}>
                 <label className="form-label">State <span className="required">*</span></label>
                 <select className="form-control" value={form.state_id} onChange={e => handleStateChange(e.target.value)}>
                   <option value="">Select your state</option>
