@@ -1,0 +1,32 @@
+{
+  "name": "jansamadhan-backend",
+  "version": "1.0.0",
+  "description": "JanSamadhan - Smart Public Service CRM Backend",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "setup-db": "node src/config/setupDatabase.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "bcryptjs": "^2.4.3",
+    "compromise": "^14.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "natural": "^6.10.4",
+    "node-cache": "^5.1.2",
+    "uuid": "^9.0.0",
+    "wink-nlp": "^2.2.0",
+    "wink-eng-lite-web-model": "^1.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}
