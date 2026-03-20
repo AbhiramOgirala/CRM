@@ -148,8 +148,8 @@ export default function FileComplaint() {
       }
     }
     if (step === 2) {
-      if (!form.state_id) { toast.error('Please select your State'); return false; }
-      if (!form.district_id) { toast.error('Please select your District'); return false; }
+      if (!form.latitude && !form.state_id) { toast.error('Please use GPS or select your State'); return false; }
+      if (!form.latitude && !form.district_id) { toast.error('Please select your District'); return false; }
     }
     return true;
   };
@@ -459,8 +459,19 @@ export default function FileComplaint() {
               }
             </button>
 
+            {form.latitude && (
+              <div style={{ background: '#E8F5E9', border: '1px solid #A5D6A7', borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: 16, fontSize: '0.85rem', color: '#2E7D32' }}>
+                📍 <strong>GPS location captured.</strong> Your complaint will be pinned on the map automatically.
+                {form.address && <div style={{ marginTop: 4, color: '#388E3C' }}>Address: {form.address}</div>}
+                <button type="button" onClick={() => setForm(p => ({ ...p, latitude: '', longitude: '' }))}
+                  style={{ marginTop: 6, background: 'none', border: 'none', color: '#C62828', cursor: 'pointer', fontSize: '0.8rem', padding: 0 }}>
+                  ✕ Clear GPS and enter manually
+                </button>
+              </div>
+            )}
+
             <div style={{ textAlign: 'center', margin: '8px 0 16px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              — or select your location manually below —
+              — {form.latitude ? 'optionally refine with dropdowns below' : 'or select your location manually below'} —
             </div>
 
             {/* Location hierarchy */}
@@ -529,34 +540,60 @@ export default function FileComplaint() {
             </div>
 
             {/* Visibility options */}
-            <div style={{ display: 'grid', gap: 10, marginBottom: 16 }}>
-              {[
-                {
-                  key: 'is_public', checked: form.is_public,
-                  icon: '👥', label: 'Make complaint public',
-                  desc: 'Other citizens can see, upvote and support your complaint — helps escalate faster'
-                },
-                {
-                  key: 'is_anonymous', checked: form.is_anonymous,
-                  icon: '🎭', label: 'File anonymously',
-                  desc: 'Your name won\'t be shown publicly (your account is still linked for updates)'
-                }
-              ].map(opt => (
-                <label key={opt.key} style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer',
-                  padding: '12px 14px', border: `2px solid ${form[opt.key] ? 'var(--primary)' : 'var(--border)'}`,
-                  borderRadius: 'var(--radius-sm)', background: form[opt.key] ? 'var(--primary-light)' : 'white',
-                  transition: 'all 0.15s'
-                }}>
-                  <input type="checkbox" checked={form[opt.key]}
-                    onChange={e => setForm(p => ({ ...p, [opt.key]: e.target.checked }))}
-                    style={{ width: 18, height: 18, marginTop: 2, accentColor: 'var(--primary)' }} />
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{opt.icon} {opt.label}</div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>{opt.desc}</div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontWeight: 600, fontSize: '0.875rem', marginBottom: 10 }}>
+                🔒 Identity Preference
+              </label>
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '14px 16px', border: '2px solid var(--border)',
+                borderRadius: 'var(--radius-sm)', background: 'var(--surface-2)'
+              }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                    {form.is_anonymous ? '🎭 Filing Anonymously' : '👤 Filing as Yourself'}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                    {form.is_anonymous
+                      ? 'Your name will show as "Anonymous" on the public feed'
+                      : 'Your name will be visible on the public feed'}
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Anonymous</span>
+                  <div
+                    onClick={() => setForm(p => ({ ...p, is_anonymous: !p.is_anonymous }))}
+                    style={{
+                      width: 44, height: 24, borderRadius: 12, cursor: 'pointer', transition: 'background 0.2s',
+                      background: form.is_anonymous ? 'var(--primary)' : '#CBD5E0',
+                      position: 'relative', flexShrink: 0
+                    }}>
+                    <div style={{
+                      position: 'absolute', top: 3, left: form.is_anonymous ? 23 : 3,
+                      width: 18, height: 18, borderRadius: '50%', background: 'white',
+                      transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                    }} />
                   </div>
                 </label>
-              ))}
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <label style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer',
+                  padding: '12px 14px', border: `2px solid ${form.is_public ? 'var(--primary)' : 'var(--border)'}`,
+                  borderRadius: 'var(--radius-sm)', background: form.is_public ? 'var(--primary-light)' : 'white',
+                  transition: 'all 0.15s'
+                }}>
+                  <input type="checkbox" checked={form.is_public}
+                    onChange={e => setForm(p => ({ ...p, is_public: e.target.checked }))}
+                    style={{ width: 18, height: 18, marginTop: 2, accentColor: 'var(--primary)' }} />
+                  <div>
+                    <div style={{ fontWeight: 600 }}>👥 Show on public feed</div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                      Other citizens can see, upvote and support your complaint — helps escalate faster
+                    </div>
+                  </div>
+                </label>
+              </div>
             </div>
 
             <div style={{ background: '#E3F2FD', border: '1px solid #90CAF9', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: '0.82rem', color: '#0277BD' }}>

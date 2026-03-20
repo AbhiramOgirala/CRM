@@ -85,6 +85,12 @@ export function ComplaintCard({ complaint, showCitizenInfo = false, actions }) {
       <div className="complaint-meta">
         <CategoryChip category={complaint.category} />
 
+        {complaint.reporter_name && (
+          <span className="complaint-meta-item">
+            👤 {complaint.reporter_name}
+          </span>
+        )}
+
         {complaint.address && (
           <span className="complaint-meta-item">
             📍 {complaint.address?.split(',').slice(0, 2).join(',')}
