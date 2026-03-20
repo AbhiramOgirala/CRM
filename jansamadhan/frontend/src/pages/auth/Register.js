@@ -11,6 +11,7 @@ export default function Register() {
   const [districts, setDistricts] = useState([]);
   const [talukas, setTalukas] = useState([]);
   const [mandals, setMandals] = useState([]);
+  const [gettingGPS, setGettingGPS] = useState(false);
 
   const [form, setForm] = useState({
     full_name: '', email: '', phone: '', password: '', confirm_password: '',
@@ -54,10 +55,38 @@ export default function Register() {
     }
   };
 
+  const getGPSLocation = () => {
+    if (!navigator.geolocation) { toast.error('GPS not available on this device'); return; }
+    setGettingGPS(true);
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords: { latitude, longitude } }) => {
+        try {
+          const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`);
+          const d = await r.json();
+          const addr = d.address;
+          // Build address string
+          const addressStr = [addr?.road, addr?.suburb, addr?.city || addr?.town || addr?.village].filter(Boolean).join(', ');
+          setForm(prev => ({
+            ...prev,
+            address: addressStr || d.display_name || '',
+            pincode: addr?.postcode || prev.pincode
+          }));
+          toast.success('📍 Location detected! Your address has been filled in automatically.');
+        } catch {
+          toast('📍 GPS captured. Please fill in the location dropdowns manually.');
+        }
+        setGettingGPS(false);
+      },
+      () => { setGettingGPS(false); toast.error('Could not get location. Please fill in manually.'); },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
+
   const validateStep1 = () => {
     if (!form.full_name.trim()) { toast.error('Full name is required'); return false; }
     if (!form.email.trim()) { toast.error('Email is required'); return false; }
     if (!form.phone.trim()) { toast.error('Phone number is required'); return false; }
+    if (form.phone.length !== 10) { toast.error('Phone number must be exactly 10 digits'); return false; }
     if (form.password.length < 6) { toast.error('Password must be at least 6 characters'); return false; }
     if (form.password !== form.confirm_password) { toast.error('Passwords do not match'); return false; }
     return true;
@@ -65,7 +94,9 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.state_id) { toast.error('Please select your state'); return; }
+    if (!form.state_id && !form.address && !form.pincode) {
+      toast.error('Please select your state or use GPS to detect your location'); return;
+    }
     setLoading(true);
     try {
       const { authAPI } = await import('../../services/api');
@@ -132,7 +163,12 @@ export default function Register() {
               </div>
               <div className="form-group">
                 <label className="form-label">Mobile Number <span className="required">*</span></label>
-                <input type="tel" className="form-control" placeholder="10-digit mobile number" value={form.phone} onChange={e => set('phone', e.target.value)} required />
+                <input type="tel" className="form-control" placeholder="10-digit mobile number" value={form.phone}
+                  onChange={e => { const v = e.target.value.replace(/\D/g, '').slice(0, 10); set('phone', v); }}
+                  maxLength="10" pattern="[0-9]{10}" required />
+                {form.phone && form.phone.length !== 10 && (
+                  <p className="form-hint" style={{ color: 'var(--danger)' }}>Must be exactly 10 digits ({form.phone.length}/10)</p>
+                )}
               </div>
               <div className="grid-2">
                 <div className="form-group">
@@ -153,6 +189,22 @@ export default function Register() {
           {/* Step 2: Location */}
           {step === 2 && (
             <div>
+              {/* GPS Button */}
+              <button type="button" onClick={getGPSLocation} disabled={gettingGPS}
+                style={{
+                  width: '100%', marginBottom: 16, padding: '12px',
+                  background: 'var(--secondary)', color: 'white', border: 'none',
+                  borderRadius: 'var(--radius)', fontWeight: 700, fontSize: '0.9rem',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10
+                }}>
+                {gettingGPS
+                  ? <><div className="loading-spinner" style={{ width: 16, height: 16, borderWidth: 2, borderTopColor: 'white' }} /> Detecting location...</>
+                  : '📍 Use My Current Location (Auto-fill Address)'
+                }
+              </button>
+              <div style={{ textAlign: 'center', margin: '0 0 14px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                — or select manually below —
+              </div>
               <div className="form-group">
                 <label className="form-label">State <span className="required">*</span></label>
                 <select className="form-control" value={form.state_id} onChange={e => handleStateChange(e.target.value)}>
