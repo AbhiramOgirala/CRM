@@ -25,11 +25,12 @@ export default function Register() {
   useEffect(() => {
     locationAPI.getStates().then(res => {
       const all = res.states || [];
-      setStates(all);
-      const delhi = all.find(s => s.name === 'Delhi');
-      if (delhi) {
-        handleStateChange(delhi.id);
-      }
+      const supported = ['Delhi', 'Telangana', 'Maharashtra', 'West Bengal', 'Karnataka'];
+      const filtered = all.filter(s => supported.includes(s.name));
+      setStates(filtered);
+      // Default to Delhi
+      const delhi = filtered.find(s => s.name === 'Delhi');
+      if (delhi) handleStateChange(delhi.id);
     });
   }, []);
 
