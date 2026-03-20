@@ -1,5 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import SpeakButton from '../ui/SpeakButton';
+import { buildComplaintReadout } from '../../hooks/useTextToSpeech';
+import { useLanguage } from '../../context/LanguageContext';
 
 // =============================================
 // STATUS BADGE
@@ -47,6 +50,7 @@ export function CategoryChip({ category }) {
 // =============================================
 export function ComplaintCard({ complaint, showCitizenInfo = false, actions }) {
   const navigate = useNavigate();
+  const { activeLang } = useLanguage();
 
   return (
     <div
@@ -65,6 +69,15 @@ export function ComplaintCard({ complaint, showCitizenInfo = false, actions }) {
           </div>
           <h3 className="complaint-title">{complaint.title}</h3>
         </div>
+        <SpeakButton
+          text={buildComplaintReadout(complaint, activeLang)}
+          lang={activeLang}
+          size="sm"
+          variant="icon"
+          translate={false}
+        />
+          variant="icon"
+        />
         {complaint.duplicate_count > 0 && (
           <div style={{
             textAlign: 'center', background: 'var(--danger-bg)',

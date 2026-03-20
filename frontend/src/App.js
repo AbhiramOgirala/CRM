@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import useAuthStore from './store/authStore';
 import useAccessibilityStore from './store/accessibilityStore';
+import { LanguageProvider } from './context/LanguageContext';
 import './styles/main.css';
 
 // Layout
@@ -74,6 +75,7 @@ function App() {
   }, [initAccessibility]);
 
   return (
+    <LanguageProvider>
     <Router>
       <Toaster
         position="top-right"
@@ -172,6 +174,7 @@ function App() {
         </Routes>
       </Suspense>
     </Router>
+    </LanguageProvider>
   );
 }
 

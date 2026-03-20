@@ -6,6 +6,9 @@ import toast from 'react-hot-toast';
 import { complaintsAPI } from '../../services/api';
 import { StatusBadge, PriorityBadge, CategoryChip, Modal } from '../../components/common';
 import useAuthStore from '../../store/authStore';
+import SpeakButton from '../../components/ui/SpeakButton';
+import { buildComplaintReadout, buildDescriptionReadout } from '../../hooks/useTextToSpeech';
+import { useLanguage } from '../../context/LanguageContext';
 
 // Fix Leaflet default marker icon broken by webpack
 delete L.Icon.Default.prototype._getIconUrl;
@@ -103,6 +106,7 @@ export default function ComplaintDetail() {
   const { complaint, timeline, comments, linkedComplaints, userUpvoted } = data;
   const isOwner = user?.id === complaint.citizen_id;
   const isOfficer = user?.role === 'officer' || user?.role === 'admin' || user?.role === 'super_admin';
+  const { activeLang } = useLanguage();
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -122,6 +126,15 @@ export default function ComplaintDetail() {
             <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.4rem', fontWeight: 800 }}>
               {complaint.title}
             </h1>
+            <div className="detail-title-row" style={{ marginTop: 8 }}>
+              <SpeakButton
+                text={buildComplaintReadout(complaint, activeLang)}
+                lang={activeLang}
+                variant="pill"
+                label="Read complaint"
+                translate={false}
+              />
+            </div>
           </div>
           {isOfficer && (
             <button className="btn btn-primary" onClick={() => setShowUpdateModal(true)}>
@@ -136,7 +149,15 @@ export default function ComplaintDetail() {
         <div style={{ display: 'grid', gap: 16 }}>
           {/* Description */}
           <div className="card">
-            <h2 className="card-title" style={{ marginBottom: 12 }}>Description</h2>
+            <div className="detail-section-header">
+              <h2 className="card-title" style={{ marginBottom: 12 }}>📄 Description</h2>
+              <SpeakButton
+                text={buildDescriptionReadout(complaint.description, activeLang).text}
+                lang={activeLang}
+                size="sm"
+                variant="icon"
+              />
+            </div>
             <p style={{ lineHeight: 1.7, color: 'var(--text-secondary)', fontSize: '0.95rem' }}>{complaint.description}</p>
 
             {complaint.images?.length > 0 && (
