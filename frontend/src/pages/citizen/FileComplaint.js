@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { complaintsAPI, nlpAPI, locationAPI } from '../../services/api';
 import { LocationSelector } from '../../components/common';
+import SpeakButton from '../../components/ui/SpeakButton';
+import { buildFieldPrompt, buildDescriptionReadout, buildClassificationReadout } from '../../hooks/useTextToSpeech';
+import { useLanguage } from '../../context/LanguageContext';
 
 const LANG_CODES = {
   en: 'en-IN', hi: 'hi-IN', te: 'te-IN', ta: 'ta-IN',
@@ -31,7 +34,13 @@ export default function FileComplaint() {
   const [nlpResult, setNlpResult] = useState(null);
   const [nlpLoading, setNlpLoading] = useState(false);
   const nlpTimer = useRef(null);
-  const [selectedLang, setSelectedLang] = useState('en');
+  const [selectedLang, setSelectedLangLocal] = useState('en');
+  const { setActiveLang } = useLanguage();
+
+  const setSelectedLang = (code) => {
+    setSelectedLangLocal(code);
+    setActiveLang(LANG_CODES[code] || 'en-IN');
+  };
 
   const [form, setForm] = useState({
     title: '', description: '', audio_transcript: '',
@@ -288,7 +297,15 @@ export default function FileComplaint() {
 
             {/* Title */}
             <div className="form-group">
-              <label className="form-label">Complaint Title <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional — auto-generated if blank)</span></label>
+              <div className="form-label-row">
+                <label className="form-label">Complaint Title <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional — auto-generated if blank)</span></label>
+                <SpeakButton
+                  text={buildFieldPrompt('complaintTitle', '', LANG_CODES[selectedLang] || 'en-IN')}
+                  lang={LANG_CODES[selectedLang] || 'en-IN'}
+                  size="sm"
+                  translate={false}
+                />
+              </div>
               <input
                 className="form-control"
                 placeholder="e.g., Road pothole near market, No water supply in colony..."
@@ -300,9 +317,17 @@ export default function FileComplaint() {
 
             {/* Description */}
             <div className="form-group">
-              <label className="form-label">
-                Describe the Problem <span className="required">*</span>
-              </label>
+              <div className="form-label-row">
+                <label className="form-label">
+                  Describe the Problem <span className="required">*</span>
+                </label>
+                <SpeakButton
+                  text={buildFieldPrompt('describeIssue', '', LANG_CODES[selectedLang] || 'en-IN')}
+                  lang={LANG_CODES[selectedLang] || 'en-IN'}
+                  size="sm"
+                  translate={false}
+                />
+              </div>
               <textarea
                 className="form-control"
                 placeholder={`Type your complaint here in ${LANG_LABELS[selectedLang]}...\n\nExample: There is a large pothole on the main road near the railway station. It has been there for 2 weeks and caused 3 accidents already. Please repair urgently.`}
@@ -315,6 +340,15 @@ export default function FileComplaint() {
                 <span className="form-hint">More detail = faster resolution. Include location, duration, impact.</span>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{form.description.length} chars</span>
               </div>
+              {form.description.trim().length > 0 && (
+                <div className="description-readout-row" style={{ marginTop: 8 }}>
+                  <SpeakButton
+                    {...buildDescriptionReadout(form.description, LANG_CODES[selectedLang] || 'en-IN')}
+                    variant="pill"
+                    label="Hear description"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Live NLP Preview Card */}
@@ -385,6 +419,17 @@ export default function FileComplaint() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+                {nlpResult && !nlpLoading && (
+                  <div className="description-readout-row" style={{ marginTop: 12 }}>
+                    <SpeakButton
+                      text={buildClassificationReadout(nlpResult, LANG_CODES[selectedLang] || 'en-IN')}
+                      lang={LANG_CODES[selectedLang] || 'en-IN'}
+                      variant="pill"
+                      label="Hear classification"
+                      translate={false}
+                    />
                   </div>
                 )}
               </div>

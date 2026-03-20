@@ -2,6 +2,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import { notificationsAPI } from '../../services/api';
+import { useLanguage } from '../../context/LanguageContext';
+
+const LANG_OPTIONS = [
+  { code: 'en-IN', label: 'EN', full: 'English' },
+  { code: 'hi-IN', label: 'हि', full: 'हिंदी' },
+  { code: 'te-IN', label: 'తె', full: 'తెలుగు' },
+  { code: 'ta-IN', label: 'த', full: 'தமிழ்' },
+  { code: 'kn-IN', label: 'ಕ', full: 'ಕನ್ನಡ' },
+  { code: 'ml-IN', label: 'മ', full: 'മലയാളം' },
+  { code: 'mr-IN', label: 'म', full: 'मराठी' },
+  { code: 'gu-IN', label: 'ગ', full: 'ગુજરાતી' },
+  { code: 'pa-IN', label: 'ਪ', full: 'ਪੰਜਾਬੀ' },
+  { code: 'bn-IN', label: 'ব', full: 'বাংলা' },
+  { code: 'ur-IN', label: 'اُ', full: 'اردو' },
+];
 
 const BADGE_ICONS = {
   newcomer: '🌱', contributor: '⭐', active_citizen: '🏆',
@@ -13,6 +28,7 @@ const BADGE_ICONS = {
 export default function Navbar({ onMenuToggle }) {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const { activeLang, setActiveLang } = useLanguage();
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
@@ -96,6 +112,35 @@ export default function Navbar({ onMenuToggle }) {
       </div>
 
       <div className="navbar-actions">
+        {/* Language picker */}
+        <div style={{ position: 'relative' }}>
+          <select
+            value={activeLang}
+            onChange={e => setActiveLang(e.target.value)}
+            aria-label="Select language for text-to-speech"
+            style={{
+              background: 'rgba(255,255,255,0.15)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 6,
+              color: 'white',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              padding: '5px 8px',
+              cursor: 'pointer',
+              appearance: 'none',
+              WebkitAppearance: 'none',
+              minWidth: 44,
+              textAlign: 'center',
+            }}
+          >
+            {LANG_OPTIONS.map(l => (
+              <option key={l.code} value={l.code} style={{ background: '#1A237E', color: 'white' }}>
+                {l.label} {l.full}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {user ? (
           <>
             {/* Notifications */}
