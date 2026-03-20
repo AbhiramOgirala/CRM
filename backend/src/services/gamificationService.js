@@ -1,5 +1,6 @@
 'use strict';
 const { supabase } = require('../config/supabase');
+const notificationService = require('./notificationService');
 
 const POINTS = { COMPLAINT_FILED:10, COMPLAINT_RESOLVED:5, UPVOTE_RECEIVED:2, DUPLICATE_VERIFIED:3, COMPLAINT_RESOLVED_OFFICER:15 };
 
@@ -36,7 +37,7 @@ const addCitizenPoints = async (userId, pts) => {
     await supabase.from('users').update({ points:newPts, badge_level:badge.level }).eq('id',userId);
     await supabase.from('citizen_leaderboard').upsert({ user_id:userId, points:newPts, badge:badge.level, updated_at:new Date().toISOString() },{ onConflict:'user_id' });
     if (badge.level !== u.badge_level) {
-      await supabase.from('notifications').insert({ user_id:userId, type:'badge', title:'🎉 New Badge Unlocked!', message:`You earned the "${badge.level.replace(/_/g,' ')}" badge!` });
+      await notificationService.notifyBadgeUnlocked(userId, badge.level, false);
     }
   } catch (err) { console.error('addCitizenPoints:', err.message); }
 };
@@ -57,7 +58,7 @@ const addOfficerPoints = async (officerId, deptId, priority, withinSLA) => {
       points_earned: pts
     },{ onConflict:'department_id,period_month,period_year' });
     if (badge.level !== u.govt_badge) {
-      await supabase.from('notifications').insert({ user_id:officerId, type:'badge', title:'🏅 Achievement Unlocked!', message:`You earned the "${badge.level.replace(/_/g,' ')}" officer badge!` });
+      await notificationService.notifyBadgeUnlocked(officerId, badge.level, true);
     }
   } catch (err) { console.error('addOfficerPoints:', err.message); }
 };

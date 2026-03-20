@@ -64,6 +64,13 @@
 
   /* Transitions */
   --transition: 200ms ease;
+
+  /* Government of India / UX4G colors */
+  --govt-saffron: #FF9933;
+  --govt-white: #FFFFFF;
+  --govt-green: #138808;
+  --govt-navy: #000080;
+  --govt-chakra: #000080;
 }
 
 *, *::before, *::after {
@@ -96,6 +103,57 @@ body {
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
+/* ===================== HIGH CONTRAST MODE ===================== */
+[data-theme="high-contrast"] {
+  --primary: #FFFF00; /* Yellow */
+  --primary-hover: #FFFFFF;
+  --primary-light: #333333;
+  --primary-border: #FFFF00;
+
+  --secondary: #000000;
+  --secondary-light: #222222;
+  
+  --accent: #00FF00;
+  --accent-light: #111111;
+
+  --bg: #000000;
+  --surface: #111111;
+  --surface-2: #222222;
+  --border: #FFFF00;
+  --border-hover: #FFFFFF;
+  
+  --text-primary: #FFFFFF;
+  --text-secondary: #FFFF00;
+  --text-muted: #BBBBBB;
+  
+  --success: #00FF00;
+  --success-bg: #003300;
+  --warning: #FFFF00;
+  --warning-bg: #333300;
+  --danger: #FF0000;
+  --danger-bg: #330000;
+  --info: #00FFFF;
+  --info-bg: #003333;
+}
+
+[data-theme="high-contrast"] .accessibility-bar {
+  background: #000000 !important;
+  color: #FFFF00 !important;
+  border-bottom: 2px solid #FFFF00 !important;
+}
+
+[data-theme="high-contrast"] .accessibility-bar span,
+[data-theme="high-contrast"] .accessibility-bar a,
+[data-theme="high-contrast"] .accessibility-bar button {
+  color: #FFFF00 !important;
+  border-color: #FFFF00 !important;
+}
+
+[data-theme="high-contrast"] .navbar {
+  background: #000000;
+  border-bottom: 2px solid #FFFF00;
+}
+
 /* ===================== LAYOUT ===================== */
 
 .app-layout {
@@ -106,8 +164,8 @@ body {
 
 .main-layout {
   display: flex;
-  min-height: calc(100vh - 64px);
-  margin-top: 64px;
+  min-height: calc(100vh - 100px);
+  margin-top: 100px;
 }
 
 .sidebar {
@@ -116,7 +174,7 @@ body {
   border-right: 1px solid var(--border);
   padding: 20px 0;
   position: fixed;
-  top: 64px;
+  top: 100px;
   bottom: 0;
   left: 0;
   overflow-y: auto;
@@ -128,7 +186,7 @@ body {
   flex: 1;
   margin-left: 260px;
   padding: 24px;
-  min-height: calc(100vh - 64px);
+  min-height: calc(100vh - 100px);
 }
 
 @media (max-width: 768px) {
@@ -194,13 +252,14 @@ body {
 
 .navbar-flag {
   display: flex;
+  flex-direction: column;
   gap: 2px;
   margin-right: 8px;
 }
 
 .flag-stripe {
-  width: 4px;
-  height: 24px;
+  width: 28px;
+  height: 6px;
   border-radius: 2px;
 }
 
@@ -1034,4 +1093,302 @@ tr:hover td { background: var(--surface-2); }
 .step.completed + .step .step-line,
 .step.completed .step-line {
   background: var(--success);
+}
+
+/* ===================== ACCESSIBILITY & GOVERNMENT STYLES ===================== */
+
+/* Skip to main content link (keyboard navigation) */
+.skip-link {
+  position: fixed;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--primary);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 0 0 var(--radius) var(--radius);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+  z-index: 9999;
+  transition: top var(--transition);
+}
+.skip-link:focus {
+  top: 0;
+  outline: 3px solid #FFD54F;
+}
+
+/* Screen reader only — visually hidden but accessible */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Accessibility Bar (top of page, above navbar) ── */
+.accessibility-bar {
+  background: var(--govt-navy);
+  color: white;
+  width: 100%;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  font-size: 0.72rem;
+  letter-spacing: 0.3px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 300;
+}
+
+.accessibility-bar-flag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+}
+
+.accessibility-bar-flag-stripes {
+  display: flex;
+  gap: 2px;
+}
+
+.accessibility-bar-flag-stripes span {
+  display: inline-block;
+  width: 4px;
+  height: 16px;
+  border-radius: 1px;
+}
+
+.accessibility-bar-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.accessibility-bar-controls button {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  font-family: var(--font-primary);
+  font-weight: 600;
+  transition: background var(--transition);
+  line-height: 1.6;
+}
+
+.accessibility-bar-controls button:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* When accessibility bar is shown, push everything down */
+.has-accessibility-bar .navbar {
+  top: 36px;
+}
+.has-accessibility-bar .sidebar {
+  top: 100px; /* 36px bar + 64px navbar */
+}
+.has-accessibility-bar .main-layout {
+  margin-top: 100px;
+}
+
+/* ── National Emblem in Navbar ── */
+.navbar-emblem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-right: 8px;
+  flex-shrink: 0;
+  opacity: 0.95;
+}
+
+.navbar-emblem img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+/* ── High Contrast Mode ── */
+.high-contrast-mode {
+  --bg: #000000;
+  --surface: #0A0A0A;
+  --surface-2: #111111;
+  --border: #FFFFFF;
+  --border-hover: #FFFF00;
+  --text-primary: #FFFFFF;
+  --text-secondary: #FFFF00;
+  --text-muted: #CCCCCC;
+  --primary: #FFD700;
+  --primary-hover: #FFC200;
+  --primary-light: #3A3000;
+  --secondary: #0050FF;
+  --secondary-light: #001A8C;
+  --shadow: 0 2px 8px rgba(255,255,255,0.1);
+  --shadow-md: 0 4px 16px rgba(255,255,255,0.15);
+}
+
+.high-contrast-mode .navbar {
+  border-bottom: 2px solid #FFFFFF;
+}
+
+.high-contrast-mode a,
+.high-contrast-mode button {
+  text-decoration: underline;
+}
+
+.high-contrast-mode :focus-visible {
+  outline: 4px solid #FFFF00;
+  outline-offset: 3px;
+}
+
+/* ── Accessibility Widget (slide-out panel) ── */
+.a11y-widget {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 990;
+  display: flex;
+  align-items: center;
+}
+
+.a11y-widget-toggle {
+  background: var(--govt-navy);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  padding: 14px 8px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  font-family: var(--font-primary);
+  transition: background var(--transition);
+  text-transform: uppercase;
+  box-shadow: -2px 0 8px rgba(0,0,0,0.15);
+}
+
+.a11y-widget-toggle:hover {
+  background: #0D1B60;
+}
+
+.a11y-widget-panel {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius) 0 0 var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow-lg);
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.a11y-widget-panel h3 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--govt-navy);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 2px solid var(--govt-saffron);
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+
+.a11y-widget-panel .a11y-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.a11y-font-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.a11y-font-controls button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Print Styles ── */
+@media print {
+  .accessibility-bar,
+  .navbar,
+  .sidebar,
+  .a11y-widget,
+  .modal-overlay,
+  .filter-bar,
+  .btn,
+  .pagination {
+    display: none !important;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+
+  .main-layout {
+    margin-top: 0 !important;
+  }
+
+  .card,
+  .complaint-card,
+  .stat-card {
+    box-shadow: none !important;
+    border: 1px solid #ccc !important;
+    break-inside: avoid;
+  }
+
+  .complaint-card::before {
+    display: none;
+  }
+
+  body {
+    font-size: 12pt;
+    color: #000;
+    background: #fff;
+  }
+
+  a[href]::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.75em;
+    color: #555;
+  }
 }

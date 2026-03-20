@@ -18,7 +18,7 @@ export default function Login() {
     setLoading(true);
     try {
       const result = await login(form.email.trim().toLowerCase(), form.password);
-      toast.success('Welcome back! Login successful 👋');
+      toast.success('Welcome back! Login successful');
       const redirectMap = {
         citizen: '/dashboard',
         officer: '/officer/dashboard',
@@ -47,10 +47,10 @@ export default function Login() {
         {/* Header */}
         <div style={{ background: '#1A237E', padding: '28px 32px', textAlign: 'center' }}>
           {/* India flag strip */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 14 }}>
-            <div style={{ width: 8, height: 32, borderRadius: 4, background: '#FF9933' }} />
-            <div style={{ width: 8, height: 32, borderRadius: 4, background: '#FFFFFF' }} />
-            <div style={{ width: 8, height: 32, borderRadius: 4, background: '#138808' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, marginBottom: 14 }}>
+            <div style={{ width: 40, height: 6, borderRadius: 3, background: '#FF9933' }} />
+            <div style={{ width: 40, height: 6, borderRadius: 3, background: '#FFFFFF' }} />
+            <div style={{ width: 40, height: 6, borderRadius: 3, background: '#138808' }} />
           </div>
           <div style={{ fontFamily: 'Georgia, serif', fontSize: '1.8rem', fontWeight: 900, color: '#FFD54F', letterSpacing: '-1px' }}>
             JanSamadhan
@@ -107,7 +107,7 @@ export default function Login() {
                   }}
                   tabIndex={-1}
                 >
-                  {showPass ? '🙈' : '👁️'}
+                  {showPass ? 'Hide' : 'Show'}
                 </button>
               </div>
             </div>
@@ -120,7 +120,7 @@ export default function Login() {
             >
               {loading
                 ? <><div className="loading-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Logging in...</>
-                : '🔐 Login'
+                : 'Login'
               }
             </button>
           </form>

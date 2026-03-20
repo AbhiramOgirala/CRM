@@ -73,3 +73,6 @@ dist/
 
 # Misc
 *.pem
+
+
+parse_pdf.py

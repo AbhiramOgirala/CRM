@@ -1,17 +1,31 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
+import useAccessibilityStore from '../../store/accessibilityStore';
 import { notificationsAPI } from '../../services/api';
 
-const BADGE_ICONS = {
-  newcomer: '🌱', contributor: '⭐', active_citizen: '🏆',
-  champion: '🎖️', civic_hero: '🦸',
-  new_officer: '🔰', active_officer: '⚙️', efficient_officer: '🌟',
-  star_officer: '💫', excellence_award: '🏅'
+// Badge level labels — text only, no emoji
+const BADGE_LABELS = {
+  newcomer: 'Newcomer', contributor: 'Contributor', active_citizen: 'Active Citizen',
+  champion: 'Champion', civic_hero: 'Civic Hero',
+  new_officer: 'Officer', active_officer: 'Active Officer', efficient_officer: 'Efficient Officer',
+  star_officer: 'Star Officer', excellence_award: 'Excellence Award'
+};
+
+// Notification type dot colors for formal display
+const NOTIF_COLORS = {
+  assignment: '#0277BD',
+  update: '#E65100',
+  resolution: '#2E7D32',
+  escalation: '#C62828',
+  badge: '#6A1B9A',
+  info: '#5C6080',
+  duplicate: '#5C6080',
 };
 
 export default function Navbar({ onMenuToggle }) {
   const { user, logout } = useAuthStore();
+  const { increaseFontSize, decreaseFontSize, resetFontSize, toggleHighContrast, highContrast } = useAccessibilityStore();
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
@@ -57,43 +71,110 @@ export default function Navbar({ onMenuToggle }) {
   };
 
   return (
-    <nav className="navbar">
-      {/* Hamburger - mobile */}
-      <button
-        className="btn btn-icon"
-        style={{ color: 'white', marginRight: 8, display: 'none' }}
-        onClick={onMenuToggle}
-        id="menu-toggle"
-        aria-label="Toggle menu"
+    <header>
+      {/* UX4G Accessibility Bar */}
+      <div 
+        className="accessibility-bar" 
+        style={{
+          height: '36px', 
+          background: '#F5F5F6', 
+          borderBottom: '1px solid #E0E3EF',
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          padding: '0 20px',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 201,
+          fontFamily: 'var(--font-primary)',
+          fontSize: '0.75rem',
+          color: 'var(--text-secondary)'
+        }}
       >
-        ☰
-      </button>
-
-      {/* Brand */}
-      <Link to={getDashboardLink()} className="navbar-brand">
-        <div className="navbar-flag">
-          <div className="flag-stripe" style={{ background: '#FF9933' }} />
-          <div className="flag-stripe" style={{ background: '#FFFFFF' }} />
-          <div className="flag-stripe" style={{ background: '#138808' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <div style={{ width: 14, height: 3, background: '#FF9933' }} />
+              <div style={{ width: 14, height: 3, background: '#FFFFFF' }} />
+              <div style={{ width: 14, height: 3, background: '#138808' }} />
+            </div>
+            <span style={{ fontWeight: 600 }}>Government of India</span>
+          </div>
+          <a href="https://india.gov.in" target="_blank" rel="noopener noreferrer" style={{ color: '#0277bd', textDecoration: 'none', fontWeight: 500 }}>
+            india.gov.in
+          </a>
         </div>
-        <div>
-          <span className="logo-text">JanSamadhan</span>
-          <span className="logo-sub">जन समाधान</span>
-        </div>
-      </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <a href="#main-content" style={{ textDecoration: 'none', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 500 }}>Skip to main content</a>
+          
+          <button 
+            onClick={toggleHighContrast}
+            style={{ display: 'flex', alignItems: 'center', background: 'none', border: '1px solid var(--border)', borderRadius: 2, padding: '2px 6px', cursor: 'pointer', fontSize: '0.7rem' }}
+            title="Toggle High Contrast"
+            aria-label="Toggle High Contrast Mode"
+          >
+            {highContrast ? 'Dark Mode On' : 'High Contrast'}
+          </button>
 
-      {/* Nav links - desktop */}
-      <div style={{ display: 'flex', gap: 4, marginLeft: 20, alignItems: 'center' }}>
-        <Link to="/feed" style={{ color: 'rgba(255,255,255,0.8)', textDecoration: 'none', fontSize: '0.85rem', padding: '6px 12px', borderRadius: 6 }}>
-          📢 Public Feed
-        </Link>
-        <Link to="/map" style={{ color: 'rgba(255,255,255,0.8)', textDecoration: 'none', fontSize: '0.85rem', padding: '6px 12px', borderRadius: 6 }}>
-          🗺️ Hotspot Map
-        </Link>
-        <Link to="/leaderboard" style={{ color: 'rgba(255,255,255,0.8)', textDecoration: 'none', fontSize: '0.85rem', padding: '6px 12px', borderRadius: 6 }}>
-          🏆 Leaderboard
-        </Link>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <button onClick={decreaseFontSize} title="Decrease Text Size" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 2, padding: '2px 6px', cursor: 'pointer', fontSize: '0.7rem', color: 'var(--text-primary)' }}>A-</button>
+            <button onClick={resetFontSize} title="Normal Text Size" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 2, padding: '2px 6px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-primary)' }}>A</button>
+            <button onClick={increaseFontSize} title="Increase Text Size" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 2, padding: '2px 6px', cursor: 'pointer', fontSize: '0.7rem', color: 'var(--text-primary)' }}>A+</button>
+          </div>
+        </div>
       </div>
+
+      <nav className="navbar" role="navigation" aria-label="Main navigation" style={{ top: '36px' }}>
+        {/* Hamburger - mobile */}
+        <button
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'white', marginRight: 8, display: 'none',
+            padding: 8, borderRadius: 6,
+            alignItems: 'center', justifyContent: 'center',
+          }}
+          onClick={onMenuToggle}
+          id="menu-toggle"
+          aria-label="Toggle sidebar menu"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+
+        {/* Brand */}
+        <Link to={getDashboardLink()} className="navbar-brand" aria-label="JanSamadhan — Home">
+          {/* Logo flag with inline styles to bypass old CSS cache */}
+          <div className="navbar-flag" aria-hidden="true" style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginRight: '8px' }}>
+            <div className="flag-stripe" style={{ background: '#FF9933', width: '28px', height: '6px', borderRadius: '2px' }} />
+            <div className="flag-stripe" style={{ background: '#FFFFFF', width: '28px', height: '6px', borderRadius: '2px' }} />
+            <div className="flag-stripe" style={{ background: '#138808', width: '28px', height: '6px', borderRadius: '2px' }} />
+          </div>
+          {/* Emblem text reference to fulfill UX4G text/emblem requirements */}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', marginRight: '8px', borderRight: '1px solid rgba(255,255,255,0.3)', paddingRight: '12px' }}>
+            <span style={{ fontSize: '0.5rem', opacity: 0.9, textAlign: 'center', letterSpacing: '0.5px' }}>सत्यमेव जयते</span>
+            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>Govt. of Delhi</span>
+          </div>
+          <div>
+            <span className="logo-text">JanSamadhan</span>
+            <span className="logo-sub">जन समाधान — Citizen Portal</span>
+          </div>
+        </Link>
+
+        {/* Nav links - desktop */}
+        <div style={{ display: 'flex', gap: 4, marginLeft: 20, alignItems: 'center' }}>
+          <Link to="/feed" style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'none', fontSize: '0.85rem', padding: '6px 12px', borderRadius: 6, fontWeight: 500 }}>
+            Public Feed
+          </Link>
+          <Link to="/map" style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'none', fontSize: '0.85rem', padding: '6px 12px', borderRadius: 6, fontWeight: 500 }}>
+            Hotspot Map
+          </Link>
+          <Link to="/leaderboard" style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'none', fontSize: '0.85rem', padding: '6px 12px', borderRadius: 6, fontWeight: 500 }}>
+            Leaderboard
+          </Link>
+        </div>
 
       <div className="navbar-actions">
         {user ? (
@@ -101,35 +182,50 @@ export default function Navbar({ onMenuToggle }) {
             {/* Notifications */}
             <div style={{ position: 'relative' }} ref={notifRef}>
               <button
-                className="btn btn-icon"
-                style={{ color: 'white', position: 'relative' }}
+                style={{
+                  background: 'rgba(255,255,255,0.12)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  color: 'white',
+                  position: 'relative',
+                  width: 38, height: 38,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'background 200ms ease',
+                }}
+                onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.22)'}
+                onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
                 onClick={() => { setShowNotifDropdown(!showNotifDropdown); setShowUserDropdown(false); }}
-                aria-label="Notifications"
+                aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
+                aria-expanded={showNotifDropdown}
               >
-                🔔
+                {/* Bell SVG icon */}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>
+                </svg>
                 {unreadCount > 0 && (
                   <span style={{
-                    position: 'absolute', top: 2, right: 2,
+                    position: 'absolute', top: 4, right: 4,
                     background: '#EF5350', color: 'white',
-                    borderRadius: '50%', width: 16, height: 16,
-                    fontSize: '0.65rem', fontWeight: 800,
+                    borderRadius: '50%', width: 14, height: 14,
+                    fontSize: '0.6rem', fontWeight: 800,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     border: '2px solid var(--secondary)'
-                  }}>
+                  }} aria-hidden="true">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </button>
 
               {showNotifDropdown && (
-                <div style={{
+                <div role="dialog" aria-label="Notifications" style={{
                   position: 'absolute', right: 0, top: '100%', marginTop: 8,
                   background: 'var(--surface)', border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius)', width: 340, boxShadow: 'var(--shadow-lg)',
+                  borderRadius: 'var(--radius)', width: 360, boxShadow: 'var(--shadow-lg)',
                   zIndex: 500, overflow: 'hidden'
                 }}>
-                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Notifications</span>
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-2)' }}>
+                    <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--secondary)' }}>Notifications</span>
                     {unreadCount > 0 && (
                       <button onClick={markAllRead} style={{ fontSize: '0.75rem', color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                         Mark all read
@@ -146,14 +242,24 @@ export default function Navbar({ onMenuToggle }) {
                         padding: '12px 16px',
                         background: n.is_read ? 'transparent' : 'var(--primary-light)',
                         borderBottom: '1px solid var(--border)',
-                        cursor: 'pointer'
+                        cursor: n.complaint_id ? 'pointer' : 'default',
+                        display: 'flex', gap: 10, alignItems: 'flex-start',
                       }}
                         onClick={() => { if (n.complaint_id) { navigate(`/complaint/${n.complaint_id}`); setShowNotifDropdown(false); } }}
+                        role={n.complaint_id ? 'button' : undefined}
+                        tabIndex={n.complaint_id ? 0 : undefined}
                       >
-                        <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: 2 }}>{n.title}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{n.message}</div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                          {new Date(n.created_at).toLocaleString('en-IN')}
+                        {/* Type color dot */}
+                        <span style={{
+                          width: 8, height: 8, borderRadius: '50%', flexShrink: 0, marginTop: 5,
+                          background: NOTIF_COLORS[n.type] || '#9EA3B8'
+                        }} aria-hidden="true" />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: 2, color: 'var(--text-primary)' }}>{n.title}</div>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{n.message}</div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                            {new Date(n.created_at).toLocaleString('en-IN')}
+                          </div>
                         </div>
                       </div>
                     ))
@@ -173,6 +279,8 @@ export default function Navbar({ onMenuToggle }) {
             <div style={{ position: 'relative' }} ref={userRef}>
               <button
                 onClick={() => { setShowUserDropdown(!showUserDropdown); setShowNotifDropdown(false); }}
+                aria-expanded={showUserDropdown}
+                aria-label="User menu"
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8,
                   background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
@@ -184,7 +292,7 @@ export default function Navbar({ onMenuToggle }) {
                   background: '#FFD54F', color: '#1A237E',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontWeight: 800, fontSize: '0.85rem'
-                }}>
+                }} aria-hidden="true">
                   {user.full_name?.charAt(0).toUpperCase()}
                 </div>
                 <div style={{ textAlign: 'left', display: 'block' }}>
@@ -192,17 +300,17 @@ export default function Navbar({ onMenuToggle }) {
                     {user.full_name?.split(' ')[0]}
                   </div>
                   <div style={{ fontSize: '0.65rem', opacity: 0.8 }}>
-                    {BADGE_ICONS[user.badge_level || user.govt_badge]} {user.role}
+                    {BADGE_LABELS[user.badge_level || user.govt_badge] || user.role}
                   </div>
                 </div>
-                <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>▼</span>
+                <span style={{ fontSize: '0.65rem', opacity: 0.7 }} aria-hidden="true">▼</span>
               </button>
 
               {showUserDropdown && (
-                <div style={{
+                <div role="menu" style={{
                   position: 'absolute', right: 0, top: '100%', marginTop: 8,
                   background: 'var(--surface)', border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius)', width: 200, boxShadow: 'var(--shadow-lg)',
+                  borderRadius: 'var(--radius)', width: 220, boxShadow: 'var(--shadow-lg)',
                   zIndex: 500, overflow: 'hidden'
                 }}>
                   <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
@@ -210,18 +318,18 @@ export default function Navbar({ onMenuToggle }) {
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{user.email}</div>
                     {user.role === 'citizen' && (
                       <div style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: 2, fontWeight: 600 }}>
-                        {BADGE_ICONS[user.badge_level]} {user.points || 0} pts
+                        {BADGE_LABELS[user.badge_level] || 'Newcomer'} — {user.points || 0} pts
                       </div>
                     )}
                   </div>
                   {[
-                    { to: '/profile', label: '👤 My Profile' },
-                    user.role === 'citizen' && { to: '/my-complaints', label: '📋 My Complaints' },
-                    user.role === 'citizen' && { to: '/dashboard', label: '📊 Dashboard' },
-                    user.role === 'officer' && { to: '/officer/dashboard', label: '📊 Dashboard' },
-                    (user.role === 'admin' || user.role === 'super_admin') && { to: '/admin/dashboard', label: '⚙️ Admin Panel' },
+                    { to: '/profile', label: 'My Profile' },
+                    user.role === 'citizen' && { to: '/my-complaints', label: 'My Complaints' },
+                    user.role === 'citizen' && { to: '/dashboard', label: 'Dashboard' },
+                    user.role === 'officer' && { to: '/officer/dashboard', label: 'Dashboard' },
+                    (user.role === 'admin' || user.role === 'super_admin') && { to: '/admin/dashboard', label: 'Admin Panel' },
                   ].filter(Boolean).map(item => (
-                    <Link key={item.to} to={item.to}
+                    <Link key={item.to} to={item.to} role="menuitem"
                       style={{ display: 'block', padding: '10px 16px', textDecoration: 'none', color: 'var(--text-primary)', fontSize: '0.875rem' }}
                       onClick={() => setShowUserDropdown(false)}
                     >
@@ -229,11 +337,11 @@ export default function Navbar({ onMenuToggle }) {
                     </Link>
                   ))}
                   <div style={{ borderTop: '1px solid var(--border)' }}>
-                    <button onClick={logout} style={{
+                    <button onClick={logout} role="menuitem" style={{
                       width: '100%', padding: '10px 16px', background: 'none', border: 'none',
                       textAlign: 'left', cursor: 'pointer', color: 'var(--danger)', fontSize: '0.875rem', fontWeight: 600
                     }}>
-                      🚪 Logout
+                      Sign Out
                     </button>
                   </div>
                 </div>
@@ -257,6 +365,7 @@ export default function Navbar({ onMenuToggle }) {
           #menu-toggle { display: flex !important; }
         }
       `}</style>
-    </nav>
+      </nav>
+    </header>
   );
 }

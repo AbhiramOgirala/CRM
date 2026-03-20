@@ -24,15 +24,15 @@ export default function Landing() {
   return (
     <div>
       <Navbar />
-      <div style={{ marginTop: 64 }}>
+      <div id="main-content" tabIndex="-1" style={{ marginTop: 100, outline: 'none' }}>
         {/* Hero */}
         <div className="hero">
           <div style={{ position: 'relative', zIndex: 1 }}>
             {/* India flag colors top bar */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
-              <div style={{ width: 40, height: 5, borderRadius: 3, background: '#FF9933' }} />
-              <div style={{ width: 40, height: 5, borderRadius: 3, background: '#FFFFFF' }} />
-              <div style={{ width: 40, height: 5, borderRadius: 3, background: '#138808' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, marginBottom: 20 }}>
+              <div style={{ width: 48, height: 6, borderRadius: 3, background: '#FF9933' }} />
+              <div style={{ width: 48, height: 6, borderRadius: 3, background: '#FFFFFF' }} />
+              <div style={{ width: 48, height: 6, borderRadius: 3, background: '#138808' }} />
             </div>
 
             <h1 className="hero-title">
