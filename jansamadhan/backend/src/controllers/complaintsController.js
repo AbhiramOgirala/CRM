@@ -1,6 +1,7 @@
 'use strict';
 const { supabase } = require('../config/supabase');
 const nlp = require('../services/nlpService');
+const geocoding = require('../services/geocodingService');
 const { addCitizenPoints, addOfficerPoints, POINTS } = require('../services/gamificationService');
 
 // ── Ticket number ─────────────────────────────────────────────────────────────
@@ -54,13 +55,46 @@ exports.fileComplaint = async (req, res) => {
     const slaDeadline = new Date(Date.now()+slaHours*3600000);
     const ticket = await genTicket();
 
+    // ── Automatic Geocoding ──────────────────────────────────────────────────
+    let finalLatitude = latitude;
+    let finalLongitude = longitude;
+    let finalAddress = address;
+    let geocodingAttempted = false;
+
+    // If GPS coordinates are not provided, try to geocode the address
+    if ((!latitude || !longitude) && (address || landmark || pincode)) {
+      geocodingAttempted = true;
+      console.log('Attempting to geocode address:', { address, landmark, pincode });
+      
+      try {
+        const geocodeResult = await geocoding.geocodeComplaintLocation({
+          address, landmark, pincode, state_id, district_id, mandal_id
+        });
+
+        if (geocodeResult && geocoding.isValidCoordinates(geocodeResult.latitude, geocodeResult.longitude)) {
+          finalLatitude = geocodeResult.latitude;
+          finalLongitude = geocodeResult.longitude;
+          // Use the formatted address from geocoding if it's more detailed
+          if (geocodeResult.formatted_address && geocodeResult.formatted_address.length > (address?.length || 0)) {
+            finalAddress = geocodeResult.formatted_address;
+          }
+          console.log('Geocoding successful:', { lat: finalLatitude, lng: finalLongitude });
+        } else {
+          console.log('Geocoding failed or returned invalid coordinates');
+        }
+      } catch (geocodeError) {
+        console.error('Geocoding error:', geocodeError);
+        // Continue without GPS coordinates if geocoding fails
+      }
+    }
+
     const { data: complaint, error } = await supabase.from('complaints').insert({
       ticket_number:ticket, citizen_id:req.user.id,
       title:finalTitle, description:description||audio_transcript||'', audio_transcript:audio_transcript||null,
       category:r.category, sub_category:r.subCategory||null,
       nlp_category:r.category, nlp_confidence:r.confidence, nlp_keywords:r.keywords, sentiment:r.sentiment,
       priority:r.priority, status:'pending',
-      latitude:latitude||null, longitude:longitude||null, address:address||null,
+      latitude:finalLatitude||null, longitude:finalLongitude||null, address:finalAddress||null,
       landmark:landmark||null, pincode:pincode||null,
       state_id:state_id||null, district_id:district_id||null, corporation_id:corporation_id||null,
       municipality_id:municipality_id||null, taluka_id:taluka_id||null,
@@ -71,10 +105,11 @@ exports.fileComplaint = async (req, res) => {
 
     if (error) { console.error('fileComplaint insert error:', error); return res.status(500).json({ error:'Failed to file complaint. Please try again.' }); }
 
-    // Timeline
+    // Timeline with geocoding info
+    const timelineNotes = `Auto-classified: ${r.category}. Routed to ${dept?.name||r.deptName}. SLA: ${slaHours}h${geocodingAttempted ? (finalLatitude ? ' (GPS auto-located)' : ' (GPS lookup failed)') : ''}`;
     await supabase.from('complaint_timeline').insert({
       complaint_id:complaint.id, actor_id:req.user.id, actor_role:'citizen', action:'created',
-      new_value:'pending', notes:`Auto-classified: ${r.category}. Routed to ${dept?.name||r.deptName}. SLA: ${slaHours}h`
+      new_value:'pending', notes:timelineNotes
     });
 
     // Duplicate check (non-blocking)
@@ -99,7 +134,15 @@ exports.fileComplaint = async (req, res) => {
     return res.status(201).json({
       message:'Complaint filed successfully',
       complaint,
-      auto_detection:{ category:r.category, department:dept?.name||r.deptName, priority:r.priority, slaHours, confidence:r.confidence, routing_reason:r.deptExplanation }
+      auto_detection:{ 
+        category:r.category, department:dept?.name||r.deptName, priority:r.priority, 
+        slaHours, confidence:r.confidence, routing_reason:r.deptExplanation,
+        geocoding: geocodingAttempted ? {
+          attempted: true,
+          success: !!finalLatitude,
+          coordinates: finalLatitude ? { latitude: finalLatitude, longitude: finalLongitude } : null
+        } : { attempted: false }
+      }
     });
   } catch (err) {
     console.error('fileComplaint:', err);
@@ -333,7 +376,25 @@ exports.getHotspots = async (req, res) => {
   } catch (err) { return res.status(500).json({ error:'Internal server error' }); }
 };
 
-// ── Dashboard Stats ──────────────────────────────────────────────────────────
+// ── Geocode Existing Complaints (Admin only) ─────────────────────────────────
+exports.geocodeExistingComplaints = async (req, res) => {
+  try {
+    const { geocodeExistingComplaints } = require('../utils/geocodeExistingComplaints');
+    
+    // Run geocoding in background
+    geocodeExistingComplaints()
+      .then(() => console.log('Background geocoding completed'))
+      .catch(err => console.error('Background geocoding failed:', err));
+    
+    return res.json({ 
+      message: 'Geocoding process started in background. Check server logs for progress.',
+      status: 'started'
+    });
+  } catch (err) {
+    console.error('geocodeExistingComplaints:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
 exports.getDashboardStats = async (req, res) => {
   try {
     const [total,pending,inProgress,resolved,escalated] = await Promise.all([

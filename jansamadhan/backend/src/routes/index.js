@@ -57,5 +57,6 @@ router.put('/admin/users/:id/department',     authenticate, authorize('admin','s
 router.get('/admin/departments',              authenticate, adminCtrl.getDepartments);
 router.get('/admin/stats',                    authenticate, authorize('admin','super_admin'), adminCtrl.getSystemStats);
 router.get('/admin/escalated',                authenticate, authorize('admin','super_admin'), adminCtrl.getEscalated);
+router.post('/admin/geocode-complaints',      authenticate, authorize('admin','super_admin'), complaintsCtrl.geocodeExistingComplaints);
 
 module.exports = router;

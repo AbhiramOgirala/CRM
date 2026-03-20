@@ -4,7 +4,8 @@ import { complaintsAPI, locationAPI } from '../../services/api';
 const CATEGORY_COLORS = {
   roads: '#E65100', water_supply: '#0277BD', electricity: '#F9A825',
   waste_management: '#558B2F', drainage: '#00838F', infrastructure: '#6A1B9A',
-  parks: '#2E7D32', health: '#C62828', education: '#283593', other: '#546E7A'
+  parks: '#2E7D32', health: '#C62828', education: '#283593', 
+  street_lights: '#FF6F00', other: '#546E7A'
 };
 
 export default function HotspotMap() {
@@ -16,9 +17,16 @@ export default function HotspotMap() {
   const [filters, setFilters] = useState({ state_id: '', category: '', days: 30 });
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({ total: 0, byCategory: {} });
+  const [error, setError] = useState(null);
+  const [totalComplaints, setTotalComplaints] = useState(0);
 
   useEffect(() => {
-    locationAPI.getStates().then(r => setStates(r.states || []));
+    locationAPI.getStates()
+      .then(r => setStates(r.states || []))
+      .catch(error => {
+        console.error('Failed to load states:', error);
+        setStates([]);
+      });
     initMap();
   }, []);
 
@@ -28,7 +36,8 @@ export default function HotspotMap() {
 
   const initMap = () => {
     if (mapInstanceRef.current || !mapRef.current) return;
-    // Dynamically load leaflet
+    
+    // Check if Leaflet is already loaded
     const L = window.L;
     if (!L) {
       // Load Leaflet CSS and JS
@@ -39,7 +48,14 @@ export default function HotspotMap() {
 
       const script = document.createElement('script');
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = () => setupMap();
+      script.onload = () => {
+        // Wait a bit for Leaflet to fully initialize
+        setTimeout(setupMap, 100);
+      };
+      script.onerror = () => {
+        console.error('Failed to load Leaflet library');
+        setError('Failed to load map library. Please refresh the page.');
+      };
       document.head.appendChild(script);
     } else {
       setupMap();
@@ -50,19 +66,39 @@ export default function HotspotMap() {
     const L = window.L;
     if (!L || !mapRef.current || mapInstanceRef.current) return;
 
-    const map = L.map(mapRef.current).setView([20.5937, 78.9629], 5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
-    mapInstanceRef.current = map;
+    try {
+      const map = L.map(mapRef.current).setView([20.5937, 78.9629], 5);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+      mapInstanceRef.current = map;
+      
+      // Load hotspots after map is ready
+      if (hotspots.length > 0) {
+        updateMapMarkers(hotspots);
+      }
+    } catch (error) {
+      console.error('Failed to initialize map:', error);
+      setError('Failed to initialize map. Please refresh the page.');
+    }
   };
 
   const loadHotspots = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await complaintsAPI.getHotspots(filters);
-      const data = res.hotspots || [];
+      console.log('Loading hotspots with filters:', filters);
+      
+      // Load both hotspots and total complaints for comparison
+      const [hotspotsRes, dashboardRes] = await Promise.all([
+        complaintsAPI.getHotspots(filters),
+        complaintsAPI.getDashboard()
+      ]);
+      
+      console.log('Hotspots API response:', hotspotsRes);
+      const data = hotspotsRes.hotspots || [];
       setHotspots(data);
+      setTotalComplaints(dashboardRes.stats?.total || 0);
 
       // Update stats
       const byCategory = {};
@@ -71,7 +107,15 @@ export default function HotspotMap() {
 
       // Update map markers
       updateMapMarkers(data);
-    } catch {} finally { setLoading(false); }
+    } catch (error) {
+      console.error('Failed to load hotspots:', error);
+      setError('Failed to load hotspot data. Please try again.');
+      setHotspots([]);
+      setStats({ total: 0, byCategory: {} });
+      setTotalComplaints(0);
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const updateMapMarkers = (data) => {
@@ -79,35 +123,39 @@ export default function HotspotMap() {
     const map = mapInstanceRef.current;
     if (!L || !map) return;
 
-    // Remove existing markers
-    markersRef.current.forEach(m => map.removeLayer(m));
-    markersRef.current = [];
+    try {
+      // Remove existing markers
+      markersRef.current.forEach(m => map.removeLayer(m));
+      markersRef.current = [];
 
-    data.forEach(h => {
-      if (!h.latitude || !h.longitude) return;
-      const color = CATEGORY_COLORS[h.category] || '#546E7A';
-      const prioritySize = { critical: 14, high: 12, medium: 10, low: 8 };
-      const size = prioritySize[h.priority] || 8;
+      data.forEach(h => {
+        if (!h.latitude || !h.longitude) return;
+        const color = CATEGORY_COLORS[h.category] || '#546E7A';
+        const prioritySize = { critical: 14, high: 12, medium: 10, low: 8 };
+        const size = prioritySize[h.priority] || 8;
 
-      const icon = L.divIcon({
-        className: '',
-        html: `<div style="width:${size}px;height:${size}px;background:${color};border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3)"></div>`,
-        iconSize: [size, size],
-        iconAnchor: [size/2, size/2]
+        const icon = L.divIcon({
+          className: '',
+          html: `<div style="width:${size}px;height:${size}px;background:${color};border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3)"></div>`,
+          iconSize: [size, size],
+          iconAnchor: [size/2, size/2]
+        });
+
+        const marker = L.marker([h.latitude, h.longitude], { icon })
+          .bindPopup(`
+            <div style="min-width:200px;font-family:sans-serif">
+              <strong style="font-size:0.9rem">${h.title || h.category}</strong><br>
+              <span style="color:${color};font-size:0.75rem;font-weight:700">${h.category?.replace(/_/g, ' ').toUpperCase()}</span><br>
+              <span style="font-size:0.78rem;color:#666">${h.address || 'Location marked'}</span><br>
+              <span style="font-size:0.75rem;background:${color}20;color:${color};padding:2px 6px;border-radius:10px;display:inline-block;margin-top:4px">${h.priority} priority</span>
+            </div>
+          `);
+        marker.addTo(map);
+        markersRef.current.push(marker);
       });
-
-      const marker = L.marker([h.latitude, h.longitude], { icon })
-        .bindPopup(`
-          <div style="min-width:200px;font-family:sans-serif">
-            <strong style="font-size:0.9rem">${h.title || h.category}</strong><br>
-            <span style="color:${color};font-size:0.75rem;font-weight:700">${h.category?.replace(/_/g, ' ').toUpperCase()}</span><br>
-            <span style="font-size:0.78rem;color:#666">${h.address || 'Location marked'}</span><br>
-            <span style="font-size:0.75rem;background:${color}20;color:${color};padding:2px 6px;border-radius:10px;display:inline-block;margin-top:4px">${h.priority} priority</span>
-          </div>
-        `);
-      marker.addTo(map);
-      markersRef.current.push(marker);
-    });
+    } catch (error) {
+      console.error('Failed to update map markers:', error);
+    }
   };
 
   return (
@@ -118,6 +166,39 @@ export default function HotspotMap() {
           <p className="page-subtitle">Geographic distribution of civic complaints</p>
         </div>
       </div>
+
+      {/* Error message */}
+      {error && (
+        <div style={{ 
+          background: '#ffebee', 
+          color: '#c62828', 
+          padding: '12px', 
+          borderRadius: 'var(--radius)', 
+          marginBottom: '16px',
+          border: '1px solid #ffcdd2'
+        }}>
+          ⚠️ {error}
+        </div>
+      )}
+
+      {/* Empty state message */}
+      {!loading && !error && stats.total === 0 && (
+        <div style={{ 
+          background: '#f5f5f5', 
+          color: '#666', 
+          padding: '20px', 
+          borderRadius: 'var(--radius)', 
+          marginBottom: '16px',
+          textAlign: 'center',
+          border: '1px solid #e0e0e0'
+        }}>
+          📍 No complaint hotspots found for the selected filters.<br />
+          Try adjusting the time range or location filters.<br />
+          <small style={{ fontSize: '0.75rem', marginTop: '8px', display: 'block' }}>
+            Note: Only complaints with GPS coordinates are shown on the map.
+          </small>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="filter-bar">
@@ -137,13 +218,21 @@ export default function HotspotMap() {
           <option value="90">Last 90 days</option>
           <option value="365">Last 1 year</option>
         </select>
+        <button 
+          className="btn btn-primary" 
+          onClick={loadHotspots}
+          disabled={loading}
+          style={{ minWidth: '100px' }}
+        >
+          {loading ? '🔄 Loading...' : '🔄 Refresh'}
+        </button>
         {loading && <div className="loading-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />}
       </div>
 
       {/* Stats strip */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         <span style={{ background: 'var(--secondary)', color: 'white', borderRadius: 20, padding: '4px 14px', fontSize: '0.8rem', fontWeight: 700 }}>
-          📍 {stats.total} locations shown
+          📍 {stats.total} of {totalComplaints} complaints shown (with GPS)
         </span>
         {Object.entries(stats.byCategory).sort((a,b) => b[1]-a[1]).slice(0,5).map(([cat, count]) => (
           <span key={cat} style={{ background: CATEGORY_COLORS[cat] + '20', color: CATEGORY_COLORS[cat], borderRadius: 20, padding: '4px 12px', fontSize: '0.75rem', fontWeight: 700, border: `1px solid ${CATEGORY_COLORS[cat]}40` }}>
@@ -176,7 +265,9 @@ export default function HotspotMap() {
           ))}
         </div>
         <div style={{ marginTop: 10, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-          🔴 Larger dots = Higher priority complaints | Click on a dot to see details
+          🔴 Larger dots = Higher priority complaints | Click on a dot to see details<br />
+          📍 Complaints are automatically located using their address information<br />
+          💡 New complaints filed with addresses will appear on the map automatically
         </div>
       </div>
     </div>

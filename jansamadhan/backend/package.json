@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.0",
+    "axios": "^1.13.6",
     "bcryptjs": "^2.4.3",
     "compromise": "^14.10.0",
     "cors": "^2.8.5",
@@ -23,8 +24,8 @@
     "natural": "^6.10.4",
     "node-cache": "^5.1.2",
     "uuid": "^9.0.0",
-    "wink-nlp": "^2.2.0",
-    "wink-eng-lite-web-model": "^1.0.0"
+    "wink-eng-lite-web-model": "^1.0.0",
+    "wink-nlp": "^2.2.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
