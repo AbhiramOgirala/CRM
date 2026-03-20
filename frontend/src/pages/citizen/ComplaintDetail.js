@@ -29,6 +29,7 @@ export default function ComplaintDetail() {
   const [upvoting, setUpvoting] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateForm, setUpdateForm] = useState({ status: '', notes: '', rejection_reason: '' });
+  const [mapCoords, setMapCoords] = useState(null);
 
   useEffect(() => { loadDetail(); }, [id]);
 
@@ -37,6 +38,18 @@ export default function ComplaintDetail() {
     try {
       const res = await complaintsAPI.getById(id);
       setData(res);
+      const c = res.complaint;
+      if (c.latitude && c.longitude) {
+        setMapCoords([parseFloat(c.latitude), parseFloat(c.longitude)]);
+      } else if (c.address || c.pincode) {
+        // Geocode address on the fly
+        const query = [c.address, c.pincode, c.districts?.name, c.states?.name].filter(Boolean).join(', ');
+        try {
+          const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`);
+          const d = await r.json();
+          if (d?.[0]) setMapCoords([parseFloat(d[0].lat), parseFloat(d[0].lon)]);
+        } catch {}
+      }
     } catch (err) {
       toast.error('Complaint not found');
       navigate(-1);
@@ -288,10 +301,10 @@ export default function ComplaintDetail() {
               {complaint.mandals && <div><strong>Mandal:</strong> {complaint.mandals.name}</div>}
               {complaint.address && <div><strong>Address:</strong> {complaint.address}</div>}
               {complaint.pincode && <div><strong>Pincode:</strong> {complaint.pincode}</div>}
-              {complaint.latitude && complaint.longitude && (
+              {mapCoords ? (
                 <div style={{ marginTop: 8 }}>
                   <MapContainer
-                    center={[parseFloat(complaint.latitude), parseFloat(complaint.longitude)]}
+                    center={mapCoords}
                     zoom={15}
                     style={{ height: 180, width: '100%', borderRadius: 8, zIndex: 0 }}
                     scrollWheelZoom={false}
@@ -300,19 +313,23 @@ export default function ComplaintDetail() {
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                       attribution='&copy; OpenStreetMap contributors'
                     />
-                    <Marker position={[parseFloat(complaint.latitude), parseFloat(complaint.longitude)]}>
+                    <Marker position={mapCoords}>
                       <Popup>{complaint.title}</Popup>
                     </Marker>
                   </MapContainer>
                   <a
-                    href={`https://maps.google.com/?q=${complaint.latitude},${complaint.longitude}`}
+                    href={`https://maps.google.com/?q=${mapCoords[0]},${mapCoords[1]}`}
                     target="_blank" rel="noopener noreferrer"
                     style={{ display: 'block', textAlign: 'center', marginTop: 6, fontSize: '0.78rem', color: 'var(--primary)' }}
                   >
                     Open in Google Maps ↗
                   </a>
                 </div>
-              )}
+              ) : (complaint.address || complaint.districts) ? (
+                <div style={{ marginTop: 8, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 8, fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                  📍 Map unavailable — no GPS coordinates for this complaint
+                </div>
+              ) : null}
             </div>
           </div>
 
