@@ -157,8 +157,7 @@ const confirmAndFile = async (phone, user, data) => {
       is_anonymous: false,
       images: [],
       escalation_level: 0,
-      view_count: 0,
-      source: 'whatsapp'
+      view_count: 0
     }).select().single();
 
     if (error) throw error;
