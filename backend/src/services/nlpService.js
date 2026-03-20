@@ -20,20 +20,20 @@ const PATTERNS = {
 };
 
 const DEPT = {
-  roads:            { code:'PWD',     name:'Public Works Department',           reason:'Roads, bridges and infrastructure managed by PWD' },
-  infrastructure:   { code:'PWD',     name:'Public Works Department',           reason:'Building and structural issues handled by PWD' },
-  water_supply:     { code:'HMWSSB',  name:'Water Supply & Sewerage Board',     reason:'Water supply and pipeline issues handled by Water Board' },
-  drainage:         { code:'HMWSSB',  name:'Water Supply & Sewerage Board',     reason:'Drainage and sewage handled by Water Supply Board' },
-  electricity:      { code:'TGSPDCL', name:'Electricity Department',            reason:'Power supply issues managed by Electricity Department' },
-  street_lights:    { code:'TGSPDCL', name:'Electricity Department',            reason:'Street lights managed by Electricity Department' },
-  waste_management: { code:'SSWM',    name:'Sanitation & Waste Management',     reason:'Garbage collection managed by Sanitation Department' },
-  parks:            { code:'PRD',     name:'Parks & Recreation Department',     reason:'Parks and gardens maintained by Parks Department' },
-  health:           { code:'HFW',     name:'Health & Family Welfare',           reason:'Health concerns handled by Health Department' },
-  education:        { code:'EDU',     name:'Education Department',              reason:'School issues handled by Education Department' },
-  public_services:  { code:'GHMC',    name:'Municipal Corporation',             reason:'Govt service issues handled by Municipal Corporation' },
-  law_enforcement:  { code:'POL',     name:'Police Department',                 reason:'Safety issues handled by Police Department' },
-  noise_pollution:  { code:'POL',     name:'Police Department',                 reason:'Noise violations handled by Police Department' },
-  other:            { code:'GHMC',    name:'Municipal Corporation',             reason:'General civic issues routed to Municipal Corporation' }
+  roads:            { code:'PWD',   name:'Public Works Department (PWD Delhi)',      reason:'Roads, bridges and infrastructure managed by PWD' },
+  infrastructure:   { code:'PWD',   name:'Public Works Department (PWD Delhi)',      reason:'Building and structural issues handled by PWD' },
+  water_supply:     { code:'DJB',   name:'Delhi Jal Board (DJB)',                    reason:'Water supply and pipeline issues handled by Delhi Jal Board' },
+  drainage:         { code:'DJB',   name:'Delhi Jal Board (DJB)',                    reason:'Drainage and sewage handled by Delhi Jal Board' },
+  electricity:      { code:'BSES',  name:'BSES / TPDDL — Electricity Distribution', reason:'Power supply issues managed by BSES/TPDDL' },
+  street_lights:    { code:'NDMC',  name:'New Delhi Municipal Council (NDMC)',       reason:'Street lights managed by NDMC' },
+  waste_management: { code:'MCD',   name:'Municipal Corporation of Delhi (MCD)',     reason:'Garbage collection managed by MCD' },
+  parks:            { code:'PRD',   name:'Parks & Garden Society — Delhi',           reason:'Parks and gardens maintained by Parks & Garden Society' },
+  health:           { code:'HFW',   name:'Health & Family Welfare — Delhi',          reason:'Health concerns handled by Health & Family Welfare' },
+  education:        { code:'EDU',   name:'Directorate of Education — Delhi',         reason:'School issues handled by Directorate of Education' },
+  public_services:  { code:'MCD',   name:'Municipal Corporation of Delhi (MCD)',     reason:'Govt service issues handled by MCD' },
+  law_enforcement:  { code:'DPOL',  name:'Delhi Police',                             reason:'Safety issues handled by Delhi Police' },
+  noise_pollution:  { code:'DPOL',  name:'Delhi Police',                             reason:'Noise violations handled by Delhi Police' },
+  other:            { code:'MCD',   name:'Municipal Corporation of Delhi (MCD)',     reason:'General civic issues routed to MCD' }
 };
 
 const SLA_BASE = { electricity:12, water_supply:18, drainage:24, waste_management:24, roads:48, street_lights:36, health:24, law_enforcement:12, infrastructure:72, parks:96, education:96, public_services:120, noise_pollution:48, other:72 };

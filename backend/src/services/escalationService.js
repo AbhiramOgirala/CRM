@@ -1,6 +1,7 @@
 'use strict';
 const { supabase } = require('../config/supabase');
 const notificationService = require('./notificationService');
+const { notifyStatusChange } = require('./whatsappService');
 
 const ESCALATION_TO = { 1:'Department Head', 2:'District Officer', 3:'Commissioner' };
 const UPGRADE = { low:'medium', medium:'high', high:'critical', critical:'critical' };
@@ -35,9 +36,18 @@ const runEscalation = async () => {
         notes:`SLA breached. Auto-escalated to ${ESCALATION_TO[lvl]} (Level ${lvl}).`
       });
 
-      // Notify citizen and admins via centralized service
-      // Fetch admin list for escalation level >= 2
-      let admins = [];
+      if (c.citizen_id) {
+        await supabase.from('notifications').insert({
+          user_id:c.citizen_id, type:'escalation',
+          title:'🔺 Complaint Escalated',
+          message:`Your complaint "${c.title}" (${c.ticket_number}) escalated to ${ESCALATION_TO[lvl]}.`,
+          complaint_id:c.id
+        });
+        // WhatsApp notification
+        const { data: citizen } = await supabase.from('users').select('phone').eq('id', c.citizen_id).single();
+        if (citizen?.phone) notifyStatusChange(citizen.phone, c.ticket_number, 'escalated').catch(console.error);
+      }
+
       if (lvl >= 2) {
         const { data: adminRows } = await supabase.from('users').select('id,email').in('role',['admin','super_admin']).eq('is_active',true).limit(5);
         admins = adminRows || [];

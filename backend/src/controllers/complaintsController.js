@@ -4,6 +4,7 @@ const nlp = require('../services/nlpService');
 const geocoding = require('../services/geocodingService');
 const { addCitizenPoints, addOfficerPoints, POINTS } = require('../services/gamificationService');
 const notificationService = require('../services/notificationService');
+const { notifyStatusChange } = require('../services/whatsappService');
 
 // ── Ticket number ─────────────────────────────────────────────────────────────
 const genTicket = async () => {
@@ -326,6 +327,14 @@ exports.updateComplaintStatus = async (req, res) => {
     if (complaint.citizen_id) {
       const { data: citizen } = await supabase.from('users').select('id,email,phone,full_name').eq('id',complaint.citizen_id).single();
       notificationService.notifyStatusUpdate(complaint, citizen, status, notes||rejection_reason).catch(err => console.error('[Notification] notifyStatusUpdate failed:', err.message));
+    }
+
+    // ── WhatsApp notification (non-blocking) ─────────────────────
+    if (complaint.citizen_id) {
+      const { data: citizen } = await supabase.from('users').select('phone').eq('id', complaint.citizen_id).single();
+      if (citizen?.phone) {
+        notifyStatusChange(citizen.phone, complaint.ticket_number, status, rejection_reason).catch(console.error);
+      }
     }
 
     return res.json({ message:'Status updated', complaint:updated });
