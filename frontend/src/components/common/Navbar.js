@@ -77,11 +77,11 @@ export default function Navbar({ onMenuToggle }) {
         className="accessibility-bar" 
         style={{
           height: '36px', 
-          background: '#F5F5F6', 
-          borderBottom: '1px solid #E0E3EF',
+          background: 'var(--secondary)', 
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
           display: 'flex', 
           alignItems: 'center', 
-          justifyContent: 'space-between',
+          justifyContent: 'flex-end',
           padding: '0 20px',
           position: 'fixed',
           top: 0,
@@ -90,28 +90,15 @@ export default function Navbar({ onMenuToggle }) {
           zIndex: 201,
           fontFamily: 'var(--font-primary)',
           fontSize: '0.75rem',
-          color: 'var(--text-secondary)'
+          color: 'rgba(255,255,255,0.85)'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 15 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <div style={{ width: 14, height: 3, background: '#FF9933' }} />
-              <div style={{ width: 14, height: 3, background: '#FFFFFF' }} />
-              <div style={{ width: 14, height: 3, background: '#138808' }} />
-            </div>
-            <span style={{ fontWeight: 600 }}>Government of India</span>
-          </div>
-          <a href="https://india.gov.in" target="_blank" rel="noopener noreferrer" style={{ color: '#0277bd', textDecoration: 'none', fontWeight: 500 }}>
-            india.gov.in
-          </a>
-        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <a href="#main-content" style={{ textDecoration: 'none', color: 'var(--text-secondary)', fontSize: '0.75rem', fontWeight: 500 }}>Skip to main content</a>
+          <a href="#main-content" style={{ textDecoration: 'none', color: 'rgba(255,255,255,0.85)', fontSize: '0.75rem', fontWeight: 500 }}>Skip to main content</a>
           
           <button 
             onClick={toggleHighContrast}
-            style={{ display: 'flex', alignItems: 'center', background: 'none', border: '1px solid var(--border)', borderRadius: 2, padding: '2px 6px', cursor: 'pointer', fontSize: '0.7rem' }}
+            style={{ display: 'flex', alignItems: 'center', background: 'none', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 2, padding: '2px 6px', cursor: 'pointer', fontSize: '0.7rem', color: 'white' }}
             title="Toggle High Contrast"
             aria-label="Toggle High Contrast Mode"
           >
@@ -119,9 +106,9 @@ export default function Navbar({ onMenuToggle }) {
           </button>
 
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-            <button onClick={decreaseFontSize} title="Decrease Text Size" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 2, padding: '2px 6px', cursor: 'pointer', fontSize: '0.7rem', color: 'var(--text-primary)' }}>A-</button>
-            <button onClick={resetFontSize} title="Normal Text Size" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 2, padding: '2px 6px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-primary)' }}>A</button>
-            <button onClick={increaseFontSize} title="Increase Text Size" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 2, padding: '2px 6px', cursor: 'pointer', fontSize: '0.7rem', color: 'var(--text-primary)' }}>A+</button>
+            <button onClick={decreaseFontSize} title="Decrease Text Size" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 2, padding: '2px 6px', cursor: 'pointer', fontSize: '0.7rem', color: 'white' }}>A-</button>
+            <button onClick={resetFontSize} title="Normal Text Size" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 2, padding: '2px 6px', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 600, color: 'white' }}>A</button>
+            <button onClick={increaseFontSize} title="Increase Text Size" style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 2, padding: '2px 6px', cursor: 'pointer', fontSize: '0.7rem', color: 'white' }}>A+</button>
           </div>
         </div>
       </div>
@@ -157,9 +144,9 @@ export default function Navbar({ onMenuToggle }) {
             <span style={{ fontSize: '0.5rem', opacity: 0.9, textAlign: 'center', letterSpacing: '0.5px' }}>सत्यमेव जयते</span>
             <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>Govt. of Delhi</span>
           </div>
-          <div>
-            <span className="logo-text">JanSamadhan</span>
-            <span className="logo-sub">जन समाधान — Citizen Portal</span>
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <span className="logo-text" style={{ lineHeight: 1, marginBottom: '2px' }}>JanSamadhan</span>
+            <span className="logo-sub" style={{ lineHeight: 1 }}>जन समाधान — Citizen Portal</span>
           </div>
         </Link>
 
@@ -191,7 +178,7 @@ export default function Navbar({ onMenuToggle }) {
                   position: 'relative',
                   width: 38, height: 38,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'background 200ms ease',
+                  transition: 'background 200ms ease', boxSizing: 'border-box'
                 }}
                 onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.22)'}
                 onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
@@ -270,7 +257,7 @@ export default function Navbar({ onMenuToggle }) {
 
             {/* File Complaint CTA - for citizens */}
             {user.role === 'citizen' && (
-              <Link to="/file-complaint" className="btn btn-primary btn-sm">
+              <Link to="/file-complaint" className="btn btn-primary btn-sm" style={{ height: 38, display: 'flex', alignItems: 'center', boxSizing: 'border-box' }}>
                 + File Complaint
               </Link>
             )}
@@ -284,7 +271,8 @@ export default function Navbar({ onMenuToggle }) {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8,
                   background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)',
-                  borderRadius: 8, padding: '6px 12px', cursor: 'pointer', color: 'white'
+                  borderRadius: 8, padding: '0 12px', cursor: 'pointer', color: 'white',
+                  height: 38, boxSizing: 'border-box'
                 }}
               >
                 <div style={{
