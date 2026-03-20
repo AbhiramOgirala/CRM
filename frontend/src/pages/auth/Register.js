@@ -71,16 +71,66 @@ export default function Register() {
           const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`);
           const d = await r.json();
           const addr = d.address;
+
           // Build address string
-          const addressStr = [addr?.road, addr?.suburb, addr?.city || addr?.town || addr?.village].filter(Boolean).join(', ');
+          const addressStr = [addr?.road, addr?.suburb, addr?.neighbourhood, addr?.city || addr?.town || addr?.village].filter(Boolean).join(', ');
+          const pincode = addr?.postcode || '';
+
+          // Try to match district from DB
+          const cityName = addr?.city || addr?.town || addr?.county || addr?.state_district || '';
+          const suburb = addr?.suburb || addr?.neighbourhood || addr?.quarter || '';
+
+          let matchedDistrictId = '';
+          let matchedTalukaId = '';
+          let matchedMandalId = '';
+
+          // Find matching district by name similarity
+          const districtMatch = districts.find(dist =>
+            cityName.toLowerCase().includes(dist.name.toLowerCase()) ||
+            dist.name.toLowerCase().includes(cityName.toLowerCase().split(' ')[0])
+          );
+
+          if (districtMatch) {
+            matchedDistrictId = districtMatch.id;
+            // Load talukas for matched district
+            const tRes = await locationAPI.getTalukas(districtMatch.id);
+            const talukaList = tRes.talukas || [];
+            setTalukas(talukaList);
+
+            // Try to match taluka/sub-division
+            const talukaMatch = talukaList.find(t =>
+              suburb.toLowerCase().includes(t.name.toLowerCase()) ||
+              t.name.toLowerCase().includes(suburb.toLowerCase().split(' ')[0])
+            );
+
+            if (talukaMatch) {
+              matchedTalukaId = talukaMatch.id;
+              // Load mandals
+              const mRes = await locationAPI.getMandals(talukaMatch.id);
+              const mandalList = mRes.mandals || [];
+              setMandals(mandalList);
+
+              // Try to match mandal/area
+              const mandalMatch = mandalList.find(m =>
+                suburb.toLowerCase().includes(m.name.toLowerCase()) ||
+                m.name.toLowerCase().includes(suburb.toLowerCase().split(' ')[0])
+              );
+              if (mandalMatch) matchedMandalId = mandalMatch.id;
+            }
+          }
+
           setForm(prev => ({
             ...prev,
             address: addressStr || d.display_name || '',
-            pincode: addr?.postcode || prev.pincode
+            pincode,
+            ...(matchedDistrictId && { district_id: matchedDistrictId }),
+            ...(matchedTalukaId && { taluka_id: matchedTalukaId }),
+            ...(matchedMandalId && { mandal_id: matchedMandalId }),
           }));
-          toast.success('Location detected! Your address has been filled in automatically.');
+
+          toast.success('📍 Location detected and fields auto-filled!');
         } catch {
-          toast('GPS captured. Please fill in the location dropdowns manually.');
+          toast('📍 GPS captured. Please fill in the location dropdowns manually.');
         }
         setGettingGPS(false);
       },
@@ -212,7 +262,7 @@ export default function Register() {
               <div style={{ textAlign: 'center', margin: '0 0 14px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
                 — or select manually below —
               </div>
-              <div className="form-group" style={{ display: 'none' }}>
+              <div className="form-group">
                 <label className="form-label">State <span className="required">*</span></label>
                 <select className="form-control" value={form.state_id} onChange={e => handleStateChange(e.target.value)}>
                   <option value="">Select your state</option>

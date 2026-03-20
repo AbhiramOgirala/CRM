@@ -76,8 +76,6 @@ export function ComplaintCard({ complaint, showCitizenInfo = false, actions }) {
           variant="icon"
           translate={false}
         />
-          variant="icon"
-        />
         {complaint.duplicate_count > 0 && (
           <div style={{
             textAlign: 'center', background: 'var(--danger-bg)',
@@ -261,7 +259,7 @@ export function LocationSelector({ value, onChange, required = false }) {
   return (
     <div>
       <div className="grid-2" style={{ gap: 12 }}>
-        <div className="form-group" style={{ display: 'none' }}>
+        <div className="form-group">
           <label className="form-label">State {required && <span className="required">*</span>}</label>
           <select className="form-control" value={value.state_id || ''} onChange={e => handleStateChange(e.target.value)}>
             <option value="">Select State</option>
