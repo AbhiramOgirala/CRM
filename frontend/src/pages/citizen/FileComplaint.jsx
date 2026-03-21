@@ -7,6 +7,8 @@ import SpeakButton from '../../components/ui/SpeakButton';
 import { buildFieldPrompt, buildDescriptionReadout, buildClassificationReadout } from '../../hooks/useTextToSpeech';
 import { useLanguage } from '../../context/LanguageContext';
 
+import { openDB } from 'idb';
+
 const LANG_CODES = {
   en: 'en-IN', hi: 'hi-IN', te: 'te-IN', ta: 'ta-IN',
   mr: 'mr-IN', kn: 'kn-IN', gu: 'gu-IN', bn: 'bn-IN', pa: 'pa-IN'
@@ -173,14 +175,46 @@ export default function FileComplaint() {
   };
 
   // ── Image Upload ─────────────────────────────────────────────────
-  const handleImages = (e) => {
+  const handleImages = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length + form.images.length > 5) { toast.error('Max 5 photos allowed'); return; }
-    files.forEach(file => {
+    
+    // Import dynamically to keep initial bundle smaller if possible, or use the top-level import
+    let imageCompression;
+    try {
+      imageCompression = (await import('browser-image-compression')).default;
+    } catch (e) {
+      console.error('Failed to load image compression library');
+    }
+
+    const compressedFiles = [];
+    setLoading(true);
+    
+    for (const file of files) {
+      if (imageCompression) {
+        const options = {
+          maxSizeMB: 0.5,          // compress to max 500KB
+          maxWidthOrHeight: 1280,  // resize to max 1280px
+          useWebWorker: true       // non-blocking
+        };
+        try {
+          const compressed = await imageCompression(file, options);
+          compressedFiles.push(compressed);
+        } catch (err) {
+          console.warn('Compression failed, using original', err);
+          compressedFiles.push(file);
+        }
+      } else {
+        compressedFiles.push(file);
+      }
+    }
+
+    compressedFiles.forEach(file => {
       const reader = new FileReader();
       reader.onload = ev => setForm(p => ({ ...p, images: [...p.images, ev.target.result] }));
       reader.readAsDataURL(file);
     });
+    setLoading(false);
   };
 
   // ── Validation ───────────────────────────────────────────────────
@@ -216,6 +250,32 @@ export default function FileComplaint() {
       );
       navigate(`/complaint/${complaint.id}`);
     } catch (err) {
+      // Check if it's a network error (offline)
+      if (!window.navigator.onLine || err.message.includes('Cannot connect to server')) {
+        if ('serviceWorker' in navigator && 'SyncManager' in window) {
+          try {
+            const db = await openDB('jansamadhan-db', 1, {
+              upgrade(db) {
+                if (!db.objectStoreNames.contains('complaints-sync')) {
+                  db.createObjectStore('complaints-sync', { keyPath: 'id', autoIncrement: true });
+                }
+              },
+            });
+            const token = localStorage.getItem('token');
+            await db.add('complaints-sync', { data: form, token, timestamp: Date.now() });
+            
+            const reg = await navigator.serviceWorker.ready;
+            await reg.sync.register('sync-complaints');
+            
+            localStorage.removeItem('complaint_draft');
+            toast.success('No connection. Your complaint has been queued and will be submitted automatically when you are back online.');
+            navigate('/my-complaints');
+            return;
+          } catch (syncErr) {
+            console.error('Failed to queue for sync:', syncErr);
+          }
+        }
+      }
       toast.error(err.message || 'Failed to file complaint. Please try again.');
     } finally {
       setLoading(false);

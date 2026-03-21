@@ -15,7 +15,7 @@ export function PublicFeed() {
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
   const [filters, setFilters] = useState({
     category: '', priority: '', state_id: '', search: '',
-    sortBy: 'upvote_count', sortOrder: 'desc', page: 1,
+    sortBy: 'created_at', sortOrder: 'desc', page: 1,
   });
   const [states, setStates] = useState([]);
 
@@ -90,11 +90,11 @@ export function PublicFeed() {
         <select
           className="form-control"
           value={filters.sortBy}
-          onChange={e => setFilters(p => ({ ...p, sortBy: e.target.value }))}
+          onChange={e => setFilters(p => ({ ...p, sortBy: e.target.value, page: 1 }))}
           aria-label="Sort by"
         >
-          <option value="upvote_count">Most Upvoted</option>
           <option value="created_at">Newest First</option>
+          <option value="upvote_count">Most Upvoted</option>
           <option value="priority">Highest Priority</option>
         </select>
       </div>

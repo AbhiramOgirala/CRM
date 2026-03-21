@@ -22,7 +22,7 @@ export default function About() {
             About JanSamadhan
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginBottom: 32 }}>
-            <span lang="hi">जन समाधान</span> — A Smart Citizen Grievance Portal by the Government of Delhi
+            <span lang="hi">जन समाधान</span> — A Smart Citizen Grievance Portal by the Government of India
           </p>
 
           {/* About section */}
@@ -31,7 +31,7 @@ export default function About() {
               Our Mandate
             </h2>
             <p style={{ color: 'var(--text-secondary)', lineHeight: 1.8, fontSize: '0.95rem' }}>
-              JanSamadhan is the official digital grievance redressal platform of the Government of Delhi. Our mission is to bridge the gap between citizens and government, ensuring every civic complaint is heard, tracked, and resolved transparently.
+              JanSamadhan is the official digital grievance redressal platform of the Government of India. Our mission is to bridge the gap between citizens and government, ensuring every civic complaint is heard, tracked, and resolved transparently.
             </p>
             <p style={{ color: 'var(--text-secondary)', lineHeight: 1.8, fontSize: '0.95rem', marginTop: 12 }}>
               Built on principles of transparency, accountability, and citizen empowerment, JanSamadhan uses AI-powered routing to direct complaints to the correct department, reducing resolution time and improving government accountability.
@@ -47,8 +47,8 @@ export default function About() {
               <div>
                 <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 4 }}>Department of Urban Development</div>
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6 }}>
-                  Government of Delhi<br />
-                  Delhi Secretariat, New Delhi — 110002
+                  Government of India<br />
+                  Secretariat, New Delhi — 110002
                 </div>
               </div>
               <div>
@@ -89,7 +89,7 @@ export default function About() {
               <div>
                 <strong>Postal Address:</strong><br />
                 JanSamadhan Help Desk<br />
-                Delhi Secretariat, ITO<br />
+                Secretariat, New Delhi<br />
                 New Delhi — 110002
               </div>
             </div>

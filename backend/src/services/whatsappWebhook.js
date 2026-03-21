@@ -52,8 +52,9 @@ const handleIncoming = async (req, res) => {
     .single();
 
   if (!user) {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     await sendWhatsApp(phone,
-      `🏛️ *JanSamadhan*\n\nHi! We couldn't find an account linked to this number.\n\nPlease register first at:\n👉 http://localhost:3000/register\n\nOnce registered, text us again to file a complaint.`
+      `🏛️ *JanSamadhan*\n\nHi! We couldn't find an account linked to this number.\n\nPlease register first at:\n👉 ${frontendUrl}/register\n\nOnce registered, text us again to file a complaint.`
     );
     return;
   }
@@ -178,7 +179,7 @@ const confirmAndFile = async (phone, user, data) => {
       `🏢 *Assigned to:* ${deptName}\n` +
       `⏱️ *Expected resolution:* ${result.slaHours}h\n\n` +
       `You'll get updates here on WhatsApp as the status changes.\n\n` +
-      `Track online: http://localhost:3000`
+      `Track online: ${(process.env.FRONTEND_URL || 'http://localhost:3000')}`
     );
 
     console.log(`[WhatsApp Bot] Complaint filed: ${ticket} for user ${user.id}`);
@@ -207,7 +208,7 @@ const sendStatusSummary = async (phone, user) => {
     `${statusEmoji[c.status] || '📋'} *${c.ticket_number}* — ${c.status.replace(/_/g, ' ')}\n   ${c.title.substring(0, 50)}`
   ).join('\n\n');
 
-  await sendWhatsApp(phone, `🏛️ *Your Recent Complaints*\n\n${lines}\n\nFor full details visit: http://localhost:3000`);
+  await sendWhatsApp(phone, `🏛️ *Your Recent Complaints*\n\n${lines}\n\nFor full details visit: ${(process.env.FRONTEND_URL || 'http://localhost:3000')}`);
 };
 
 module.exports = { handleIncoming };

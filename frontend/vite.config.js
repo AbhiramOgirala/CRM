@@ -1,9 +1,21 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig({
-  plugins: [
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const port = parseInt(env.VITE_PORT || env.PORT || 3001);
+  
+  // Extract base URL from REACT_APP_API_URL if present, otherwise default to 5000
+  let backendUrl = 'http://localhost:5000';
+  if (env.VITE_BACKEND_URL) {
+    backendUrl = env.VITE_BACKEND_URL;
+  } else if (env.REACT_APP_API_URL) {
+    backendUrl = env.REACT_APP_API_URL.replace(/\/api\/?$/, '');
+  }
+
+  return {
+    plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
@@ -46,6 +58,8 @@ export default defineConfig({
       workbox: {
         // Pre-cache all static assets
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,woff}'],
+        // Custom service worker logic for background sync
+        importScripts: ['/sw-sync.js'],
         // Runtime caching strategies
         runtimeCaching: [
           {
@@ -85,16 +99,16 @@ export default defineConfig({
     })
   ],
   server: {
-    port: 3001,
+    port: port,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: backendUrl,
         changeOrigin: true
       }
     }
   },
   preview: {
-    port: 3001
+    port: port
   },
   resolve: {
     extensions: ['.jsx', '.js', '.json']
@@ -102,4 +116,5 @@ export default defineConfig({
   optimizeDeps: {
     include: ['leaflet', 'leaflet.markercluster']
   }
+  };
 });

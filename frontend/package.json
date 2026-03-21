@@ -5,17 +5,19 @@
   "type": "module",
   "dependencies": {
     "@tanstack/react-query": "^5.17.0",
-    "axios": "^1.6.5",
+    "axios": "^1.7.9",
+    "browser-image-compression": "^2.0.2",
     "chart.js": "^4.4.1",
+    "idb": "^8.0.3",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
-    "react": "^18.2.0",
-    "react-chartjs-2": "^5.2.0",
-    "react-dom": "^18.2.0",
-    "react-hot-toast": "^2.4.1",
-    "react-leaflet": "^4.2.1",
-    "react-router-dom": "^6.21.3",
-    "zustand": "^4.4.7"
+    "react": "^19.2.4",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^19.2.4",
+    "react-hot-toast": "^2.6.0",
+    "react-leaflet": "^5.0.0",
+    "react-router-dom": "^7.13.1",
+    "zustand": "^5.0.12"
   },
   "scripts": {
     "start": "vite",
@@ -24,8 +26,14 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.2.1",
-    "vite": "^5.0.0",
-    "vite-plugin-pwa": "^0.17.0"
+    "@vitejs/plugin-react": "^6.0.1",
+    "vite": "^8.0.1",
+    "vite-plugin-pwa": "^1.2.0"
+  },
+  "overrides": {
+    "glob": "^13.0.6",
+    "magic-string": "^0.30.17",
+    "sourcemap-codec": "npm:@jridgewell/sourcemap-codec@^1.4.15",
+    "serialize-javascript": "^7.0.4"
   }
 }

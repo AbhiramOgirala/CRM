@@ -178,7 +178,7 @@ export default function Landing() {
               <div>
                 <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: 12, opacity: 0.6, textTransform: 'uppercase', letterSpacing: 1 }}>JanSamadhan</h3>
                 <p style={{ fontSize: '0.82rem', opacity: 0.6, lineHeight: 1.8, margin: 0 }}>
-                  A citizen grievance redressal portal by the Government of Delhi.
+                  A citizen grievance redressal portal by the Government of India.
                 </p>
                 <p style={{ fontSize: '0.75rem', opacity: 0.5, lineHeight: 1.6, marginTop: 8 }}>
                   Powered by NIC (National Informatics Centre)<br />
@@ -211,8 +211,8 @@ export default function Landing() {
               </div>
             </div>
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: 20, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, fontSize: '0.75rem', opacity: 0.5 }}>
-              <span>© 2025 Government of Delhi. All rights reserved.</span>
-              <span>Last Updated: March 2025 | v1.0.0 | <Link to="/about" style={{ color: 'rgba(255,255,255,0.7)' }}>Accessibility Statement</Link></span>
+              <span>© 2026 Government of India. All rights reserved.</span>
+              <span>Last Updated: March 2026 | v1.0.0 | <Link to="/about" style={{ color: 'rgba(255,255,255,0.7)' }}>Accessibility Statement</Link></span>
             </div>
           </div>
         </footer>

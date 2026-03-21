@@ -78,13 +78,28 @@ export function FeedCard({ complaint }) {
 
       {/* Card body */}
       <div style={{ padding: '14px 16px' }}>
-        {/* Top row: category + status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-          <CategoryChip category={complaint.category} />
-          <StatusBadge status={complaint.status} />
-          {complaint.is_duplicate && (
-            <span className="badge" style={{ background: '#F3E5F5', color: '#7B1FA2' }}>Duplicate</span>
-          )}
+        {/* User header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: '50%',
+            background: 'var(--secondary-light)', color: 'var(--secondary)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontWeight: 800, fontSize: '0.8rem', flexShrink: 0
+          }} aria-hidden="true">
+            {complaint.reporter_name?.[0]?.toUpperCase() || 'A'}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              {complaint.reporter_name || 'Anonymous Citizen'}
+            </span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              {timeAgo(complaint.created_at)}
+            </span>
+          </div>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+            <CategoryChip category={complaint.category} />
+            <StatusBadge status={complaint.status} />
+          </div>
         </div>
 
         {/* Title */}
@@ -118,8 +133,8 @@ export function FeedCard({ complaint }) {
           </p>
         )}
 
-        {/* Location + time row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 12, flexWrap: 'wrap' }}>
+        {/* Location + Ticket info row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 16, flexWrap: 'wrap' }}>
           {locationLabel && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -128,15 +143,12 @@ export function FeedCard({ complaint }) {
               {locationLabel}
             </span>
           )}
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-            </svg>
-            {timeAgo(complaint.created_at)}
-          </span>
-          <span className="ticket-badge" style={{ fontSize: '0.72rem', padding: '2px 7px' }}>
+          <span className="ticket-badge" style={{ fontSize: '0.72rem', padding: '2px 7px', background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
             #{complaint.ticket_number}
           </span>
+          {complaint.is_duplicate && (
+            <span className="badge" style={{ background: '#F3E5F5', color: '#7B1FA2', fontSize: '0.65rem', padding: '1px 8px' }}>Duplicate</span>
+          )}
         </div>
 
         {/* Footer: upvotes + comments + duplicate count */}

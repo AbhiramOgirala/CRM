@@ -22,7 +22,7 @@ export default function PrivacyPolicy() {
             Privacy Policy
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 32 }}>
-            Last updated: March 2025 | Government of Delhi — JanSamadhan Portal
+            Last updated: March 2026 | Government of India — JanSamadhan Portal
           </p>
 
           {[
@@ -64,7 +64,7 @@ export default function PrivacyPolicy() {
             },
             {
               title: '10. Contact',
-              content: `For privacy-related queries, contact: Designated Privacy Officer, JanSamadhan, Delhi Secretariat, New Delhi — 110002. Email: privacy@jansamadhan.gov.in`
+              content: `For privacy-related queries, contact: Designated Privacy Officer, JanSamadhan, Secretariat, New Delhi — 110002. Email: privacy@jansamadhan.gov.in`
             }
           ].map(section => (
             <div key={section.title} className="card" style={{ marginBottom: 16 }}>
