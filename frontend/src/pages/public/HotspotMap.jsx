@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { complaintsAPI, locationAPI } from '../../services/api';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 const CATEGORY_COLORS = {
   roads: '#E65100', water_supply: '#0277BD', electricity: '#F9A825',
@@ -36,35 +38,11 @@ export default function HotspotMap() {
 
   const initMap = () => {
     if (mapInstanceRef.current || !mapRef.current) return;
-    
-    // Check if Leaflet is already loaded
-    const L = window.L;
-    if (!L) {
-      // Load Leaflet CSS and JS
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = () => {
-        // Wait a bit for Leaflet to fully initialize
-        setTimeout(setupMap, 100);
-      };
-      script.onerror = () => {
-        console.error('Failed to load Leaflet library');
-        setError('Failed to load map library. Please refresh the page.');
-      };
-      document.head.appendChild(script);
-    } else {
-      setupMap();
-    }
+    setupMap();
   };
 
   const setupMap = () => {
-    const L = window.L;
-    if (!L || !mapRef.current || mapInstanceRef.current) return;
+    if (!mapRef.current || mapInstanceRef.current) return;
 
     try {
       const map = L.map(mapRef.current).setView([20.5937, 78.9629], 5);
@@ -119,9 +97,8 @@ export default function HotspotMap() {
   };
 
   const updateMapMarkers = (data) => {
-    const L = window.L;
     const map = mapInstanceRef.current;
-    if (!L || !map) return;
+    if (!map) return;
 
     try {
       // Remove existing markers
@@ -162,7 +139,7 @@ export default function HotspotMap() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">🗺️ Complaint Hotspot Map</h1>
+          <h1 className="page-title">Complaint Hotspot Map</h1>
           <p className="page-subtitle">Geographic distribution of civic complaints</p>
         </div>
       </div>
@@ -243,14 +220,13 @@ export default function HotspotMap() {
 
       {/* Map */}
       <div style={{ borderRadius: 'var(--radius)', overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
-        <div ref={mapRef} style={{ height: 500, background: '#E8EAF6' }}>
-          {!window.L && (
-            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
-              <div className="loading-spinner" style={{ width: 36, height: 36 }} />
-              <p style={{ color: 'var(--text-muted)' }}>Loading map...</p>
-            </div>
-          )}
-        </div>
+        <div
+          ref={mapRef}
+          style={{ height: 500, background: '#E8EAF6' }}
+          role="application"
+          aria-label="Interactive hotspot map showing civic complaint locations across India"
+          tabIndex={0}
+        />
       </div>
 
       {/* Legend */}

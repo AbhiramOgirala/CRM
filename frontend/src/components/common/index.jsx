@@ -76,8 +76,6 @@ export function ComplaintCard({ complaint, showCitizenInfo = false, actions }) {
           variant="icon"
           translate={false}
         />
-          variant="icon"
-        />
         {complaint.duplicate_count > 0 && (
           <div style={{
             textAlign: 'center', background: 'var(--danger-bg)',

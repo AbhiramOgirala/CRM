@@ -47,6 +47,7 @@ export default function Navbar({ onMenuToggle }) {
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showA11yBar, setShowA11yBar] = useState(false);
   const notifRef = useRef();
   const userRef = useRef();
 
@@ -90,7 +91,7 @@ export default function Navbar({ onMenuToggle }) {
     <header>
       {/* UX4G Accessibility Bar */}
       <div 
-        className="accessibility-bar" 
+        className={`accessibility-bar${showA11yBar ? ' mobile-open' : ''}`}
         style={{
           height: '36px', 
           background: 'var(--secondary)', 
@@ -129,15 +130,22 @@ export default function Navbar({ onMenuToggle }) {
         </div>
       </div>
 
-      <nav className="navbar" role="navigation" aria-label="Main navigation" style={{ top: '36px' }}>
+      <style>{`
+        .navbar-main { top: 36px; }
+        @media (max-width: 768px) {
+          .navbar-main { top: ${showA11yBar ? 'auto' : '0'}; }
+          ${showA11yBar ? '.accessibility-bar.mobile-open + .navbar-main { top: auto; position: relative; }' : ''}
+        }
+      `}</style>
+      <nav className="navbar navbar-main" role="navigation" aria-label="Main navigation">
         {/* Hamburger - mobile */}
         <button
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            color: 'white', marginRight: 8, display: 'none',
-            padding: 8, borderRadius: 6,
+            color: 'white', marginRight: 8, padding: 8, borderRadius: 6,
             alignItems: 'center', justifyContent: 'center',
           }}
+          className="menu-toggle-btn"
           onClick={onMenuToggle}
           id="menu-toggle"
           aria-label="Toggle sidebar menu"
@@ -157,12 +165,12 @@ export default function Navbar({ onMenuToggle }) {
           </div>
           {/* Emblem text reference to fulfill UX4G text/emblem requirements */}
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', marginRight: '8px', borderRight: '1px solid rgba(255,255,255,0.3)', paddingRight: '12px' }}>
-            <span style={{ fontSize: '0.5rem', opacity: 0.9, textAlign: 'center', letterSpacing: '0.5px' }}>सत्यमेव जयते</span>
-            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>Govt. of Delhi</span>
+            <span lang="hi" style={{ fontSize: '0.5rem', opacity: 0.9, textAlign: 'center', letterSpacing: '0.5px' }}>सत्यमेव जयते</span>
+            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>Govt. of India</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <span className="logo-text" style={{ lineHeight: 1, marginBottom: '2px' }}>JanSamadhan</span>
-            <span className="logo-sub" style={{ lineHeight: 1 }}>जन समाधान — Citizen Portal</span>
+            <span lang="hi" className="logo-sub" style={{ lineHeight: 1 }}>जन समाधान — <span lang="en">Citizen Portal</span></span>
           </div>
         </Link>
 
@@ -391,9 +399,22 @@ export default function Navbar({ onMenuToggle }) {
             </Link>
           </div>
         )}
+
+        {/* Mobile accessibility toggle — hidden on desktop via CSS */}
+        <button
+          className="mobile-a11y-toggle"
+          aria-label={showA11yBar ? 'Hide accessibility options' : 'Show accessibility options'}
+          aria-expanded={showA11yBar}
+          onClick={() => setShowA11yBar(prev => !prev)}
+          style={{ display: 'none' }} /* shown only on mobile via CSS class */
+        >
+          A
+        </button>
+
       </div>
 
       <style>{`
+        #menu-toggle { display: none !important; }
         @media (max-width: 768px) {
           #menu-toggle { display: flex !important; }
         }

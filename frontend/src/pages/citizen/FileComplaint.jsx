@@ -42,13 +42,50 @@ export default function FileComplaint() {
     setActiveLang(LANG_CODES[code] || 'en-IN');
   };
 
-  const [form, setForm] = useState({
+  const DEFAULT_FORM = {
     title: '', description: '', audio_transcript: '',
     latitude: '', longitude: '', address: '', landmark: '', pincode: '',
     state_id: '', district_id: '', corporation_id: '', municipality_id: '',
     taluka_id: '', mandal_id: '', gram_panchayat_id: '',
     is_public: true, is_anonymous: false, images: []
+  };
+
+  // Restore draft or start fresh
+  const [form, setForm] = useState(() => {
+    try {
+      const saved = localStorage.getItem('complaint_draft');
+      if (saved) {
+        // Defer toast to after first render
+        return JSON.parse(saved);
+      }
+    } catch {}
+    return DEFAULT_FORM;
   });
+
+  // Voice recognition support check
+  const voiceSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  // Auto-save draft to localStorage on every form change
+  useEffect(() => {
+    // Don't save if form is empty
+    const hasContent = form.title || form.description || form.audio_transcript;
+    if (hasContent) {
+      localStorage.setItem('complaint_draft', JSON.stringify(form));
+    }
+  }, [form]);
+
+  // Notify user if draft was restored
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('complaint_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.title || parsed.description) {
+          toast('Draft restored. Your previous progress has been saved.', { icon: 'restore' });
+        }
+      }
+    } catch {}
+  }, []); // Only on mount
 
   // ── Voice Recognition Setup ──────────────────────────────────────
   useEffect(() => {
@@ -171,6 +208,8 @@ export default function FileComplaint() {
     try {
       const res = await complaintsAPI.file(form);
       const { complaint, auto_detection } = res;
+      // Clear draft on success
+      localStorage.removeItem('complaint_draft');
       toast.success(
         `Complaint filed!\nTicket: ${complaint.ticket_number}\nRouted to: ${auto_detection?.department}`,
         { duration: 5000 }
@@ -258,42 +297,59 @@ export default function FileComplaint() {
               </div>
             </div>
 
-            {/* Voice input button */}
             <div className="form-group">
               <label className="form-label">Voice Input (Speak your complaint)</label>
-              <button
-                type="button"
-                onClick={toggleVoice}
-                style={{
-                  width: '100%', padding: '16px', borderRadius: 'var(--radius)',
-                  border: `3px solid ${isRecording ? '#C62828' : 'var(--border)'}`,
-                  background: isRecording ? '#FFEBEE' : 'var(--surface-2)',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  gap: 12, fontSize: '0.95rem', fontWeight: 600,
-                  color: isRecording ? '#C62828' : 'var(--text-secondary)',
-                  transition: 'all 0.2s',
-                  animation: isRecording ? 'pulse 1.5s infinite' : 'none'
-                }}
-              >
-                <div style={{ fontSize: '0.8rem', fontWeight: 700, padding: '4px 8px', borderRadius: 4, background: isRecording ? '#C62828' : 'var(--text-secondary)', color: 'white' }}>
-                  {isRecording ? 'REC' : 'MIC'}
-                </div>
-                <div>
-                  <div>{isRecording ? 'Recording... Tap to stop' : `Speak in ${LANG_LABELS[selectedLang]}`}</div>
-                  {isRecording && <div style={{ fontSize: '0.75rem', opacity: 0.7, fontWeight: 400 }}>Listening for your complaint...</div>}
-                </div>
-                {isRecording && (
-                  <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
-                    {[1,2,3,4].map(i => (
-                      <div key={i} style={{
-                        width: 4, background: '#C62828', borderRadius: 2,
-                        animation: `wave ${0.4 + i*0.1}s ease-in-out infinite alternate`,
-                        height: `${8 + i * 4}px`
-                      }} />
-                    ))}
+              {voiceSupported ? (
+                <button
+                  type="button"
+                  onClick={toggleVoice}
+                  style={{
+                    width: '100%', padding: '16px', borderRadius: 'var(--radius)',
+                    border: `3px solid ${isRecording ? '#C62828' : 'var(--border)'}`,
+                    background: isRecording ? '#FFEBEE' : 'var(--surface-2)',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    gap: 12, fontSize: '0.95rem', fontWeight: 600,
+                    color: isRecording ? '#C62828' : 'var(--text-secondary)',
+                    transition: 'all 0.2s',
+                    animation: isRecording ? 'pulse 1.5s infinite' : 'none'
+                  }}
+                >
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, padding: '4px 8px', borderRadius: 4, background: isRecording ? '#C62828' : 'var(--text-secondary)', color: 'white' }}>
+                    {isRecording ? 'REC' : 'MIC'}
                   </div>
-                )}
-              </button>
+                  <div>
+                    <div>{isRecording ? 'Recording... Tap to stop' : `Speak in ${LANG_LABELS[selectedLang]}`}</div>
+                    {isRecording && <div style={{ fontSize: '0.75rem', opacity: 0.7, fontWeight: 400 }}>Listening for your complaint...</div>}
+                  </div>
+                  {isRecording && (
+                    <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
+                      {[1,2,3,4].map(i => (
+                        <div key={i} style={{
+                          width: 4, background: '#C62828', borderRadius: 2,
+                          animation: `wave ${0.4 + i*0.1}s ease-in-out infinite alternate`,
+                          height: `${8 + i * 4}px`
+                        }} />
+                      ))}
+                    </div>
+                  )}
+                </button>
+              ) : (
+                <div style={{
+                  padding: '14px 16px', borderRadius: 'var(--radius)',
+                  background: 'var(--surface-2)', border: '1px solid var(--border)',
+                  fontSize: '0.85rem', color: 'var(--text-muted)',
+                  display: 'flex', alignItems: 'center', gap: 10
+                }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                    <path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6"/>
+                    <path d="M17 16.95A7 7 0 015 12v-2m14 0v2a7 7 0 01-.11 1.23"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                  </svg>
+                  Voice input is not supported in your browser. Please use Chrome or Edge, or type your complaint below.
+                </div>
+              )}
               <p className="form-hint">Works best in Chrome or Edge browser. Supports all Indian languages.</p>
             </div>
 
