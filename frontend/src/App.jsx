@@ -49,6 +49,21 @@ const PageLoader = () => (
   </div>
 );
 
+// Root redirect — PWA smart entry point
+const RootRedirect = () => {
+  const { user, token } = useAuthStore();
+  if (token && user) {
+    const map = {
+      citizen: '/dashboard',
+      officer: '/officer/dashboard',
+      admin: '/admin/dashboard',
+      super_admin: '/admin/dashboard',
+    };
+    return <Navigate to={map[user.role] || '/dashboard'} replace />;
+  }
+  return <Navigate to="/register" replace />;
+};
+
 // Protected Route
 const ProtectedRoute = ({ children, roles }) => {
   const { user, token } = useAuthStore();
@@ -100,8 +115,9 @@ function App() {
       />
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Landing />} />
+          {/* Root: PWA smart redirect — logged in → dashboard, else → landing */}
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="/landing" element={<Landing />} />
           <Route path="/feed" element={<MainLayout><PublicFeed /></MainLayout>} />
           <Route path="/map" element={<MainLayout><HotspotMap /></MainLayout>} />
           <Route path="/leaderboard" element={<MainLayout><Leaderboard /></MainLayout>} />

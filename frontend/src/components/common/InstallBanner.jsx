@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 
 /**
  * PWA Install Banner — hooks into beforeinstallprompt event.
@@ -6,6 +7,7 @@ import React, { useState, useEffect } from 'react';
  * Remembers dismissal via localStorage.
  */
 export default function InstallBanner() {
+  const { t } = useTranslation();
   const [prompt, setPrompt] = useState(null);
   const [show, setShow] = useState(false);
   const [installed, setInstalled] = useState(false);
@@ -49,7 +51,7 @@ export default function InstallBanner() {
   return (
     <div
       role="banner"
-      aria-label="Install JanSamadhan app"
+      aria-label={t('install.title', 'Install JanSamadhan app')}
       style={{
         position: 'fixed', bottom: 16, left: 16, right: 16, zIndex: 500,
         background: '#1A237E', color: 'white', borderRadius: 12,
@@ -66,7 +68,7 @@ export default function InstallBanner() {
         <div style={{ width: 20, height: 4, background: '#138808', borderRadius: 2 }} />
       </div>
       <span style={{ flex: 1, fontSize: '0.875rem', lineHeight: 1.4 }}>
-        Install JanSamadhan on your phone for faster access &amp; offline support
+        {t('install.title', 'Install JanSamadhan on your phone for faster access & offline support')}
       </span>
       <button
         id="pwa-install-btn"
@@ -78,7 +80,7 @@ export default function InstallBanner() {
         }}
         aria-label="Install app"
       >
-        Install
+        {t('install.btn', 'Install')}
       </button>
       <button
         onClick={dismiss}

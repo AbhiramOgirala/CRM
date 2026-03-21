@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 
@@ -48,7 +48,11 @@ export default function Landing() {
   return (
     <div>
       <Navbar />
-      <div id="main-content" tabIndex="-1" style={{ marginTop: 100, outline: 'none' }}>
+      <style>{`
+        .landing-main { margin-top: 100px; }
+        @media (max-width: 768px) { .landing-main { margin-top: 64px; } }
+      `}</style>
+      <div id="main-content" tabIndex="-1" className="landing-main" style={{ outline: 'none' }}>
         {/* Hero */}
         <div className="hero">
           <div style={{ position: 'relative', zIndex: 1 }}>

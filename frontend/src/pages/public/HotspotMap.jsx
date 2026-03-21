@@ -6,7 +6,7 @@ import 'leaflet/dist/leaflet.css';
 const CATEGORY_COLORS = {
   roads: '#E65100', water_supply: '#0277BD', electricity: '#F9A825',
   waste_management: '#558B2F', drainage: '#00838F', infrastructure: '#6A1B9A',
-  parks: '#2E7D32', health: '#C62828', education: '#283593', 
+  parks: '#2E7D32', health: '#C62828', education: '#283593',
   street_lights: '#FF6F00', other: '#546E7A'
 };
 
@@ -50,7 +50,7 @@ export default function HotspotMap() {
         attribution: '© OpenStreetMap contributors'
       }).addTo(map);
       mapInstanceRef.current = map;
-      
+
       // Load hotspots after map is ready
       if (hotspots.length > 0) {
         updateMapMarkers(hotspots);
@@ -66,13 +66,13 @@ export default function HotspotMap() {
     setError(null);
     try {
       console.log('Loading hotspots with filters:', filters);
-      
+
       // Load both hotspots and total complaints for comparison
       const [hotspotsRes, dashboardRes] = await Promise.all([
         complaintsAPI.getHotspots(filters),
         complaintsAPI.getDashboard()
       ]);
-      
+
       console.log('Hotspots API response:', hotspotsRes);
       const data = hotspotsRes.hotspots || [];
       setHotspots(data);
@@ -91,8 +91,8 @@ export default function HotspotMap() {
       setHotspots([]);
       setStats({ total: 0, byCategory: {} });
       setTotalComplaints(0);
-    } finally { 
-      setLoading(false); 
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -115,7 +115,7 @@ export default function HotspotMap() {
           className: '',
           html: `<div style="width:${size}px;height:${size}px;background:${color};border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3)"></div>`,
           iconSize: [size, size],
-          iconAnchor: [size/2, size/2]
+          iconAnchor: [size / 2, size / 2]
         });
 
         const marker = L.marker([h.latitude, h.longitude], { icon })
@@ -146,11 +146,11 @@ export default function HotspotMap() {
 
       {/* Error message */}
       {error && (
-        <div style={{ 
-          background: '#ffebee', 
-          color: '#c62828', 
-          padding: '12px', 
-          borderRadius: 'var(--radius)', 
+        <div style={{
+          background: '#ffebee',
+          color: '#c62828',
+          padding: '12px',
+          borderRadius: 'var(--radius)',
           marginBottom: '16px',
           border: '1px solid #ffcdd2'
         }}>
@@ -160,11 +160,11 @@ export default function HotspotMap() {
 
       {/* Empty state message */}
       {!loading && !error && stats.total === 0 && (
-        <div style={{ 
-          background: '#f5f5f5', 
-          color: '#666', 
-          padding: '20px', 
-          borderRadius: 'var(--radius)', 
+        <div style={{
+          background: '#f5f5f5',
+          color: '#666',
+          padding: '20px',
+          borderRadius: 'var(--radius)',
           marginBottom: '16px',
           textAlign: 'center',
           border: '1px solid #e0e0e0'
@@ -195,8 +195,8 @@ export default function HotspotMap() {
           <option value="90">Last 90 days</option>
           <option value="365">Last 1 year</option>
         </select>
-        <button 
-          className="btn btn-primary" 
+        <button
+          className="btn btn-primary"
           onClick={loadHotspots}
           disabled={loading}
           style={{ minWidth: '100px' }}
@@ -211,7 +211,7 @@ export default function HotspotMap() {
         <span style={{ background: 'var(--secondary)', color: 'white', borderRadius: 20, padding: '4px 14px', fontSize: '0.8rem', fontWeight: 700 }}>
           📍 {stats.total} of {totalComplaints} complaints shown (with GPS)
         </span>
-        {Object.entries(stats.byCategory).sort((a,b) => b[1]-a[1]).slice(0,5).map(([cat, count]) => (
+        {Object.entries(stats.byCategory).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([cat, count]) => (
           <span key={cat} style={{ background: CATEGORY_COLORS[cat] + '20', color: CATEGORY_COLORS[cat], borderRadius: 20, padding: '4px 12px', fontSize: '0.75rem', fontWeight: 700, border: `1px solid ${CATEGORY_COLORS[cat]}40` }}>
             {cat.replace(/_/g, ' ')}: {count}
           </span>
@@ -219,7 +219,7 @@ export default function HotspotMap() {
       </div>
 
       {/* Map */}
-      <div style={{ borderRadius: 'var(--radius)', overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
+      <div style={{ borderRadius: 'var(--radius)', overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', position: 'relative', zIndex: 1 }}>
         <div
           ref={mapRef}
           style={{ height: 500, background: '#E8EAF6' }}

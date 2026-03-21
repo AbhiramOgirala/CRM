@@ -87,6 +87,18 @@ export function ComplaintCard({ complaint, showCitizenInfo = false, actions }) {
         )}
       </div>
 
+      {/* Render image if available */}
+      {complaint.images?.length > 0 && (
+        <div style={{ padding: '0 16px', marginBottom: 12 }}>
+          <img
+            src={complaint.images[0]}
+            alt={`Photo for complaint ${complaint.ticket_number}`}
+            loading="lazy"
+            style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 'var(--radius-sm)' }}
+          />
+        </div>
+      )}
+
       <div className="complaint-meta">
         <CategoryChip category={complaint.category} />
 

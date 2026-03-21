@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
+import { useTranslation } from 'react-i18next';
 
 export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -9,6 +10,7 @@ export default function Login() {
   const [showPass, setShowPass] = useState(false);
   const { login } = useAuthStore();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -53,29 +55,29 @@ export default function Login() {
             <div style={{ width: 40, height: 6, borderRadius: 3, background: '#138808' }} />
           </div>
           <div style={{ fontFamily: 'Georgia, serif', fontSize: '1.8rem', fontWeight: 900, color: '#FFD54F', letterSpacing: '-1px' }}>
-            JanSamadhan
+            {t('app_title', 'JanSamadhan')}
           </div>
           <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.82rem', marginTop: 4 }}>
-            जन समाधान — Citizen Grievance Portal
+            {t('login.header_desc', 'जन समाधान — Citizen Grievance Portal')}
           </div>
         </div>
 
         {/* Form */}
         <div style={{ padding: '32px' }}>
           <h2 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: 4, color: '#1A1A2E' }}>
-            Login to Your Account
+            {t('login.title', 'Login to Your Account')}
           </h2>
           <p style={{ color: '#9EA3B8', fontSize: '0.85rem', marginBottom: 24 }}>
-            Citizens, Officers and Admins can login here
+            {t('login.subtitle', 'Citizens, Officers and Admins can login here')}
           </p>
 
           <form onSubmit={handleSubmit} noValidate>
             <div className="form-group">
-              <label className="form-label">Email Address <span className="required">*</span></label>
+              <label className="form-label">{t('login.email', 'Email Address')} <span className="required">*</span></label>
               <input
                 type="email"
                 className="form-control"
-                placeholder="Enter your registered email"
+                placeholder={t('login.email_ph', 'Enter your registered email')}
                 value={form.email}
                 onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
                 autoComplete="email"
@@ -85,12 +87,12 @@ export default function Login() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Password <span className="required">*</span></label>
+              <label className="form-label">{t('login.password', 'Password')} <span className="required">*</span></label>
               <div style={{ position: 'relative' }}>
                 <input
                   type={showPass ? 'text' : 'password'}
                   className="form-control"
-                  placeholder="Enter your password"
+                  placeholder={t('login.pass_ph', 'Enter your password')}
                   value={form.password}
                   onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
                   autoComplete="current-password"
@@ -107,7 +109,7 @@ export default function Login() {
                   }}
                   tabIndex={-1}
                 >
-                  {showPass ? 'Hide' : 'Show'}
+                  {showPass ? t('login.hide', 'Hide') : t('login.show', 'Show')}
                 </button>
               </div>
             </div>
@@ -119,8 +121,8 @@ export default function Login() {
               style={{ marginTop: 8, fontSize: '1rem' }}
             >
               {loading
-                ? <><div className="loading-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Logging in...</>
-                : 'Login'
+                ? <><div className="loading-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> {t('login.logging_in', 'Logging in...')}</>
+                : t('login.btn', 'Login')
               }
             </button>
           </form>
@@ -130,19 +132,19 @@ export default function Login() {
             marginTop: 20, background: '#F5F6FA', borderRadius: 8, padding: '10px 14px',
             fontSize: '0.78rem', color: '#5C6080', border: '1px solid #E0E3EF'
           }}>
-            <strong>First time?</strong> Register as a citizen to start filing complaints.
-            <br />Officers and Admins receive credentials from their administrator.
+            <strong>{t('login.first_time', 'First time?')}</strong> {t('login.reg_desc', 'Register as a citizen to start filing complaints.')}
+            <br />{t('login.admin_desc', 'Officers and Admins receive credentials from their administrator.')}
           </div>
 
           <div style={{ textAlign: 'center', marginTop: 20 }}>
             <p style={{ fontSize: '0.875rem', color: '#9EA3B8' }}>
-              New citizen?{' '}
+              {t('login.new_citizen', 'New citizen?')} {' '}
               <Link to="/register" style={{ color: '#E65100', fontWeight: 700, textDecoration: 'none' }}>
-                Register here
+                {t('login.reg_link', 'Register here')}
               </Link>
             </p>
             <Link to="/" style={{ fontSize: '0.8rem', color: '#9EA3B8', textDecoration: 'none', marginTop: 8, display: 'inline-block' }}>
-              ← Back to Home
+              ← {t('login.back', 'Back to Home')}
             </Link>
           </div>
         </div>

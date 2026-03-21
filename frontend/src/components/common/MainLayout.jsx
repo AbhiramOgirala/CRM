@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
+import MobileBottomNav from './MobileBottomNav';
 import useAuthStore from '../../store/authStore';
 
 export default function MainLayout({ children }) {
@@ -12,8 +13,19 @@ export default function MainLayout({ children }) {
       <Navbar onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
       <div className="main-layout">
         {user && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
-        <main 
-          id="main-content" 
+        {/* Overlay — closes sidebar on mobile tap-outside */}
+        {sidebarOpen && (
+          <div
+            className="sidebar-overlay"
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
+              zIndex: 1050, display: 'none'
+            }}
+          />
+        )}
+        <main
+          id="main-content"
           className={`main-content ${!user ? 'full-width' : ''}`}
           style={!user ? { marginLeft: 0 } : {}}
           tabIndex="-1"
@@ -21,6 +33,7 @@ export default function MainLayout({ children }) {
           {children}
         </main>
       </div>
+      <MobileBottomNav />
     </div>
   );
 }

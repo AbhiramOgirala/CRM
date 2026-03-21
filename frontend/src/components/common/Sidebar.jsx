@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
+import { useTranslation } from 'react-i18next';
 
 // SVG icon components — no emoji, formal government UI
 const Icons = {
@@ -58,61 +59,44 @@ const Icons = {
   ),
 };
 
-const CITIZEN_LINKS = [
-  { to: '/dashboard',      icon: Icons.dashboard,   label: 'Dashboard' },
-  { to: '/file-complaint', icon: Icons.file,         label: 'File Complaint' },
-  { to: '/my-complaints',  icon: Icons.list,         label: 'My Complaints' },
-  { to: '/feed',           icon: Icons.feed,         label: 'Public Feed' },
-  { to: '/map',            icon: Icons.map,          label: 'Hotspot Map' },
-  { to: '/leaderboard',    icon: Icons.leaderboard,  label: 'Leaderboard' },
-  { to: '/profile',        icon: Icons.profile,      label: 'My Profile' },
+const GET_CITIZEN_LINKS = (t) => [
+  { to: '/dashboard',      icon: Icons.dashboard,   label: t('nav_dashboard', 'Dashboard') },
+  { to: '/file-complaint', icon: Icons.file,         label: t('nav_file_complaint', 'File Complaint') },
+  { to: '/my-complaints',  icon: Icons.list,         label: t('nav_my_complaints', 'My Complaints') },
+  { to: '/feed',           icon: Icons.feed,         label: t('nav_public_feed', 'Public Feed') },
+  { to: '/map',            icon: Icons.map,          label: t('nav_hotspot_map', 'Hotspot Map') },
+  { to: '/leaderboard',    icon: Icons.leaderboard,  label: t('nav_leaderboard', 'Leaderboard') },
+  { to: '/profile',        icon: Icons.profile,      label: t('nav_my_profile', 'My Profile') },
 ];
 
-const OFFICER_LINKS = [
-  { to: '/officer/dashboard',  icon: Icons.dashboard,   label: 'Dashboard' },
-  { to: '/officer/portal',     icon: Icons.portal,      label: 'Govt Portal' },
-  { to: '/officer/complaints', icon: Icons.list,        label: 'My Queue' },
-  { to: '/map',                icon: Icons.map,         label: 'Hotspot Map' },
-  { to: '/leaderboard',        icon: Icons.leaderboard, label: 'Leaderboard' },
-  { to: '/profile',            icon: Icons.profile,     label: 'My Profile' },
+const GET_OFFICER_LINKS = (t) => [
+  { to: '/officer/dashboard',  icon: Icons.dashboard,   label: t('nav_dashboard', 'Dashboard') },
+  { to: '/officer/portal',     icon: Icons.portal,      label: t('nav_govt_portal', 'Govt Portal') },
+  { to: '/officer/complaints', icon: Icons.list,        label: t('nav_my_queue', 'My Queue') },
+  { to: '/map',                icon: Icons.map,         label: t('nav_hotspot_map', 'Hotspot Map') },
+  { to: '/leaderboard',        icon: Icons.leaderboard, label: t('nav_leaderboard', 'Leaderboard') },
+  { to: '/profile',            icon: Icons.profile,     label: t('nav_my_profile', 'My Profile') },
 ];
 
-const ADMIN_LINKS = [
-  { to: '/admin/dashboard',   icon: Icons.dashboard,   label: 'Dashboard' },
-  { to: '/officer/portal',    icon: Icons.portal,      label: 'Govt Portal' },
-  { to: '/admin/complaints',  icon: Icons.list,        label: 'All Complaints' },
-  { to: '/admin/users',       icon: Icons.users,       label: 'Users' },
-  { to: '/map',               icon: Icons.map,         label: 'Hotspot Map' },
-  { to: '/leaderboard',       icon: Icons.leaderboard, label: 'Leaderboard' },
-  { to: '/profile',           icon: Icons.profile,     label: 'My Profile' },
+const GET_ADMIN_LINKS = (t) => [
+  { to: '/admin/dashboard',   icon: Icons.dashboard,   label: t('nav_dashboard', 'Dashboard') },
+  { to: '/officer/portal',    icon: Icons.portal,      label: t('nav_govt_portal', 'Govt Portal') },
+  { to: '/admin/complaints',  icon: Icons.list,        label: t('nav_all_complaints', 'All Complaints') },
+  { to: '/admin/users',       icon: Icons.users,       label: t('nav_users', 'Users') },
+  { to: '/map',               icon: Icons.map,         label: t('nav_hotspot_map', 'Hotspot Map') },
+  { to: '/leaderboard',       icon: Icons.leaderboard, label: t('nav_leaderboard', 'Leaderboard') },
+  { to: '/profile',           icon: Icons.profile,     label: t('nav_my_profile', 'My Profile') },
 ];
-
-const BADGE_LABELS = {
-  newcomer: 'Newcomer', contributor: 'Contributor', active_citizen: 'Active Citizen',
-  champion: 'Champion', civic_hero: 'Civic Hero',
-  new_officer: 'New Officer', active_officer: 'Active Officer',
-  efficient_officer: 'Efficient Officer', star_officer: 'Star Officer', excellence_award: 'Excellence Award'
-};
-
-// Badge level color accent
-const BADGE_COLORS = {
-  newcomer: '#5C6080', contributor: '#0277BD', active_citizen: '#E65100',
-  champion: '#C62828', civic_hero: '#6A1B9A',
-  new_officer: '#5C6080', active_officer: '#0277BD', efficient_officer: '#E65100',
-  star_officer: '#C62828', excellence_award: '#6A1B9A',
-};
 
 export default function Sidebar({ isOpen, onClose }) {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
 
   if (!user) return null;
 
-  const links = user.role === 'citizen' ? CITIZEN_LINKS
-    : user.role === 'officer' ? OFFICER_LINKS
-    : ADMIN_LINKS;
-
-  const badgeKey = user.role === 'citizen' ? user.badge_level : user.govt_badge;
-  const points = user.role === 'citizen' ? user.points : user.govt_points;
+  const links = user.role === 'citizen' ? GET_CITIZEN_LINKS(t)
+    : user.role === 'officer' ? GET_OFFICER_LINKS(t)
+    : GET_ADMIN_LINKS(t);
 
   return (
     <>
@@ -152,45 +136,10 @@ export default function Sidebar({ isOpen, onClose }) {
               </div>
             </div>
           </div>
-
-          {/* Points & Badge — text only, no emoji */}
-          <div style={{
-            marginTop: 10, display: 'flex', justifyContent: 'space-between',
-            background: 'white', borderRadius: 8, padding: '8px 12px'
-          }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--primary)' }}>
-                {points || 0}
-              </div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Points</div>
-            </div>
-            <div style={{ width: 1, background: 'var(--border)' }} />
-            <div style={{ textAlign: 'center' }}>
-              {/* Colored dot instead of emoji */}
-              <div style={{
-                width: 18, height: 18, borderRadius: '50%', margin: '0 auto 2px',
-                background: BADGE_COLORS[badgeKey] || '#5C6080'
-              }} aria-hidden="true" />
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                {BADGE_LABELS[badgeKey] || 'Newcomer'}
-              </div>
-            </div>
-            {user.role === 'officer' && (
-              <>
-                <div style={{ width: 1, background: 'var(--border)' }} />
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--success)' }}>
-                    {user.complaints_resolved || 0}
-                  </div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Resolved</div>
-                </div>
-              </>
-            )}
-          </div>
         </div>
 
         {/* Navigation links */}
-        <div className="nav-section-title">Navigation</div>
+        <div className="nav-section-title">{t('sidebar_navigation', 'Navigation')}</div>
         {links.map(link => (
           <NavLink
             key={link.to}

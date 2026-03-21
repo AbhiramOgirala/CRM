@@ -2,24 +2,26 @@ import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { authAPI } from '../../services/api';
 import useAuthStore from '../../store/authStore';
+import { useTranslation } from 'react-i18next';
 
-const CITIZEN_BADGES = [
-  { level: 'newcomer', icon: '🌱', label: 'Newcomer', minPts: 0 },
-  { level: 'contributor', icon: '⭐', label: 'Contributor', minPts: 50 },
-  { level: 'active_citizen', icon: '🏆', label: 'Active Citizen', minPts: 150 },
-  { level: 'champion', icon: '🎖️', label: 'Champion', minPts: 400 },
-  { level: 'civic_hero', icon: '🦸', label: 'Civic Hero', minPts: 1000 },
+const CITIZEN_BADGES = (t) => [
+  { level: 'newcomer', icon: '🌱', label: t('badges.newcomer', 'Newcomer'), minPts: 0 },
+  { level: 'contributor', icon: '⭐', label: t('badges.contributor', 'Contributor'), minPts: 50 },
+  { level: 'active_citizen', icon: '🏆', label: t('badges.active_citizen', 'Active Citizen'), minPts: 150 },
+  { level: 'champion', icon: '🎖️', label: t('badges.champion', 'Champion'), minPts: 400 },
+  { level: 'civic_hero', icon: '🦸', label: t('badges.civic_hero', 'Civic Hero'), minPts: 1000 },
 ];
 
-const GOVT_BADGES = [
-  { level: 'new_officer', icon: '🔰', label: 'New Officer', minPts: 0 },
-  { level: 'active_officer', icon: '⚙️', label: 'Active Officer', minPts: 100 },
-  { level: 'efficient_officer', icon: '🌟', label: 'Efficient Officer', minPts: 300 },
-  { level: 'star_officer', icon: '💫', label: 'Star Officer', minPts: 700 },
-  { level: 'excellence_award', icon: '🏅', label: 'Excellence Award', minPts: 1500 },
+const GOVT_BADGES = (t) => [
+  { level: 'new_officer', icon: '🔰', label: t('badges.new_officer', 'New Officer'), minPts: 0 },
+  { level: 'active_officer', icon: '⚙️', label: t('badges.active_officer', 'Active Officer'), minPts: 100 },
+  { level: 'efficient_officer', icon: '🌟', label: t('badges.efficient_officer', 'Efficient Officer'), minPts: 300 },
+  { level: 'star_officer', icon: '💫', label: t('badges.star_officer', 'Star Officer'), minPts: 700 },
+  { level: 'excellence_award', icon: '🏅', label: t('badges.excellence_award', 'Excellence Award'), minPts: 1500 },
 ];
 
 export default function Profile() {
+  const { t } = useTranslation();
   const { user, updateUser, refreshProfile } = useAuthStore();
   const [tab, setTab] = useState('profile');
   const [profileForm, setProfileForm] = useState({
@@ -72,7 +74,7 @@ export default function Profile() {
   };
 
   const isCitizen = user?.role === 'citizen';
-  const badges = isCitizen ? CITIZEN_BADGES : GOVT_BADGES;
+  const badges = isCitizen ? CITIZEN_BADGES(t) : GOVT_BADGES(t);
   const currentPoints = isCitizen ? (user?.points || 0) : (user?.govt_points || 0);
   const currentBadge = isCitizen ? user?.badge_level : user?.govt_badge;
 
@@ -80,8 +82,8 @@ export default function Profile() {
     <div style={{ maxWidth: 700, margin: '0 auto' }}>
       <div className="page-header">
         <div>
-          <h1 className="page-title">👤 My Profile</h1>
-          <p className="page-subtitle">Manage your account and view your achievements</p>
+          <h1 className="page-title">{t('profile.title', '👤 My Profile')}</h1>
+          <p className="page-subtitle">{t('profile.subtitle', 'Manage your account and view your achievements')}</p>
         </div>
       </div>
 
@@ -119,12 +121,12 @@ export default function Profile() {
         <div style={{ display: 'flex', gap: 12 }}>
           <div style={{ textAlign: 'center', background: 'rgba(255,255,255,0.15)', borderRadius: 'var(--radius)', padding: '10px 16px' }}>
             <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1.6rem', fontWeight: 800, color: '#FFD54F' }}>{currentPoints}</div>
-            <div style={{ fontSize: '0.72rem', opacity: 0.8 }}>{isCitizen ? 'Civic' : 'Govt'} Points</div>
+            <div style={{ fontSize: '0.72rem', opacity: 0.8 }}>{isCitizen ? t('profile.civic_pts', 'Civic Points') : t('profile.govt_pts', 'Govt Points')}</div>
           </div>
           {!isCitizen && (
             <div style={{ textAlign: 'center', background: 'rgba(255,255,255,0.15)', borderRadius: 'var(--radius)', padding: '10px 16px' }}>
               <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1.6rem', fontWeight: 800, color: '#A5D6A7' }}>{user?.complaints_resolved || 0}</div>
-              <div style={{ fontSize: '0.72rem', opacity: 0.8 }}>Resolved</div>
+              <div style={{ fontSize: '0.72rem', opacity: 0.8 }}>{t('profile.resolved', 'Resolved')}</div>
             </div>
           )}
         </div>
@@ -133,7 +135,7 @@ export default function Profile() {
       {/* Badge progression */}
       <div className="card" style={{ marginBottom: 24 }}>
         <h2 className="card-title" style={{ marginBottom: 16 }}>
-          {isCitizen ? '🏆 Citizen Badges' : '🏅 Officer Badges'}
+          {isCitizen ? t('profile.badge_cit', '🏆 Citizen Badges') : t('profile.badge_off', '🏅 Officer Badges')}
         </h2>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           {badges.map((badge) => {
@@ -153,7 +155,7 @@ export default function Profile() {
                     position: 'absolute', top: -8, left: '50%', transform: 'translateX(-50%)',
                     background: 'var(--primary)', color: 'white', fontSize: '0.6rem',
                     padding: '2px 8px', borderRadius: 10, fontWeight: 700, whiteSpace: 'nowrap'
-                  }}>CURRENT</div>
+                  }}>{t('profile.current', 'CURRENT')}</div>
                 )}
                 <div style={{ fontSize: '1.8rem', marginBottom: 4 }}>{badge.icon}</div>
                 <div style={{ fontSize: '0.75rem', fontWeight: 700, color: isCurrent ? 'var(--primary)' : 'var(--text-secondary)' }}>
@@ -170,8 +172,8 @@ export default function Profile() {
 
       {/* Tabs */}
       <div className="tabs">
-        <button className={`tab ${tab === 'profile' ? 'active' : ''}`} onClick={() => setTab('profile')}>Edit Profile</button>
-        <button className={`tab ${tab === 'security' ? 'active' : ''}`} onClick={() => setTab('security')}>Change Password</button>
+        <button className={`tab ${tab === 'profile' ? 'active' : ''}`} onClick={() => setTab('profile')}>{t('profile.tab_prof', 'Edit Profile')}</button>
+        <button className={`tab ${tab === 'security' ? 'active' : ''}`} onClick={() => setTab('security')}>{t('profile.tab_sec', 'Change Password')}</button>
       </div>
 
       {/* Profile form */}
@@ -180,32 +182,32 @@ export default function Profile() {
           <form onSubmit={handleProfileSave}>
             <div className="grid-2" style={{ gap: 14 }}>
               <div className="form-group">
-                <label className="form-label">Full Name <span className="required">*</span></label>
+                <label className="form-label">{t('register.full_name', 'Full Name')} <span className="required">*</span></label>
                 <input className="form-control" value={profileForm.full_name}
                   onChange={e => setProfileForm(p => ({ ...p, full_name: e.target.value }))} required />
               </div>
               <div className="form-group">
-                <label className="form-label">Phone Number</label>
+                <label className="form-label">{t('register.mobile', 'Phone Number')}</label>
                 <input type="tel" className="form-control" value={profileForm.phone}
                   onChange={e => setProfileForm(p => ({ ...p, phone: e.target.value }))} />
               </div>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Address</label>
+              <label className="form-label">{t('register.address_loc', 'Address')}</label>
               <textarea className="form-control" rows={2} value={profileForm.address}
                 onChange={e => setProfileForm(p => ({ ...p, address: e.target.value }))}
-                placeholder="Your full address" />
+                placeholder={t('register.address_ph', 'Your full address')} />
             </div>
 
             <div className="grid-2" style={{ gap: 14 }}>
               <div className="form-group">
-                <label className="form-label">Pincode</label>
+                <label className="form-label">{t('register.pincode', 'Pincode')}</label>
                 <input className="form-control" maxLength="6" value={profileForm.pincode}
                   onChange={e => setProfileForm(p => ({ ...p, pincode: e.target.value }))} />
               </div>
               <div className="form-group">
-                <label className="form-label">Preferred Language</label>
+                <label className="form-label">{t('register.pref_lang', 'Preferred Language')}</label>
                 <select className="form-control" value={profileForm.preferred_language}
                   onChange={e => setProfileForm(p => ({ ...p, preferred_language: e.target.value }))}>
                   <option value="en">English</option>
@@ -222,7 +224,7 @@ export default function Profile() {
 
             <div style={{ paddingTop: 8 }}>
               <button type="submit" className="btn btn-primary" disabled={saving}>
-                {saving ? 'Saving...' : '💾 Save Changes'}
+                {saving ? t('profile.saving', 'Saving...') : t('profile.save', '💾 Save Changes')}
               </button>
             </div>
           </form>
@@ -234,25 +236,25 @@ export default function Profile() {
         <div className="card">
           <form onSubmit={handlePasswordChange}>
             <div className="form-group">
-              <label className="form-label">Current Password <span className="required">*</span></label>
+              <label className="form-label">{t('profile.curr_pass', 'Current Password')} <span className="required">*</span></label>
               <input type="password" className="form-control" value={passwordForm.currentPassword}
                 onChange={e => setPasswordForm(p => ({ ...p, currentPassword: e.target.value }))}
-                placeholder="Enter current password" required />
+                placeholder={t('profile.curr_pass_ph', 'Enter current password')} required />
             </div>
             <div className="form-group">
-              <label className="form-label">New Password <span className="required">*</span></label>
+              <label className="form-label">{t('login.password', 'New Password')} <span className="required">*</span></label>
               <input type="password" className="form-control" value={passwordForm.newPassword}
                 onChange={e => setPasswordForm(p => ({ ...p, newPassword: e.target.value }))}
-                placeholder="Min 6 characters" required />
+                placeholder={t('profile.new_pass_ph', 'Min 6 characters')} required />
             </div>
             <div className="form-group">
-              <label className="form-label">Confirm New Password <span className="required">*</span></label>
+              <label className="form-label">{t('register.conf_pass', 'Confirm New Password')} <span className="required">*</span></label>
               <input type="password" className="form-control" value={passwordForm.confirmPassword}
                 onChange={e => setPasswordForm(p => ({ ...p, confirmPassword: e.target.value }))}
-                placeholder="Repeat new password" required />
+                placeholder={t('profile.conf_pass_ph', 'Repeat new password')} required />
             </div>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Changing...' : '🔐 Change Password'}
+              {saving ? t('profile.changing', 'Changing...') : t('profile.change', '🔐 Change Password')}
             </button>
           </form>
         </div>

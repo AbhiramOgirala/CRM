@@ -57,7 +57,7 @@ export default function AdminDashboard() {
           <h1 className="page-title">Admin Dashboard</h1>
           <p className="page-subtitle">System-wide overview and management</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link to="/admin/users" className="btn btn-outline btn-sm">Manage Users</Link>
           <Link to="/admin/complaints" className="btn btn-primary btn-sm">All Complaints</Link>
         </div>
@@ -102,7 +102,9 @@ export default function AdminDashboard() {
         <div className="card">
           <h2 className="card-title" style={{ marginBottom: 16 }}>Complaints by Category</h2>
           {barData ? (
-            <Bar data={barData} options={{ ...chartOptions, plugins: { ...chartOptions.plugins, title: { display: false } } }} height={200} />
+            <div style={{ overflowX: 'auto' }}>
+              <Bar data={barData} options={{ ...chartOptions, plugins: { ...chartOptions.plugins, title: { display: false } } }} height={200} />
+            </div>
           ) : (
             <div className="skeleton" style={{ height: 200 }} />
           )}
@@ -110,7 +112,9 @@ export default function AdminDashboard() {
         <div className="card">
           <h2 className="card-title" style={{ marginBottom: 16 }}>Monthly Trends</h2>
           {lineData ? (
-            <Line data={lineData} options={chartOptions} height={200} />
+            <div style={{ overflowX: 'auto' }}>
+              <Line data={lineData} options={chartOptions} height={200} />
+            </div>
           ) : (
             <div className="skeleton" style={{ height: 200 }} />
           )}
