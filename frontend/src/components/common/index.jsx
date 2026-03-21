@@ -202,7 +202,21 @@ export function LocationSelector({ value, onChange, required = false }) {
 
   React.useEffect(() => {
     import('../../services/api').then(({ locationAPI }) => {
-      locationAPI.getStates().then(res => setStates(res.states || []));
+      locationAPI.getStates().then(res => {
+        const all = res.states || [];
+        // Only show the 5 cities we have full data for
+        const supported = ['Delhi', 'Telangana', 'Maharashtra', 'West Bengal', 'Karnataka'];
+        const filtered = all.filter(s => supported.includes(s.name));
+        setStates(filtered);
+        // Auto-select Delhi by default only if nothing chosen yet
+        if (!value.state_id) {
+          const delhi = filtered.find(s => s.name === 'Delhi');
+          if (delhi) handleStateChange(delhi.id);
+        } else {
+          // Already has a state selected — load its districts
+          locationAPI.getDistricts(value.state_id).then(r => setDistricts(r.districts || []));
+        }
+      });
     });
   }, []);
 
