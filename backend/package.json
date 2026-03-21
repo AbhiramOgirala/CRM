@@ -10,6 +10,8 @@
     "seed": "node src/seed.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@huggingface/inference": "^4.13.15",
     "@supabase/supabase-js": "^2.39.0",
     "axios": "^1.13.6",
     "bcryptjs": "^2.4.3",
