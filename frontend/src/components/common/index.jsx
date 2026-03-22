@@ -223,7 +223,7 @@ export function LocationSelector({ value, onChange, required = false }) {
         // Auto-select Delhi by default only if nothing chosen yet
         if (!value.state_id) {
           const delhi = filtered.find(s => s.name === 'Delhi');
-          if (delhi) handleStateChange(delhi.id);
+          if (delhi) handleStateChange(delhi.id, filtered);
         } else {
           // Already has a state selected — load its districts
           locationAPI.getDistricts(value.state_id).then(r => setDistricts(r.districts || []));
@@ -232,8 +232,10 @@ export function LocationSelector({ value, onChange, required = false }) {
     });
   }, []);
 
-  const handleStateChange = async (stateId) => {
-    onChange({ ...value, state_id: stateId, district_id: '', taluka_id: '', mandal_id: '', gram_panchayat_id: '' });
+  const handleStateChange = async (stateId, stateList) => {
+    const list = stateList || states;
+    const stateName = list.find(s => s.id === stateId)?.name || '';
+    onChange({ ...value, state_id: stateId, state_name: stateName, district_id: '', taluka_id: '', mandal_id: '', gram_panchayat_id: '' });
     if (stateId) {
       const { locationAPI } = await import('../../services/api');
       const res = await locationAPI.getDistricts(stateId);

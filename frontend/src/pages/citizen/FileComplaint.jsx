@@ -36,6 +36,7 @@ export default function FileComplaint() {
   const [recognition, setRecognition] = useState(null);
   const [nlpResult, setNlpResult] = useState(null);
   const [nlpLoading, setNlpLoading] = useState(false);
+  const [resolvedDept, setResolvedDept] = useState(null); // city-aware dept for Step 3 preview
   const [imageAnalysisResult, setImageAnalysisResult] = useState(null);
   const [imageAnalysisLoading, setImageAnalysisLoading] = useState(false);
   const [generatingTitle, setGeneratingTitle] = useState(false);
@@ -418,6 +419,37 @@ export default function FileComplaint() {
 
   const priorityColor = { critical: '#B71C1C', high: '#E65100', medium: '#F57F17', low: '#33691E' };
   const deptColor = nlpResult?.departmentCode ? (DEPT_COLORS[nlpResult.departmentCode] || '#1A237E') : '#1A237E';
+
+  // City-aware dept resolution for Step 3 preview
+  const CITY_DEPT_NAMES = {
+    'Telangana':    { roads:'GHMC', infrastructure:'GHMC', waste_management:'GHMC', parks:'GHMC', public_services:'GHMC', street_lights:'GHMC', water_supply:'HMWSSB', drainage:'HMWSSB', electricity:'TSSPDCL', law_enforcement:'HYDPOL', noise_pollution:'HYDPOL', health:'TSHFW', education:'TSEDU', other:'GHMC' },
+    'Maharashtra':  { roads:'BMC',  infrastructure:'BMC',  waste_management:'BMC',  parks:'BMC',  public_services:'BMC',  street_lights:'BMC',  water_supply:'MWRRA',  drainage:'MWRRA',  electricity:'MSEDCL', law_enforcement:'MUMPOL', noise_pollution:'MUMPOL', health:'MHFW', education:'MHEDU', other:'BMC' },
+    'West Bengal':  { roads:'KMC',  infrastructure:'KMC',  waste_management:'KMC',  parks:'KMC',  public_services:'KMC',  street_lights:'KMC',  water_supply:'WBPHED', drainage:'WBPHED', electricity:'CESC',   law_enforcement:'KOLPOL', noise_pollution:'KOLPOL', health:'WBHFW', education:'WBEDU', other:'KMC' },
+    'Karnataka':    { roads:'BBMP', infrastructure:'BBMP', waste_management:'BBMP', parks:'BBMP', public_services:'BBMP', street_lights:'BBMP', water_supply:'BWSSB',  drainage:'BWSSB',  electricity:'BESCOM', law_enforcement:'BLRPOL', noise_pollution:'BLRPOL', health:'KARHFW', education:'KAREDU', other:'BBMP' },
+  };
+  const DEPT_DISPLAY_NAMES = {
+    GHMC:'GHMC (Hyderabad)', HMWSSB:'HMWSSB (Water)', TSSPDCL:'TSSPDCL (Electricity)',
+    BMC:'BMC (Mumbai)', MWRRA:'MWRRA (Water)', MSEDCL:'MSEDCL (Electricity)',
+    KMC:'KMC (Kolkata)', WBPHED:'WBPHED (Water)', CESC:'CESC (Electricity)',
+    BBMP:'BBMP (Bengaluru)', BWSSB:'BWSSB (Water)', BESCOM:'BESCOM (Electricity)',
+    MCD:'MCD (Delhi)', DJB:'DJB (Water)', BSES:'BSES (Electricity)',
+  };
+
+  // Resolve dept display for Step 3 — uses state name from locationAPI if available
+  const getStep3Dept = () => {
+    if (!nlpResult) return null;
+    if (!form.state_id) return nlpResult.department;
+    // Find state name from the selected state_id via the location selector's stored name
+    // We store it in form as state_name when LocationSelector fires onChange
+    const stateName = form.state_name;
+    if (!stateName) return nlpResult.department;
+    const cityMap = CITY_DEPT_NAMES[stateName];
+    if (!cityMap) return nlpResult.department;
+    const code = cityMap[nlpResult.category] || cityMap.other;
+    return DEPT_DISPLAY_NAMES[code] || code;
+  };
+
+  const step3Dept = getStep3Dept();
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
@@ -884,7 +916,7 @@ export default function FileComplaint() {
                   <>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
                       <span style={{ background: deptColor + '15', color: deptColor, borderRadius: 6, padding: '3px 10px', fontSize: '0.78rem', fontWeight: 700 }}>
-                        {nlpResult.department}
+                        {step3Dept || nlpResult.department}
                       </span>
                       <span style={{ background: priorityColor[nlpResult.priority] + '15', color: priorityColor[nlpResult.priority], borderRadius: 6, padding: '3px 10px', fontSize: '0.78rem', fontWeight: 700 }}>
                         {nlpResult.priority?.toUpperCase()} PRIORITY

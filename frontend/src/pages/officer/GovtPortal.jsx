@@ -26,6 +26,13 @@ const CategoryIcon = ({ type, size = 18 }) => {
   return icons[type] || <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>;
 };
 
+const CATEGORY_ICONS = {
+  roads: '🛣️', water_supply: '💧', electricity: '⚡', waste_management: '🗑️',
+  drainage: '🌊', infrastructure: '🏗️', parks: '🌳', health: '🏥',
+  education: '📚', public_services: '🏛️', street_lights: '💡',
+  law_enforcement: '🚔', noise_pollution: '🔊', other: '📌'
+};
+
 const PRIORITY_COLORS = { critical: '#B71C1C', high: '#E65100', medium: '#F57F17', low: '#33691E' };
 
 export default function GovtPortal() {
@@ -52,7 +59,9 @@ export default function GovtPortal() {
     try {
       const params = { ...filters, limit: 20 };
       if (activeTab === 'my_dept') {
-        // Officer sees only their dept
+        // Officer sees only their dept + district
+        if (user?.department_id) params.department_id = user.department_id;
+        if (user?.district_id) params.district_id = user.district_id;
         const res = await api.get('/complaints', { params });
         setComplaints(res.complaints || []);
         setPagination(res.pagination || {});
