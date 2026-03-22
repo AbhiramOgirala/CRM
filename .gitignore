@@ -73,3 +73,9 @@ dist/
 
 # Misc
 *.pem
+
+
+parse_pdf.py
+NOTIFICATION_SYSTEM.md
+PWA_MOBILE_OPTIMISATION.md
+UX4G_GIGW_COMPLIANCE.md

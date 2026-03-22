@@ -45,9 +45,10 @@ router.get('/leaderboard/area',        locationCtrl.getAreaLeaderboard);
 router.get('/leaderboard/district',    locationCtrl.getDistrictLeaderboard);
 
 // ── Notifications ─────────────────────────────────────────────────
-router.get('/notifications',         authenticate, locationCtrl.getNotifications);
-router.put('/notifications/read',    authenticate, locationCtrl.markNotificationsRead);
-router.delete('/notifications/:id',  authenticate, locationCtrl.deleteNotification);
+router.get('/notifications',                authenticate, locationCtrl.getNotifications);
+router.put('/notifications/read',           authenticate, locationCtrl.markNotificationsRead);
+router.put('/notifications/preferences',    authenticate, locationCtrl.updateNotificationPreferences);
+router.delete('/notifications/:id',         authenticate, locationCtrl.deleteNotification);
 
 // ── Admin ─────────────────────────────────────────────────────────
 router.get('/admin/users',                    authenticate, authorize('admin','super_admin'), adminCtrl.getAllUsers);

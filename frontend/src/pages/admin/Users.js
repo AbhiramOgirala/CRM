@@ -63,7 +63,7 @@ export default function AdminUsers() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">👥 User Management</h1>
+          <h1 className="page-title">User Management</h1>
           <p className="page-subtitle">Manage citizens, officers, and admins</p>
         </div>
         <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
@@ -73,7 +73,7 @@ export default function AdminUsers() {
 
       {/* Filters */}
       <div className="filter-bar">
-        <input className="form-control" placeholder="🔍 Search by name or email..." value={filters.search}
+        <input className="form-control" placeholder="Search by name or email..." value={filters.search}
           onChange={e => setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }))} style={{ flex: 2 }} />
         <select className="form-control" value={filters.role} onChange={e => setFilters(prev => ({ ...prev, role: e.target.value, page: 1 }))}>
           <option value="">All Roles</option>
@@ -119,7 +119,7 @@ export default function AdminUsers() {
                       <td>
                         <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{u.full_name}</div>
                         <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{u.email}</div>
-                        {u.phone && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>📱 {u.phone}</div>}
+                        {u.phone && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{u.phone}</div>}
                       </td>
                       <td>
                         <span style={{ background: roleBadge.bg, color: roleBadge.color, borderRadius: 20, padding: '3px 10px', fontSize: '0.75rem', fontWeight: 700 }}>
@@ -131,9 +131,9 @@ export default function AdminUsers() {
                       </td>
                       <td>
                         {u.role === 'citizen' ? (
-                          <span style={{ fontWeight: 700, color: 'var(--primary)' }}>⭐ {u.points || 0}</span>
+                          <span style={{ fontWeight: 700, color: 'var(--primary)' }}>{u.points || 0} pts</span>
                         ) : u.role === 'officer' ? (
-                          <span style={{ fontWeight: 700, color: 'var(--success)' }}>🏅 {u.govt_points || 0}</span>
+                          <span style={{ fontWeight: 700, color: 'var(--success)' }}>{u.govt_points || 0} pts</span>
                         ) : '—'}
                       </td>
                       <td>
@@ -142,7 +142,7 @@ export default function AdminUsers() {
                           color: u.is_active ? 'var(--success)' : 'var(--danger)',
                           borderRadius: 20, padding: '3px 10px', fontSize: '0.75rem', fontWeight: 700
                         }}>
-                          {u.is_active ? '✅ Active' : '❌ Inactive'}
+                          {u.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
                       <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>

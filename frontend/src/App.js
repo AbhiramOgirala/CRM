@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import useAuthStore from './store/authStore';
+import useAccessibilityStore from './store/accessibilityStore';
 import './styles/main.css';
 
 // Layout
@@ -66,6 +67,12 @@ const PublicOnlyRoute = ({ children }) => {
 };
 
 function App() {
+  const { initAccessibility } = useAccessibilityStore();
+
+  React.useEffect(() => {
+    initAccessibility();
+  }, [initAccessibility]);
+
   return (
     <Router>
       <Toaster

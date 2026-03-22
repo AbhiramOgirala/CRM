@@ -3,14 +3,38 @@ import { Link } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 
 const FEATURES = [
-  { icon: '📝', title: 'File Complaints Easily', desc: 'Report civic issues with photos, location, and description in minutes' },
-  { icon: '🤖', title: 'Smart NLP Classification', desc: 'AI automatically categorizes & routes your complaint to the right department' },
-  { icon: '📍', title: 'Precise Location Tracking', desc: 'From State to Gram Panchayat — exact location hierarchy for faster resolution' },
-  { icon: '🔔', title: 'Real-time Updates', desc: 'Get notified at every step from filing to resolution' },
-  { icon: '🗺️', title: 'Hotspot Mapping', desc: 'See where issues cluster in your area with interactive maps' },
-  { icon: '🏆', title: 'Gamified Civic Participation', desc: 'Earn points and badges for being an active citizen' },
-  { icon: '📊', title: 'Transparent Dashboards', desc: 'Track resolution rates, SLA compliance, and department performance' },
-  { icon: '🔗', title: 'Duplicate Detection', desc: 'Similar complaints auto-merged to amplify your voice' },
+  { 
+    icon: <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>, 
+    title: 'File Complaints Easily', desc: 'Report civic issues with photos, location, and description in minutes' 
+  },
+  { 
+    icon: <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>, 
+    title: 'Smart NLP Classification', desc: 'AI automatically categorizes & routes your complaint to the right department' 
+  },
+  { 
+    icon: <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>, 
+    title: 'Precise Location Tracking', desc: 'From State to Gram Panchayat — exact location hierarchy for faster resolution' 
+  },
+  { 
+    icon: <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>, 
+    title: 'Real-time Updates', desc: 'Get notified at every step from filing to resolution' 
+  },
+  { 
+    icon: <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>, 
+    title: 'Hotspot Mapping', desc: 'See where issues cluster in your area with interactive maps' 
+  },
+  { 
+    icon: <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>, 
+    title: 'Gamified Civic Participation', desc: 'Earn points and badges for being an active citizen' 
+  },
+  { 
+    icon: <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>, 
+    title: 'Transparent Dashboards', desc: 'Track resolution rates, SLA compliance, and department performance' 
+  },
+  { 
+    icon: <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>, 
+    title: 'Duplicate Detection', desc: 'Similar complaints auto-merged to amplify your voice' 
+  },
 ];
 
 const STATS = [
@@ -24,15 +48,15 @@ export default function Landing() {
   return (
     <div>
       <Navbar />
-      <div style={{ marginTop: 64 }}>
+      <div id="main-content" tabIndex="-1" style={{ marginTop: 100, outline: 'none' }}>
         {/* Hero */}
         <div className="hero">
           <div style={{ position: 'relative', zIndex: 1 }}>
             {/* India flag colors top bar */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
-              <div style={{ width: 40, height: 5, borderRadius: 3, background: '#FF9933' }} />
-              <div style={{ width: 40, height: 5, borderRadius: 3, background: '#FFFFFF' }} />
-              <div style={{ width: 40, height: 5, borderRadius: 3, background: '#138808' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, marginBottom: 20 }}>
+              <div style={{ width: 48, height: 6, borderRadius: 3, background: '#FF9933' }} />
+              <div style={{ width: 48, height: 6, borderRadius: 3, background: '#FFFFFF' }} />
+              <div style={{ width: 48, height: 6, borderRadius: 3, background: '#138808' }} />
             </div>
 
             <h1 className="hero-title">

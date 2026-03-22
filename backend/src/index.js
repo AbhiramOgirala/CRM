@@ -47,6 +47,10 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
+// ── WhatsApp Webhook (Twilio hits this — no /api prefix, no auth) ─
+const { handleIncoming } = require('./services/whatsappWebhook');
+app.post('/webhook/whatsapp', express.urlencoded({ extended: false }), handleIncoming);
+
 // ── Routes ────────────────────────────────────────────────────────
 app.use('/api', routes);
 
