@@ -33,13 +33,39 @@ export default function FileComplaint() {
   const nlpTimer = useRef(null);
   const [selectedLang, setSelectedLang] = useState('en');
 
-  const [form, setForm] = useState({
-    title: '', description: '', audio_transcript: '',
-    latitude: '', longitude: '', address: '', landmark: '', pincode: '',
-    state_id: '', district_id: '', corporation_id: '', municipality_id: '',
-    taluka_id: '', mandal_id: '', gram_panchayat_id: '',
-    is_public: true, is_anonymous: false, images: []
+  const [form, setForm] = useState(() => {
+    const saved = localStorage.getItem('complaintDraft');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { }
+    }
+    return {
+      title: '', description: '', audio_transcript: '',
+      latitude: '', longitude: '', address: '', landmark: '', pincode: '',
+      state_id: '', district_id: '', corporation_id: '', municipality_id: '',
+      taluka_id: '', mandal_id: '', gram_panchayat_id: '',
+      is_public: true, is_anonymous: false, images: []
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem('complaintDraft', JSON.stringify(form));
+  }, [form]);
+
+  const trashDraft = () => {
+    if (window.confirm("Are you sure you want to trash this draft and start a new one?")) {
+      localStorage.removeItem('complaintDraft');
+      setForm({
+        title: '', description: '', audio_transcript: '',
+        latitude: '', longitude: '', address: '', landmark: '', pincode: '',
+        state_id: '', district_id: '', corporation_id: '', municipality_id: '',
+        taluka_id: '', mandal_id: '', gram_panchayat_id: '',
+        is_public: true, is_anonymous: false, images: []
+      });
+      setStep(1);
+      setNlpResult(null);
+      toast.success('Draft trashed. Started a new form.', { icon: '🗑️' });
+    }
+  };
 
   // ── Voice Recognition Setup ──────────────────────────────────────
   useEffect(() => {
@@ -87,6 +113,26 @@ export default function FileComplaint() {
     }
   };
 
+  // ── Auto-Generate Title ──────────────────────────────────────────
+  const [generatingTitle, setGeneratingTitle] = useState(false);
+  const autoGenerateTitle = async () => {
+    const text = form.description || form.audio_transcript;
+    if (!text || text.trim().length < 10) {
+      toast.error('Please describe the problem first');
+      return;
+    }
+    setGeneratingTitle(true);
+    try {
+      const res = await nlpAPI.generateTitle(text);
+      if (res.title) setForm(p => ({ ...p, title: res.title }));
+      toast.success('Title auto-generated!');
+    } catch {
+      toast.error('Failed to generate title');
+    } finally {
+      setGeneratingTitle(false);
+    }
+  };
+
   // ── Live NLP Preview ─────────────────────────────────────────────
   const triggerNLPPreview = useCallback((text) => {
     if (nlpTimer.current) clearTimeout(nlpTimer.current);
@@ -117,7 +163,7 @@ export default function FileComplaint() {
           const d = await r.json();
           const addr = [d.address?.road, d.address?.suburb, d.address?.city || d.address?.town].filter(Boolean).join(', ');
           setForm(p => ({ ...p, address: addr || d.display_name, pincode: d.address?.postcode || '' }));
-        } catch {}
+        } catch { }
         setGettingGPS(false);
         toast.success('📍 GPS location captured!');
       },
@@ -165,8 +211,7 @@ export default function FileComplaint() {
       toast.success(
         `✅ Complaint filed!\nTicket: ${complaint.ticket_number}\nRouted to: ${auto_detection?.department}`,
         { duration: 5000 }
-      );
-      navigate(`/complaint/${complaint.id}`);
+      ); localStorage.removeItem('complaintDraft'); navigate(`/complaint/${complaint.id}`);
     } catch (err) {
       toast.error(err.message || 'Failed to file complaint. Please try again.');
     } finally {
@@ -179,11 +224,21 @@ export default function FileComplaint() {
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 className="page-title">✍️ File a Complaint</h1>
           <p className="page-subtitle">Describe your issue — we'll automatically detect the right department</p>
         </div>
+        <button
+          onClick={trashDraft}
+          style={{
+            background: '#FFEEEB', color: '#D32F2F', border: '1px solid #FFCDD2',
+            padding: '8px 16px', borderRadius: 'var(--radius)', fontSize: '0.85rem',
+            fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
+          }}
+        >
+          🗑️ Trash Draft
+        </button>
       </div>
 
       {/* Step indicator */}
@@ -273,10 +328,10 @@ export default function FileComplaint() {
                 </div>
                 {isRecording && (
                   <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
-                    {[1,2,3,4].map(i => (
+                    {[1, 2, 3, 4].map(i => (
                       <div key={i} style={{
                         width: 4, background: '#C62828', borderRadius: 2,
-                        animation: `wave ${0.4 + i*0.1}s ease-in-out infinite alternate`,
+                        animation: `wave ${0.4 + i * 0.1}s ease-in-out infinite alternate`,
                         height: `${8 + i * 4}px`
                       }} />
                     ))}
@@ -288,7 +343,22 @@ export default function FileComplaint() {
 
             {/* Title */}
             <div className="form-group">
-              <label className="form-label">Complaint Title <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional — auto-generated if blank)</span></label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <label className="form-label" style={{ marginBottom: 0 }}>Complaint Title <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span></label>
+                <button
+                  type="button"
+                  onClick={autoGenerateTitle}
+                  disabled={generatingTitle || (!form.description && !form.audio_transcript)}
+                  style={{
+                    background: 'var(--primary-light)', color: 'var(--primary)',
+                    border: 'none', padding: '4px 10px', borderRadius: 12,
+                    fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
+                    opacity: (generatingTitle || (!form.description && !form.audio_transcript)) ? 0.5 : 1
+                  }}
+                >
+                  {generatingTitle ? 'Generating...' : '✨ Auto-Generate'}
+                </button>
+              </div>
               <input
                 className="form-control"
                 placeholder="e.g., Road pothole near market, No water supply in colony..."

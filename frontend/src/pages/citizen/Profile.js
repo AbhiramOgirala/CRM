@@ -74,7 +74,25 @@ export default function Profile() {
   const isCitizen = user?.role === 'citizen';
   const badges = isCitizen ? CITIZEN_BADGES : GOVT_BADGES;
   const currentPoints = isCitizen ? (user?.points || 0) : (user?.govt_points || 0);
-  const currentBadge = isCitizen ? user?.badge_level : user?.govt_badge;
+
+  const calculateBadge = (role, pts) => {
+    const points = pts || 0;
+    if (role === 'citizen') {
+      if (points >= 1000) return 'civic_hero';
+      if (points >= 400) return 'champion';
+      if (points >= 150) return 'active_citizen';
+      if (points >= 50) return 'contributor';
+      return 'newcomer';
+    } else {
+      if (points >= 1500) return 'excellence_award';
+      if (points >= 700) return 'star_officer';
+      if (points >= 300) return 'efficient_officer';
+      if (points >= 100) return 'active_officer';
+      return 'new_officer';
+    }
+  };
+
+  const currentBadge = calculateBadge(user?.role, currentPoints);
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto' }}>

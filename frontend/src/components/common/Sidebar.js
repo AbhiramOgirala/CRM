@@ -50,10 +50,28 @@ export default function Sidebar({ isOpen, onClose }) {
 
   const links = user.role === 'citizen' ? CITIZEN_LINKS
     : user.role === 'officer' ? OFFICER_LINKS
-    : ADMIN_LINKS;
+      : ADMIN_LINKS;
 
-  const badgeKey = user.role === 'citizen' ? user.badge_level : user.govt_badge;
+  const calculateBadge = (role, pts) => {
+    const p = pts || 0;
+    if (role === 'citizen') {
+      if (p >= 1000) return 'civic_hero';
+      if (p >= 400) return 'champion';
+      if (p >= 150) return 'active_citizen';
+      if (p >= 50) return 'contributor';
+      return 'newcomer';
+    } else if (role === 'officer') {
+      if (p >= 1500) return 'excellence_award';
+      if (p >= 700) return 'star_officer';
+      if (p >= 300) return 'efficient_officer';
+      if (p >= 100) return 'active_officer';
+      return 'new_officer';
+    }
+    return 'newcomer';
+  };
+
   const points = user.role === 'citizen' ? user.points : user.govt_points;
+  const badgeKey = calculateBadge(user.role, points);
 
   return (
     <>

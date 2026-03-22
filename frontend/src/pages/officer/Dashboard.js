@@ -5,11 +5,20 @@ import { StatusBadge, PriorityBadge } from '../../components/common';
 import useAuthStore from '../../store/authStore';
 
 const GOVT_BADGE_DATA = {
-  new_officer:       { icon: '🔰', label: 'New Officer',       next: 'Active Officer',    nextPts: 100 },
-  active_officer:    { icon: '⚙️', label: 'Active Officer',    next: 'Efficient Officer', nextPts: 300 },
-  efficient_officer: { icon: '🌟', label: 'Efficient Officer', next: 'Star Officer',      nextPts: 700 },
-  star_officer:      { icon: '💫', label: 'Star Officer',      next: 'Excellence Award',  nextPts: 1500 },
-  excellence_award:  { icon: '🏅', label: 'Excellence Award',  next: null,                nextPts: null },
+  new_officer: { icon: '🔰', label: 'New Officer', next: 'Active Officer', nextPts: 100 },
+  active_officer: { icon: '⚙️', label: 'Active Officer', next: 'Efficient Officer', nextPts: 300 },
+  efficient_officer: { icon: '🌟', label: 'Efficient Officer', next: 'Star Officer', nextPts: 700 },
+  star_officer: { icon: '💫', label: 'Star Officer', next: 'Excellence Award', nextPts: 1500 },
+  excellence_award: { icon: '🏅', label: 'Excellence Award', next: null, nextPts: null },
+};
+
+const getCalculatedGovtBadge = (points) => {
+  const pts = points || 0;
+  if (pts >= 1500) return GOVT_BADGE_DATA.excellence_award;
+  if (pts >= 700) return GOVT_BADGE_DATA.star_officer;
+  if (pts >= 300) return GOVT_BADGE_DATA.efficient_officer;
+  if (pts >= 100) return GOVT_BADGE_DATA.active_officer;
+  return GOVT_BADGE_DATA.new_officer;
 };
 
 export default function OfficerDashboard() {
@@ -40,7 +49,7 @@ export default function OfficerDashboard() {
     refreshProfile();
   }, []);
 
-  const badge = GOVT_BADGE_DATA[user?.govt_badge] || GOVT_BADGE_DATA.new_officer;
+  const badge = getCalculatedGovtBadge(user?.govt_points);
   const progress = badge.nextPts ? Math.min(((user?.govt_points || 0) / badge.nextPts) * 100, 100) : 100;
 
   return (
@@ -115,10 +124,10 @@ export default function OfficerDashboard() {
       {/* Stats */}
       <div className="grid-4" style={{ marginBottom: 24 }}>
         {[
-          { label: 'Total (All Depts)', value: stats?.total || 0,      icon: '📋', bg: 'var(--secondary-light)', color: 'var(--secondary)' },
-          { label: 'Pending',           value: stats?.pending || 0,    icon: '⏳', bg: 'var(--warning-bg)',     color: 'var(--warning)' },
-          { label: 'Escalated',         value: stats?.escalated || 0,  icon: '🔺', bg: '#FCE4EC',              color: '#C2185B' },
-          { label: 'Resolved',          value: stats?.resolved || 0,   icon: '✅', bg: 'var(--success-bg)',    color: 'var(--success)' },
+          { label: 'Total (All Depts)', value: stats?.total || 0, icon: '📋', bg: 'var(--secondary-light)', color: 'var(--secondary)' },
+          { label: 'Pending', value: stats?.pending || 0, icon: '⏳', bg: 'var(--warning-bg)', color: 'var(--warning)' },
+          { label: 'Escalated', value: stats?.escalated || 0, icon: '🔺', bg: '#FCE4EC', color: '#C2185B' },
+          { label: 'Resolved', value: stats?.resolved || 0, icon: '✅', bg: 'var(--success-bg)', color: 'var(--success)' },
         ].map(s => (
           <div key={s.label} className="stat-card">
             <div className="stat-icon" style={{ background: s.bg }}>

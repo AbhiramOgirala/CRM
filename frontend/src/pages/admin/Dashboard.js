@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Bar, Line } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
+import { Bar, Line, Doughnut } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
 import { complaintsAPI, adminAPI } from '../../services/api';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend, ArcElement);
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
@@ -20,13 +20,23 @@ export default function AdminDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
+  const donutData = dashboardData?.stats ? {
+    labels: ['Pending', 'In Progress', 'Resolved'],
+    datasets: [{
+      data: [dashboardData.stats.pending || 0, dashboardData.stats.inProgress || 0, dashboardData.stats.resolved || 0],
+      backgroundColor: ['#F59E0B', '#6366F1', '#10B981'],
+      borderWidth: 0,
+      hoverOffset: 4
+    }]
+  } : null;
+
   const barData = dashboardData?.byCategory ? {
-    labels: dashboardData.byCategory.slice(0, 8).map(c => c.category?.replace(/_/g, ' ')),
+    labels: dashboardData.byCategory.slice(0, 8).map(c => c.category?.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())),
     datasets: [{
       label: 'Complaints',
       data: dashboardData.byCategory.slice(0, 8).map(c => c.count),
-      backgroundColor: ['#E65100','#1A237E','#1B5E20','#880E4F','#E65100','#004D40','#BF360C','#0D47A1'],
-      borderRadius: 6
+      backgroundColor: '#7C3AED',
+      borderRadius: 4
     }]
   } : null;
 
@@ -36,18 +46,36 @@ export default function AdminDashboard() {
       return d.toLocaleString('en-IN', { month: 'short', year: '2-digit' });
     }),
     datasets: [{
-      label: 'Complaints Filed',
+      label: 'Monthly Trend',
       data: dashboardData.monthlyTrends.map(m => m.count),
-      borderColor: 'var(--primary)',
-      backgroundColor: 'rgba(230,81,0,0.1)',
-      tension: 0.4, fill: true, pointRadius: 5
+      borderColor: '#6366F1',
+      backgroundColor: 'rgba(99, 102, 241, 0.1)',
+      tension: 0.4, fill: true, pointRadius: 4,
+      pointBackgroundColor: '#6366F1'
     }]
   } : null;
 
-  const chartOptions = {
+  const darkChartOptions = {
     responsive: true,
-    plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true, grid: { color: '#E0E3EF' } }, x: { grid: { display: false } } }
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: { mode: 'index', intersect: false }
+    },
+    scales: {
+      y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false }, ticks: { color: '#8b92a5', maxTicksLimit: 5 } },
+      x: { grid: { display: false, drawBorder: false }, ticks: { color: '#8b92a5' } }
+    }
+  };
+
+  const donutOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '70%',
+    plugins: {
+      legend: { display: false },
+      tooltip: { enabled: true }
+    }
   };
 
   return (
@@ -100,21 +128,54 @@ export default function AdminDashboard() {
       </div>
 
       {/* Charts */}
-      <div className="grid-2" style={{ marginBottom: 24 }}>
-        <div className="card">
-          <h2 className="card-title" style={{ marginBottom: 16 }}>📊 Complaints by Category</h2>
-          {barData ? (
-            <Bar data={barData} options={{ ...chartOptions, plugins: { ...chartOptions.plugins, title: { display: false } } }} height={200} />
-          ) : (
-            <div className="skeleton" style={{ height: 200 }} />
-          )}
+      <div className="grid-2" style={{ marginBottom: 24, gap: '24px' }}>
+        <div style={{ background: '#111827', borderRadius: '12px', padding: '24px', border: '1px solid #1f2937' }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'white', marginBottom: '24px', fontFamily: 'Inter, sans-serif' }}>Status Breakdown</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '30px' }}>
+            <div style={{ width: '160px', height: '160px', position: 'relative' }}>
+              {donutData ? (
+                <Doughnut data={donutData} options={donutOptions} />
+              ) : (
+                <div className="skeleton" style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+              )}
+            </div>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {[
+                { label: 'Pending', color: '#F59E0B', value: dashboardData?.stats?.pending || 0 },
+                { label: 'In Progress', color: '#6366F1', value: dashboardData?.stats?.inProgress || 0 },
+                { label: 'Resolved', color: '#10B981', value: dashboardData?.stats?.resolved || 0 }
+              ].map(item => (
+                <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.color }} />
+                    <span style={{ color: '#8b92a5', fontSize: '0.85rem' }}>{item.label}</span>
+                  </div>
+                  <span style={{ color: 'white', fontWeight: 700, fontSize: '0.9rem' }}>{item.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="card">
-          <h2 className="card-title" style={{ marginBottom: 16 }}>📈 Monthly Trends</h2>
+
+        <div style={{ background: '#111827', borderRadius: '12px', padding: '24px', border: '1px solid #1f2937' }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'white', marginBottom: '24px', fontFamily: 'Inter, sans-serif' }}>By Category</h2>
+          <div style={{ height: '160px' }}>
+            {barData ? (
+              <Bar data={barData} options={darkChartOptions} />
+            ) : (
+              <div className="skeleton" style={{ height: '100%' }} />
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ background: '#111827', borderRadius: '12px', padding: '24px', border: '1px solid #1f2937', marginBottom: 24 }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'white', marginBottom: '24px', fontFamily: 'Inter, sans-serif' }}>Monthly Trend</h2>
+        <div style={{ height: '200px' }}>
           {lineData ? (
-            <Line data={lineData} options={chartOptions} height={200} />
+            <Line data={lineData} options={{ ...darkChartOptions, plugins: { ...darkChartOptions.plugins, legend: { display: false } } }} />
           ) : (
-            <div className="skeleton" style={{ height: 200 }} />
+            <div className="skeleton" style={{ height: '100%' }} />
           )}
         </div>
       </div>

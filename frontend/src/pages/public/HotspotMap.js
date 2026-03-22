@@ -4,7 +4,7 @@ import { complaintsAPI, locationAPI } from '../../services/api';
 const CATEGORY_COLORS = {
   roads: '#E65100', water_supply: '#0277BD', electricity: '#F9A825',
   waste_management: '#558B2F', drainage: '#00838F', infrastructure: '#6A1B9A',
-  parks: '#2E7D32', health: '#C62828', education: '#283593', 
+  parks: '#2E7D32', health: '#C62828', education: '#283593',
   street_lights: '#FF6F00', other: '#546E7A'
 };
 
@@ -19,8 +19,22 @@ export default function HotspotMap() {
   const [stats, setStats] = useState({ total: 0, byCategory: {} });
   const [error, setError] = useState(null);
   const [totalComplaints, setTotalComplaints] = useState(0);
+  const userLocationRef = useRef(null);
 
   useEffect(() => {
+    // Attempt to get user's location on mount
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          userLocationRef.current = loc;
+          if (mapInstanceRef.current && !filters.state_id) {
+            mapInstanceRef.current.setView([loc.lat, loc.lng], 12);
+          }
+        },
+        (err) => console.log('Location access denied or failed:', err)
+      );
+    }
     locationAPI.getStates()
       .then(r => setStates(r.states || []))
       .catch(error => {
@@ -36,7 +50,7 @@ export default function HotspotMap() {
 
   const initMap = () => {
     if (mapInstanceRef.current || !mapRef.current) return;
-    
+
     // Check if Leaflet is already loaded
     const L = window.L;
     if (!L) {
@@ -72,7 +86,7 @@ export default function HotspotMap() {
         attribution: '© OpenStreetMap contributors'
       }).addTo(map);
       mapInstanceRef.current = map;
-      
+
       // Load hotspots after map is ready
       if (hotspots.length > 0) {
         updateMapMarkers(hotspots);
@@ -88,13 +102,13 @@ export default function HotspotMap() {
     setError(null);
     try {
       console.log('Loading hotspots with filters:', filters);
-      
+
       // Load both hotspots and total complaints for comparison
       const [hotspotsRes, dashboardRes] = await Promise.all([
         complaintsAPI.getHotspots(filters),
         complaintsAPI.getDashboard()
       ]);
-      
+
       console.log('Hotspots API response:', hotspotsRes);
       const data = hotspotsRes.hotspots || [];
       setHotspots(data);
@@ -113,8 +127,8 @@ export default function HotspotMap() {
       setHotspots([]);
       setStats({ total: 0, byCategory: {} });
       setTotalComplaints(0);
-    } finally { 
-      setLoading(false); 
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -127,18 +141,21 @@ export default function HotspotMap() {
       // Remove existing markers
       markersRef.current.forEach(m => map.removeLayer(m));
       markersRef.current = [];
+      const bounds = [];
 
       data.forEach(h => {
         if (!h.latitude || !h.longitude) return;
-        const color = CATEGORY_COLORS[h.category] || '#546E7A';
-        const prioritySize = { critical: 14, high: 12, medium: 10, low: 8 };
-        const size = prioritySize[h.priority] || 8;
+        bounds.push([h.latitude, h.longitude]);
+        const PRIORITY_COLORS = { low: '#10B981', medium: '#FBBF24', high: '#F97316', critical: '#EF4444' };
+        const prioritySize = { critical: 28, high: 24, medium: 20, low: 16 };
+        const size = prioritySize[h.priority] || 20;
+        const color = PRIORITY_COLORS[h.priority] || PRIORITY_COLORS.medium;
 
         const icon = L.divIcon({
           className: '',
-          html: `<div style="width:${size}px;height:${size}px;background:${color};border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3)"></div>`,
+          html: `<div style="width:${size}px;height:${size}px;background:${color}66;border-radius:50%;border:2px solid ${color};"></div>`,
           iconSize: [size, size],
-          iconAnchor: [size/2, size/2]
+          iconAnchor: [size / 2, size / 2]
         });
 
         const marker = L.marker([h.latitude, h.longitude], { icon })
@@ -153,122 +170,102 @@ export default function HotspotMap() {
         marker.addTo(map);
         markersRef.current.push(marker);
       });
+
+      if (filters.state_id) {
+        // If user actively selected a state filter, focus on bounds
+        if (bounds.length > 0) {
+          const latLngBounds = L.latLngBounds(bounds);
+          map.fitBounds(latLngBounds, { padding: [50, 50] });
+        }
+      } else if (userLocationRef.current) {
+        // Default view with user location available
+        map.setView([userLocationRef.current.lat, userLocationRef.current.lng], 12);
+      } else if (bounds.length > 0) {
+        // Fallback to center of markers if no user location
+        const latLngBounds = L.latLngBounds(bounds);
+        const center = latLngBounds.getCenter();
+        const maxDist = Math.max(
+          Math.abs(latLngBounds.getNorth() - latLngBounds.getSouth()),
+          Math.abs(latLngBounds.getEast() - latLngBounds.getWest())
+        );
+
+        if (maxDist > 4) {
+          map.fitBounds(latLngBounds, { padding: [50, 50] });
+        } else {
+          map.setView(center, 12);
+        }
+      } else {
+        map.setView([20.5937, 78.9629], 5);
+      }
     } catch (error) {
       console.error('Failed to update map markers:', error);
     }
   };
 
   return (
-    <div>
-      <div className="page-header">
+    <div style={{ background: '#111827', padding: '24px', borderRadius: '12px', color: 'white' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 className="page-title">🗺️ Complaint Hotspot Map</h1>
-          <p className="page-subtitle">Geographic distribution of civic complaints</p>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, marginBottom: '8px', color: '#ffffff', fontFamily: 'Inter, sans-serif' }}>Problem Hotspots Map</h1>
+          <p style={{ color: '#8b92a5', margin: 0, fontSize: '0.95rem' }}>Bubble size and color intensity increase with repeated complaints in the same area.</p>
         </div>
-      </div>
-
-      {/* Error message */}
-      {error && (
-        <div style={{ 
-          background: '#ffebee', 
-          color: '#c62828', 
-          padding: '12px', 
-          borderRadius: 'var(--radius)', 
-          marginBottom: '16px',
-          border: '1px solid #ffcdd2'
-        }}>
-          ⚠️ {error}
+        <div style={{ color: '#8b92a5', fontSize: '0.9rem' }}>
+          {stats.total} hotspot cluster(s)
         </div>
-      )}
-
-      {/* Empty state message */}
-      {!loading && !error && stats.total === 0 && (
-        <div style={{ 
-          background: '#f5f5f5', 
-          color: '#666', 
-          padding: '20px', 
-          borderRadius: 'var(--radius)', 
-          marginBottom: '16px',
-          textAlign: 'center',
-          border: '1px solid #e0e0e0'
-        }}>
-          📍 No complaint hotspots found for the selected filters.<br />
-          Try adjusting the time range or location filters.<br />
-          <small style={{ fontSize: '0.75rem', marginTop: '8px', display: 'block' }}>
-            Note: Only complaints with GPS coordinates are shown on the map.
-          </small>
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="filter-bar">
-        <select className="form-control" value={filters.state_id} onChange={e => setFilters(p => ({ ...p, state_id: e.target.value }))}>
-          <option value="">All States</option>
-          {states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <select className="form-control" value={filters.category} onChange={e => setFilters(p => ({ ...p, category: e.target.value }))}>
-          <option value="">All Categories</option>
-          {Object.keys(CATEGORY_COLORS).map(c => (
-            <option key={c} value={c}>{c.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}</option>
-          ))}
-        </select>
-        <select className="form-control" value={filters.days} onChange={e => setFilters(p => ({ ...p, days: e.target.value }))}>
-          <option value="7">Last 7 days</option>
-          <option value="30">Last 30 days</option>
-          <option value="90">Last 90 days</option>
-          <option value="365">Last 1 year</option>
-        </select>
-        <button 
-          className="btn btn-primary" 
-          onClick={loadHotspots}
-          disabled={loading}
-          style={{ minWidth: '100px' }}
-        >
-          {loading ? '🔄 Loading...' : '🔄 Refresh'}
-        </button>
-        {loading && <div className="loading-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />}
-      </div>
-
-      {/* Stats strip */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-        <span style={{ background: 'var(--secondary)', color: 'white', borderRadius: 20, padding: '4px 14px', fontSize: '0.8rem', fontWeight: 700 }}>
-          📍 {stats.total} of {totalComplaints} complaints shown (with GPS)
-        </span>
-        {Object.entries(stats.byCategory).sort((a,b) => b[1]-a[1]).slice(0,5).map(([cat, count]) => (
-          <span key={cat} style={{ background: CATEGORY_COLORS[cat] + '20', color: CATEGORY_COLORS[cat], borderRadius: 20, padding: '4px 12px', fontSize: '0.75rem', fontWeight: 700, border: `1px solid ${CATEGORY_COLORS[cat]}40` }}>
-            {cat.replace(/_/g, ' ')}: {count}
-          </span>
-        ))}
       </div>
 
       {/* Map */}
-      <div style={{ borderRadius: 'var(--radius)', overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
-        <div ref={mapRef} style={{ height: 500, background: '#E8EAF6' }}>
+      <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #1f2937', marginBottom: '20px' }}>
+        <div ref={mapRef} style={{ height: 600, background: '#E8EAF6' }}>
           {!window.L && (
             <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
-              <div className="loading-spinner" style={{ width: 36, height: 36 }} />
-              <p style={{ color: 'var(--text-muted)' }}>Loading map...</p>
+              <div className="loading-spinner" style={{ width: 36, height: 36, borderColor: '#374151', borderTopColor: '#3b82f6' }} />
+              <p style={{ color: '#8b92a5' }}>Loading map...</p>
             </div>
           )}
         </div>
       </div>
 
       {/* Legend */}
-      <div className="card" style={{ marginTop: 16 }}>
-        <h3 style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: 10 }}>Map Legend</h3>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          {Object.entries(CATEGORY_COLORS).map(([cat, color]) => (
-            <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem' }}>
-              <div style={{ width: 10, height: 10, background: color, borderRadius: '50%', border: '2px solid white', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', flexShrink: 0 }} />
-              {cat.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-            </div>
+      <div style={{ display: 'flex', gap: '24px', alignItems: 'center', color: '#8b92a5', fontSize: '0.9rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: 14, height: 14, background: '#10B981', borderRadius: '50%' }}></div> Low
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: 14, height: 14, background: '#FBBF24', borderRadius: '50%' }}></div> Medium
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: 14, height: 14, background: '#F97316', borderRadius: '50%' }}></div> High
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: 14, height: 14, background: '#EF4444', borderRadius: '50%' }}></div> Critical
+        </div>
+      </div>
+
+      <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid #1f2937', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+        <select style={{ background: '#1f2937', color: 'white', border: '1px solid #374151', borderRadius: '6px', padding: '8px 12px' }} value={filters.state_id} onChange={e => setFilters(p => ({ ...p, state_id: e.target.value }))}>
+          <option value="">All States</option>
+          {states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <select style={{ background: '#1f2937', color: 'white', border: '1px solid #374151', borderRadius: '6px', padding: '8px 12px' }} value={filters.category} onChange={e => setFilters(p => ({ ...p, category: e.target.value }))}>
+          <option value="">All Categories</option>
+          {Object.keys(CATEGORY_COLORS).map(c => (
+            <option key={c} value={c}>{c.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}</option>
           ))}
-        </div>
-        <div style={{ marginTop: 10, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-          🔴 Larger dots = Higher priority complaints | Click on a dot to see details<br />
-          📍 Complaints are automatically located using their address information<br />
-          💡 New complaints filed with addresses will appear on the map automatically
-        </div>
+        </select>
+        <select style={{ background: '#1f2937', color: 'white', border: '1px solid #374151', borderRadius: '6px', padding: '8px 12px' }} value={filters.days} onChange={e => setFilters(p => ({ ...p, days: e.target.value }))}>
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="90">Last 90 days</option>
+          <option value="365">Last 1 year</option>
+        </select>
+        <button
+          onClick={loadHotspots}
+          disabled={loading}
+          style={{ background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', padding: '8px 16px', cursor: 'pointer' }}
+        >
+          {loading ? '🔄 Loading...' : '🔄 Refresh'}
+        </button>
       </div>
     </div>
   );

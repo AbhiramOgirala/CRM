@@ -25,9 +25,24 @@ export default function ComplaintDetail() {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [upvoting, setUpvoting] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingComplaint, setDeletingComplaint] = useState(false);
+  const [deleteReasons, setDeleteReasons] = useState([]);
+  const [deleteForm, setDeleteForm] = useState({ reason_code: '', reason_text: '' });
   const [updateForm, setUpdateForm] = useState({ status: '', notes: '', rejection_reason: '' });
 
   useEffect(() => { loadDetail(); }, [id]);
+  useEffect(() => {
+    if (user?.role !== 'citizen') return;
+    (async () => {
+      try {
+        const res = await complaintsAPI.getDeleteReasons();
+        setDeleteReasons(res.reasons || []);
+      } catch {
+        setDeleteReasons([]);
+      }
+    })();
+  }, [user?.role]);
 
   const loadDetail = async () => {
     setLoading(true);
@@ -52,7 +67,7 @@ export default function ComplaintDetail() {
         complaint: { ...prev.complaint, upvote_count: prev.complaint.upvote_count + (res.upvoted ? 1 : -1) },
         userUpvoted: res.upvoted
       }));
-    } catch {}
+    } catch { }
     setUpvoting(false);
   };
 
@@ -84,10 +99,36 @@ export default function ComplaintDetail() {
     }
   };
 
+  const handleDeleteComplaint = async (e) => {
+    e.preventDefault();
+    if (!deleteForm.reason_code) {
+      toast.error('Please select a deletion reason');
+      return;
+    }
+    if (deleteForm.reason_code === 'other' && !deleteForm.reason_text.trim()) {
+      toast.error('Please provide details for "Other reason"');
+      return;
+    }
+
+    setDeletingComplaint(true);
+    try {
+      await complaintsAPI.deleteByCitizen(id, {
+        reason_code: deleteForm.reason_code,
+        reason_text: deleteForm.reason_text
+      });
+      toast.success('Complaint deleted successfully');
+      navigate('/my-complaints');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDeletingComplaint(false);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ display: 'grid', gap: 16 }}>
-        {[1,2,3].map(i => (
+        {[1, 2, 3].map(i => (
           <div key={i} className="card">
             <div className="skeleton" style={{ height: 20, width: '60%', marginBottom: 12 }} />
             <div className="skeleton" style={{ height: 16, width: '90%', marginBottom: 8 }} />
@@ -103,6 +144,7 @@ export default function ComplaintDetail() {
   const { complaint, timeline, comments, linkedComplaints, userUpvoted } = data;
   const isOwner = user?.id === complaint.citizen_id;
   const isOfficer = user?.role === 'officer' || user?.role === 'admin' || user?.role === 'super_admin';
+  const canDeleteComplaint = isOwner && complaint.status !== 'closed';
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -123,11 +165,24 @@ export default function ComplaintDetail() {
               {complaint.title}
             </h1>
           </div>
-          {isOfficer && (
-            <button className="btn btn-primary" onClick={() => setShowUpdateModal(true)}>
-              Update Status
-            </button>
-          )}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {canDeleteComplaint && (
+              <button
+                className="btn btn-danger"
+                onClick={() => {
+                  setDeleteForm({ reason_code: '', reason_text: '' });
+                  setShowDeleteModal(true);
+                }}
+              >
+                Delete Complaint
+              </button>
+            )}
+            {isOfficer && (
+              <button className="btn btn-primary" onClick={() => setShowUpdateModal(true)}>
+                Update Status
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -329,7 +384,7 @@ export default function ComplaintDetail() {
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {complaint.proof_images.map((img, i) => (
-                      <img key={i} src={img} alt={`Proof ${i+1}`}
+                      <img key={i} src={img} alt={`Proof ${i + 1}`}
                         style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, border: '2px solid #A5D6A7', cursor: 'pointer' }}
                         onClick={() => window.open(img, '_blank')} />
                     ))}
@@ -402,6 +457,53 @@ export default function ComplaintDetail() {
               <label className="form-label">Notes (optional)</label>
               <textarea className="form-control" placeholder="Add any notes or remarks..."
                 value={updateForm.notes} onChange={e => setUpdateForm(prev => ({ ...prev, notes: e.target.value }))} rows={3} />
+            </div>
+          )}
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Complaint"
+        footer={
+          <>
+            <button className="btn btn-ghost" onClick={() => setShowDeleteModal(false)} disabled={deletingComplaint}>Cancel</button>
+            <button className="btn btn-danger" onClick={handleDeleteComplaint} disabled={deletingComplaint}>
+              {deletingComplaint ? 'Deleting...' : 'Delete Complaint'}
+            </button>
+          </>
+        }
+      >
+        <form onSubmit={handleDeleteComplaint}>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 12, fontSize: '0.9rem' }}>
+            Please tell us why you are deleting this complaint.
+          </p>
+          <div className="form-group">
+            <label className="form-label">Reason <span className="required">*</span></label>
+            <select
+              className="form-control"
+              value={deleteForm.reason_code}
+              onChange={e => setDeleteForm(prev => ({ ...prev, reason_code: e.target.value }))}
+              required
+            >
+              <option value="">Select reason</option>
+              {deleteReasons.map(r => (
+                <option key={r.code} value={r.code}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+          {deleteForm.reason_code === 'other' && (
+            <div className="form-group">
+              <label className="form-label">Details <span className="required">*</span></label>
+              <textarea
+                className="form-control"
+                rows={3}
+                placeholder="Please share your reason"
+                value={deleteForm.reason_text}
+                onChange={e => setDeleteForm(prev => ({ ...prev, reason_text: e.target.value }))}
+                required
+              />
             </div>
           )}
         </form>

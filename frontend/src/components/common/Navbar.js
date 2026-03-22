@@ -31,7 +31,7 @@ export default function Navbar({ onMenuToggle }) {
       const res = await notificationsAPI.getAll({ limit: 5, unread_only: true });
       setUnreadCount(res.unreadCount || 0);
       setNotifications(res.notifications || []);
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
@@ -55,6 +55,26 @@ export default function Navbar({ onMenuToggle }) {
     if (user.role === 'officer') return '/officer/dashboard';
     return '/admin/dashboard';
   };
+
+  const calculateBadge = (role, pts) => {
+    const points = pts || 0;
+    if (role === 'citizen') {
+      if (points >= 1000) return 'civic_hero';
+      if (points >= 400) return 'champion';
+      if (points >= 150) return 'active_citizen';
+      if (points >= 50) return 'contributor';
+      return 'newcomer';
+    } else if (role === 'officer') {
+      if (points >= 1500) return 'excellence_award';
+      if (points >= 700) return 'star_officer';
+      if (points >= 300) return 'efficient_officer';
+      if (points >= 100) return 'active_officer';
+      return 'new_officer';
+    }
+    return 'newcomer';
+  };
+
+  const currentBadgeCode = user ? calculateBadge(user.role, user.role === 'citizen' ? user.points : user.govt_points) : 'newcomer';
 
   return (
     <nav className="navbar">
@@ -126,15 +146,20 @@ export default function Navbar({ onMenuToggle }) {
                   position: 'absolute', right: 0, top: '100%', marginTop: 8,
                   background: 'var(--surface)', border: '1px solid var(--border)',
                   borderRadius: 'var(--radius)', width: 340, boxShadow: 'var(--shadow-lg)',
-                  zIndex: 500, overflow: 'hidden'
+                  zIndex: 500, overflow: 'hidden', color: 'var(--text-primary)'
                 }}>
                   <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Notifications</span>
-                    {unreadCount > 0 && (
-                      <button onClick={markAllRead} style={{ fontSize: '0.75rem', color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
-                        Mark all read
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      {unreadCount > 0 && (
+                        <button onClick={markAllRead} style={{ fontSize: '0.75rem', color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                          Mark all read
+                        </button>
+                      )}
+                      <button onClick={() => setShowNotifDropdown(false)} style={{ fontSize: '1rem', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-label="Close notifications">
+                        ×
                       </button>
-                    )}
+                    </div>
                   </div>
                   {notifications.length === 0 ? (
                     <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
@@ -150,7 +175,7 @@ export default function Navbar({ onMenuToggle }) {
                       }}
                         onClick={() => { if (n.complaint_id) { navigate(`/complaint/${n.complaint_id}`); setShowNotifDropdown(false); } }}
                       >
-                        <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: 2 }}>{n.title}</div>
+                        <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: 2, color: 'var(--text-primary)' }}>{n.title}</div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{n.message}</div>
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
                           {new Date(n.created_at).toLocaleString('en-IN')}
@@ -192,7 +217,7 @@ export default function Navbar({ onMenuToggle }) {
                     {user.full_name?.split(' ')[0]}
                   </div>
                   <div style={{ fontSize: '0.65rem', opacity: 0.8 }}>
-                    {BADGE_ICONS[user.badge_level || user.govt_badge]} {user.role}
+                    {BADGE_ICONS[currentBadgeCode]} {user.role}
                   </div>
                 </div>
                 <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>▼</span>
@@ -210,7 +235,7 @@ export default function Navbar({ onMenuToggle }) {
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{user.email}</div>
                     {user.role === 'citizen' && (
                       <div style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: 2, fontWeight: 600 }}>
-                        {BADGE_ICONS[user.badge_level]} {user.points || 0} pts
+                        {BADGE_ICONS[currentBadgeCode]} {user.points || 0} pts
                       </div>
                     )}
                   </div>
