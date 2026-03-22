@@ -38,6 +38,7 @@ export default function FileComplaint() {
   const [nlpLoading, setNlpLoading] = useState(false);
   const [imageAnalysisResult, setImageAnalysisResult] = useState(null);
   const [imageAnalysisLoading, setImageAnalysisLoading] = useState(false);
+  const [generatingTitle, setGeneratingTitle] = useState(false);
   const nlpTimer = useRef(null);
   const [selectedLang, setSelectedLangLocal] = useState('en');
   const { setActiveLang } = useLanguage();
@@ -54,6 +55,35 @@ export default function FileComplaint() {
     state_id: '', district_id: '', corporation_id: '', municipality_id: '',
     taluka_id: '', mandal_id: '', gram_panchayat_id: '',
     is_public: true, is_anonymous: false, images: []
+  };
+
+  const resetDraftAndStartNew = () => {
+    const hasAnyData = !!(
+      form.title || form.description || form.audio_transcript ||
+      form.images?.length || form.address || form.latitude || form.longitude
+    );
+
+    if (hasAnyData) {
+      const ok = window.confirm('Trash current draft and start a new complaint?');
+      if (!ok) return;
+    }
+
+    localStorage.removeItem('complaint_draft');
+    // Cleanup legacy key if present from older builds.
+    localStorage.removeItem('complaintDraft');
+
+    setForm(DEFAULT_FORM);
+    setStep(1);
+    setNlpResult(null);
+    setImageAnalysisResult(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    if (isRecording && recognition) {
+      recognition.stop();
+      setIsRecording(false);
+    }
+
+    toast.success('Draft trashed. You can file a new complaint now.');
   };
 
   // Restore draft or start fresh
@@ -156,6 +186,29 @@ export default function FileComplaint() {
   useEffect(() => {
     triggerNLPPreview(form.description);
   }, [form.description, form.title]);
+
+  const autoGenerateTitle = async () => {
+    const text = [form.description, form.audio_transcript].filter(Boolean).join(' ').trim();
+    if (!text || text.length < 10) {
+      toast.error('Please describe the issue first');
+      return;
+    }
+
+    setGeneratingTitle(true);
+    try {
+      const res = await nlpAPI.generateTitle(text, nlpResult?.category, nlpResult?.priority);
+      if (res?.title) {
+        setForm(prev => ({ ...prev, title: res.title }));
+        toast.success('Title generated');
+      } else {
+        toast.error('Could not generate title');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to generate title');
+    } finally {
+      setGeneratingTitle(false);
+    }
+  };
 
   // ── GPS Location ─────────────────────────────────────────────────
   const getGPS = () => {
@@ -355,11 +408,19 @@ export default function FileComplaint() {
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <h1 className="page-title">{t('file_complaint.title', 'File a Complaint')}</h1>
           <p className="page-subtitle">{t('file_complaint.subtitle', 'Describe your issue — we\'ll automatically detect the right department')}</p>
         </div>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={resetDraftAndStartNew}
+          title="Trash draft and start a new complaint"
+        >
+          Trash Draft
+        </button>
       </div>
 
       {/* Step indicator */}
@@ -485,12 +546,22 @@ export default function FileComplaint() {
             <div className="form-group">
               <div className="form-label-row">
                 <label className="form-label">{t('file_complaint.comp_title', 'Complaint Title')} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional — auto-generated if blank)</span></label>
-                <SpeakButton
-                  text={buildFieldPrompt('complaintTitle', '', LANG_CODES[selectedLang] || 'en-IN')}
-                  lang={LANG_CODES[selectedLang] || 'en-IN'}
-                  size="sm"
-                  translate={false}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={autoGenerateTitle}
+                    disabled={generatingTitle}
+                  >
+                    {generatingTitle ? 'Generating...' : 'Auto Generate'}
+                  </button>
+                  <SpeakButton
+                    text={buildFieldPrompt('complaintTitle', '', LANG_CODES[selectedLang] || 'en-IN')}
+                    lang={LANG_CODES[selectedLang] || 'en-IN'}
+                    size="sm"
+                    translate={false}
+                  />
+                </div>
               </div>
               <input
                 className="form-control"

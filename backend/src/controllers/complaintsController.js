@@ -3,6 +3,7 @@ const { supabase } = require('../config/supabase');
 const nlp = require('../services/nlpService');
 const geocoding = require('../services/geocodingService');
 const imageProcessingService = require('../services/imageProcessingService');
+const geminiValidation = require('../services/geminiValidationService');
 const { addCitizenPoints, addOfficerPoints, POINTS } = require('../services/gamificationService');
 const notificationService = require('../services/notificationService');
 const { notifyStatusChange } = require('../services/whatsappService');
@@ -59,6 +60,24 @@ const genTicket = async () => {
 };
 
 // ── NLP Preview ───────────────────────────────────────────────────────────────
+exports.generateTitle = async (req, res) => {
+  try {
+    const { text, category = 'other', priority = 'medium' } = req.body || {};
+    if (!text || text.trim().length < 5) return res.json({ title: '' });
+
+    const geminiGenerated = await geminiValidation.generateComplaintTitle(text, category, priority);
+    if (geminiGenerated?.title) {
+      return res.json({ title: geminiGenerated.title, source: 'gemini' });
+    }
+
+    const fallback = nlp.generateTitle(text, category);
+    return res.json({ title: fallback, source: 'nlp' });
+  } catch (err) {
+    console.error('generateTitle:', err);
+    return res.status(500).json({ error: 'Failed to generate title' });
+  }
+};
+
 exports.previewClassification = async (req, res) => {
   try {
     const { text } = req.body;
@@ -339,7 +358,16 @@ exports.fileComplaint = async (req, res) => {
           deptName: enhanced.department
         };
 
-        finalTitle = title || enhanced.final_category;
+        if (title?.trim()) {
+          finalTitle = title.trim();
+        } else {
+          const geminiGenerated = await geminiValidation.generateComplaintTitle(
+            fullText,
+            classificaton.category,
+            classificaton.priority
+          );
+          finalTitle = geminiGenerated?.title || nlp.generateTitle(description || audio_transcript || '', classificaton.category);
+        }
         enhancedMetadata = {
           all_labels: enhanced.all_labels,
           requires_review: enhanced.requires_review,
