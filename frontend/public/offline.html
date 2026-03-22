@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Offline — JanSamadhan</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Noto Sans', Arial, sans-serif;
+      background: #1A237E;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      flex-direction: column;
+      gap: 16px;
+      text-align: center;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    .flag {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+    .flag div { width: 40px; height: 8px; border-radius: 3px; margin: 0 auto; }
+    h1 { color: #FFD54F; font-size: 1.5rem; margin: 0; }
+    p { opacity: 0.8; max-width: 320px; line-height: 1.6; margin: 0; font-size: 0.95rem; }
+    button {
+      background: #FFD54F;
+      color: #1A237E;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    button:hover { background: #FFC107; }
+    .logo { font-size: 1.8rem; font-weight: 900; color: #FFD54F; letter-spacing: -0.5px; }
+    .sub { font-size: 0.75rem; opacity: 0.6; letter-spacing: 1px; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+  <div class="flag">
+    <div style="background:#FF9933"></div>
+    <div style="background:#FFFFFF"></div>
+    <div style="background:#138808"></div>
+  </div>
+  <div class="logo">JanSamadhan</div>
+  <div class="sub">जन समाधान — Citizen Grievance Portal</div>
+  <h1>You're Offline</h1>
+  <p>JanSamadhan needs a connection to load this page. Please check your network and try again. Your draft complaints are saved and will sync when you reconnect.</p>
+  <button onclick="location.reload()">Try Again</button>
+</body>
+</html>

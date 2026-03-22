@@ -1,7 +1,6 @@
 /* JanSamadhan Design System */
 /* Accessible civic design - readable by all */
-
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Tiro+Devanagari+Hindi&family=Baloo+2:wght@600;700;800&display=swap');
+/* Fonts loaded via <link> in index.html — NOT @import (avoids render-blocking) */
 
 :root {
   /* Primary - Saffron-inspired civic orange */
@@ -190,8 +189,13 @@ body {
 }
 
 @media (max-width: 768px) {
+  /* On mobile, only navbar height matters — no accessibility bar */
+  .main-layout {
+    margin-top: 64px;
+  }
   .sidebar {
     transform: translateX(-100%);
+    top: 64px;
   }
   .sidebar.open {
     transform: translateX(0);
@@ -199,6 +203,53 @@ body {
   .main-content {
     margin-left: 0;
     padding: 16px;
+  }
+
+  /* Accessibility bar — hidden by default on mobile, toggled via JS */
+  .accessibility-bar {
+    display: none !important;
+  }
+  .accessibility-bar.mobile-open {
+    display: flex !important;
+    position: fixed;
+    top: 64px;
+    left: 0;
+    right: 0;
+    z-index: 199;
+    height: auto;
+    padding: 8px 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Mobile accessibility toggle button (shown via CSS override) */
+  .mobile-a11y-toggle {
+    display: flex !important;
+    min-width: 44px;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 6px;
+    color: white;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  /* Touch targets — minimum 44x44px on mobile (UX4G §5.3) */
+  .btn-sm {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+  .pagination-btn {
+    width: 44px;
+    height: 44px;
+  }
+  .accessibility-bar-controls button {
+    min-height: 36px;
+    padding: 4px 10px;
   }
 }
 
@@ -1391,4 +1442,187 @@ tr:hover td { background: var(--surface-2); }
     font-size: 0.75em;
     color: #555;
   }
+}
+
+/* ===================== TEXT-TO-SPEECH / SPEAK BUTTON ===================== */
+
+.speak-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-color, var(--border));
+  color: var(--text-secondary);
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--transition), border-color var(--transition), background var(--transition), box-shadow var(--transition);
+  padding: 0;
+  line-height: 1;
+}
+
+.speak-btn:hover {
+  color: var(--accent-primary, var(--primary));
+  border-color: var(--accent-primary, var(--primary));
+  background: var(--primary-light);
+}
+
+.speak-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Size variants */
+.speak-btn-sm  { width: 26px; height: 26px; }
+.speak-btn-md  { width: 32px; height: 32px; }
+.speak-btn-lg  { width: 40px; height: 40px; }
+
+/* Pill variant */
+.speak-btn-pill {
+  border-radius: 20px;
+  width: auto;
+  height: auto;
+  padding: 6px 12px;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.speak-btn-label {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Active / speaking state */
+.speak-btn-active {
+  color: #f97316;
+  border-color: #f97316;
+  background: #fff7ed;
+  animation: speak-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes speak-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4); }
+  50%       { box-shadow: 0 0 0 6px rgba(249, 115, 22, 0); }
+}
+
+/* Layout helpers */
+.form-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.form-label-row .form-label {
+  margin-bottom: 0;
+}
+
+.description-readout-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.complaint-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.complaint-card-header h3 {
+  flex: 1;
+  min-width: 0;
+}
+
+.detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.detail-title-row h1 {
+  flex: 1;
+}
+
+.detail-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.detail-section-header .card-title {
+  margin-bottom: 0;
+  flex: 1;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===================== BREADCRUMB (UX4G §4.2) ===================== */
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  list-style: none;
+  margin: 0 0 16px 0;
+  padding: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.breadcrumb-sep {
+  opacity: 0.5;
+  font-size: 0.75rem;
+}
+
+.breadcrumb-link {
+  color: var(--primary);
+  text-decoration: none;
+  transition: opacity var(--transition);
+}
+
+.breadcrumb-link:hover { opacity: 0.75; }
+
+.breadcrumb-current {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+/* Visually hidden — for screen reader only text */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ===================== PRINT STYLES (UX4G §7.2) ===================== */
+
+@media print {
+  .navbar, .sidebar, .accessibility-bar, .mobile-a11y-toggle,
+  .filter-bar, .pagination, .btn, .complaint-actions {
+    display: none !important;
+  }
+  .main-layout { margin-top: 0 !important; }
+  .main-content { margin-left: 0 !important; padding: 0 !important; }
+  .card { box-shadow: none !important; border: 1px solid #ccc !important; }
+
+  .complaint-detail-header {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 2px solid #000;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+  }
+  .timeline::before { border-left: 1px solid #000; }
+  .timeline-dot { background: #000 !important; }
 }

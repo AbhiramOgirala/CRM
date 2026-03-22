@@ -1,5 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import SpeakButton from '../ui/SpeakButton';
+import { buildComplaintReadout } from '../../hooks/useTextToSpeech';
+import { useLanguage } from '../../context/LanguageContext';
 
 // =============================================
 // STATUS BADGE
@@ -47,6 +50,7 @@ export function CategoryChip({ category }) {
 // =============================================
 export function ComplaintCard({ complaint, showCitizenInfo = false, actions }) {
   const navigate = useNavigate();
+  const { activeLang } = useLanguage();
 
   return (
     <div
@@ -65,6 +69,13 @@ export function ComplaintCard({ complaint, showCitizenInfo = false, actions }) {
           </div>
           <h3 className="complaint-title">{complaint.title}</h3>
         </div>
+        <SpeakButton
+          text={buildComplaintReadout(complaint, activeLang)}
+          lang={activeLang}
+          size="sm"
+          variant="icon"
+          translate={false}
+        />
         {complaint.duplicate_count > 0 && (
           <div style={{
             textAlign: 'center', background: 'var(--danger-bg)',
@@ -191,7 +202,21 @@ export function LocationSelector({ value, onChange, required = false }) {
 
   React.useEffect(() => {
     import('../../services/api').then(({ locationAPI }) => {
-      locationAPI.getStates().then(res => setStates(res.states || []));
+      locationAPI.getStates().then(res => {
+        const all = res.states || [];
+        // Only show the 5 cities we have full data for
+        const supported = ['Delhi', 'Telangana', 'Maharashtra', 'West Bengal', 'Karnataka'];
+        const filtered = all.filter(s => supported.includes(s.name));
+        setStates(filtered);
+        // Auto-select Delhi by default only if nothing chosen yet
+        if (!value.state_id) {
+          const delhi = filtered.find(s => s.name === 'Delhi');
+          if (delhi) handleStateChange(delhi.id);
+        } else {
+          // Already has a state selected — load its districts
+          locationAPI.getDistricts(value.state_id).then(r => setDistricts(r.districts || []));
+        }
+      });
     });
   }, []);
 

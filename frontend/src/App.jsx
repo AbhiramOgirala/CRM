@@ -3,10 +3,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import useAuthStore from './store/authStore';
 import useAccessibilityStore from './store/accessibilityStore';
+import { LanguageProvider } from './context/LanguageContext';
 import './styles/main.css';
 
 // Layout
 import MainLayout from './components/common/MainLayout';
+import InstallBanner from './components/common/InstallBanner';
 
 // Lazy load pages
 const Landing = lazy(() => import('./pages/public/Landing'));
@@ -34,6 +36,10 @@ const AdminUsers = lazy(() => import('./pages/admin/Users'));
 const Leaderboard = lazy(() => import('./pages/public/Leaderboard'));
 const HotspotMap = lazy(() => import('./pages/public/HotspotMap'));
 const NotFound = lazy(() => import('./pages/public/NotFound'));
+const About = lazy(() => import('./pages/public/About'));
+const PrivacyPolicy = lazy(() => import('./pages/public/PrivacyPolicy'));
+const TermsOfUse = lazy(() => import('./pages/public/TermsOfUse'));
+
 
 // Loading fallback
 const PageLoader = () => (
@@ -74,6 +80,7 @@ function App() {
   }, [initAccessibility]);
 
   return (
+    <LanguageProvider>
     <Router>
       <Toaster
         position="top-right"
@@ -99,6 +106,9 @@ function App() {
           <Route path="/map" element={<MainLayout><HotspotMap /></MainLayout>} />
           <Route path="/leaderboard" element={<MainLayout><Leaderboard /></MainLayout>} />
           <Route path="/complaint/:id" element={<MainLayout><ComplaintDetail /></MainLayout>} />
+          <Route path="/about" element={<About />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfUse />} />
 
           {/* Auth routes */}
           <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
@@ -172,6 +182,8 @@ function App() {
         </Routes>
       </Suspense>
     </Router>
+    <InstallBanner />
+    </LanguageProvider>
   );
 }
 

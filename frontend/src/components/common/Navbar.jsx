@@ -3,6 +3,21 @@ import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import useAccessibilityStore from '../../store/accessibilityStore';
 import { notificationsAPI } from '../../services/api';
+import { useLanguage } from '../../context/LanguageContext';
+
+const LANG_OPTIONS = [
+  { code: 'en-IN', label: 'EN', full: 'English' },
+  { code: 'hi-IN', label: 'हि', full: 'हिंदी' },
+  { code: 'te-IN', label: 'తె', full: 'తెలుగు' },
+  { code: 'ta-IN', label: 'த', full: 'தமிழ்' },
+  { code: 'kn-IN', label: 'ಕ', full: 'ಕನ್ನಡ' },
+  { code: 'ml-IN', label: 'മ', full: 'മലയാളം' },
+  { code: 'mr-IN', label: 'म', full: 'मराठी' },
+  { code: 'gu-IN', label: 'ગ', full: 'ગુજરાતી' },
+  { code: 'pa-IN', label: 'ਪ', full: 'ਪੰਜਾਬੀ' },
+  { code: 'bn-IN', label: 'ব', full: 'বাংলা' },
+  { code: 'ur-IN', label: 'اُ', full: 'اردو' },
+];
 
 // Badge level labels — text only, no emoji
 const BADGE_LABELS = {
@@ -27,10 +42,12 @@ export default function Navbar({ onMenuToggle }) {
   const { user, logout } = useAuthStore();
   const { increaseFontSize, decreaseFontSize, resetFontSize, toggleHighContrast, highContrast } = useAccessibilityStore();
   const navigate = useNavigate();
+  const { activeLang, setActiveLang } = useLanguage();
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [showA11yBar, setShowA11yBar] = useState(false);
   const notifRef = useRef();
   const userRef = useRef();
 
@@ -74,7 +91,7 @@ export default function Navbar({ onMenuToggle }) {
     <header>
       {/* UX4G Accessibility Bar */}
       <div 
-        className="accessibility-bar" 
+        className={`accessibility-bar${showA11yBar ? ' mobile-open' : ''}`}
         style={{
           height: '36px', 
           background: 'var(--secondary)', 
@@ -113,15 +130,22 @@ export default function Navbar({ onMenuToggle }) {
         </div>
       </div>
 
-      <nav className="navbar" role="navigation" aria-label="Main navigation" style={{ top: '36px' }}>
+      <style>{`
+        .navbar-main { top: 36px; }
+        @media (max-width: 768px) {
+          .navbar-main { top: ${showA11yBar ? 'auto' : '0'}; }
+          ${showA11yBar ? '.accessibility-bar.mobile-open + .navbar-main { top: auto; position: relative; }' : ''}
+        }
+      `}</style>
+      <nav className="navbar navbar-main" role="navigation" aria-label="Main navigation">
         {/* Hamburger - mobile */}
         <button
           style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            color: 'white', marginRight: 8, display: 'none',
-            padding: 8, borderRadius: 6,
+            color: 'white', marginRight: 8, padding: 8, borderRadius: 6,
             alignItems: 'center', justifyContent: 'center',
           }}
+          className="menu-toggle-btn"
           onClick={onMenuToggle}
           id="menu-toggle"
           aria-label="Toggle sidebar menu"
@@ -141,12 +165,12 @@ export default function Navbar({ onMenuToggle }) {
           </div>
           {/* Emblem text reference to fulfill UX4G text/emblem requirements */}
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', marginRight: '8px', borderRight: '1px solid rgba(255,255,255,0.3)', paddingRight: '12px' }}>
-            <span style={{ fontSize: '0.5rem', opacity: 0.9, textAlign: 'center', letterSpacing: '0.5px' }}>सत्यमेव जयते</span>
-            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>Govt. of Delhi</span>
+            <span lang="hi" style={{ fontSize: '0.5rem', opacity: 0.9, textAlign: 'center', letterSpacing: '0.5px' }}>सत्यमेव जयते</span>
+            <span style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>Govt. of India</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <span className="logo-text" style={{ lineHeight: 1, marginBottom: '2px' }}>JanSamadhan</span>
-            <span className="logo-sub" style={{ lineHeight: 1 }}>जन समाधान — Citizen Portal</span>
+            <span lang="hi" className="logo-sub" style={{ lineHeight: 1 }}>जन समाधान — <span lang="en">Citizen Portal</span></span>
           </div>
         </Link>
 
@@ -164,6 +188,35 @@ export default function Navbar({ onMenuToggle }) {
         </div>
 
       <div className="navbar-actions">
+        {/* Language picker */}
+        <div style={{ position: 'relative' }}>
+          <select
+            value={activeLang}
+            onChange={e => setActiveLang(e.target.value)}
+            aria-label="Select language for text-to-speech"
+            style={{
+              background: 'rgba(255,255,255,0.15)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 6,
+              color: 'white',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              padding: '5px 8px',
+              cursor: 'pointer',
+              appearance: 'none',
+              WebkitAppearance: 'none',
+              minWidth: 44,
+              textAlign: 'center',
+            }}
+          >
+            {LANG_OPTIONS.map(l => (
+              <option key={l.code} value={l.code} style={{ background: '#1A237E', color: 'white' }}>
+                {l.label} {l.full}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {user ? (
           <>
             {/* Notifications */}
@@ -346,9 +399,22 @@ export default function Navbar({ onMenuToggle }) {
             </Link>
           </div>
         )}
+
+        {/* Mobile accessibility toggle — hidden on desktop via CSS */}
+        <button
+          className="mobile-a11y-toggle"
+          aria-label={showA11yBar ? 'Hide accessibility options' : 'Show accessibility options'}
+          aria-expanded={showA11yBar}
+          onClick={() => setShowA11yBar(prev => !prev)}
+          style={{ display: 'none' }} /* shown only on mobile via CSS class */
+        >
+          A
+        </button>
+
       </div>
 
       <style>{`
+        #menu-toggle { display: none !important; }
         @media (max-width: 768px) {
           #menu-toggle { display: flex !important; }
         }

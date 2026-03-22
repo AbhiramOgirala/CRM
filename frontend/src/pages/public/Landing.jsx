@@ -125,13 +125,28 @@ export default function Landing() {
             Your complaint reaches the exact authority responsible for your area
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
-            {['🇮🇳 Country', '🏛️ State', '🏙️ District', '🏢 Corporation', '🏘️ Municipality', '📍 Taluka', '🗺️ Mandal', '🌾 Gram Panchayat'].map((level, i, arr) => (
-              <React.Fragment key={level}>
+            {[
+              { label: 'Country', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z' },
+              { label: 'State', icon: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z' },
+              { label: 'District', icon: 'M4 10v7h3v-7H4zm6 0v7h3v-7h-3zM2 22h19v-3H2v3zm14-12v7h3v-7h-3z' },
+              { label: 'Corporation', icon: 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z' },
+              { label: 'Municipality', icon: 'M12 3L2 12h3v8h6v-5h2v5h6v-8h3L12 3z' },
+              { label: 'Taluka', icon: 'M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z' },
+              { label: 'Mandal', icon: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z' },
+              { label: 'Gram Panchayat', icon: 'M17 8C8 10 5.9 16.17 3.82 21H6c.54-1.35 1.07-2.7 2-4 2.63 2.67 4.26 4 9 4 2.05 0 3.8-.84 5.1-2.19.12-.13.23-.26.34-.4.38-.47.7-.98.95-1.51.01-.02.01-.04.02-.06.27-.6.42-1.24.46-1.89.23.02.47.05.73.05 2.21 0 4-1.79 4-4s-1.79-4-4-4H17z' },
+            ].map((level, i, arr) => (
+              <React.Fragment key={level.label}>
                 <div style={{
                   background: 'rgba(255,255,255,0.15)', padding: '8px 14px',
                   borderRadius: 20, fontSize: '0.85rem', fontWeight: 600,
-                  border: '1px solid rgba(255,255,255,0.2)'
-                }}>{level}</div>
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  display: 'flex', alignItems: 'center', gap: 6
+                }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d={level.icon} />
+                  </svg>
+                  {level.label}
+                </div>
                 {i < arr.length - 1 && <span style={{ opacity: 0.5, fontSize: '1rem' }}>→</span>}
               </React.Fragment>
             ))}
@@ -148,7 +163,7 @@ export default function Landing() {
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             <Link to="/register" className="btn btn-primary btn-lg">
-              🌱 Register as Citizen
+              Register as Citizen
             </Link>
             <Link to="/login" className="btn btn-outline btn-lg">
               Login to Your Account
@@ -156,10 +171,49 @@ export default function Landing() {
           </div>
         </div>
 
-        {/* Footer */}
-        <footer style={{ background: 'var(--secondary)', color: 'white', padding: '20px 24px', textAlign: 'center' }}>
-          <div style={{ opacity: 0.7, fontSize: '0.85rem' }}>
-            🇮🇳 JanSamadhan — जन की आवाज़, सरकार के द्वार | National Civic Grievance Portal
+        {/* Footer — GIGW 3.0 §4.4 compliant */}
+        <footer style={{ background: 'var(--secondary)', color: 'white', padding: '40px 24px 24px' }}>
+          <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 32, marginBottom: 32 }}>
+              <div>
+                <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: 12, opacity: 0.6, textTransform: 'uppercase', letterSpacing: 1 }}>JanSamadhan</h3>
+                <p style={{ fontSize: '0.82rem', opacity: 0.6, lineHeight: 1.8, margin: 0 }}>
+                  A citizen grievance redressal portal by the Government of Delhi.
+                </p>
+                <p style={{ fontSize: '0.75rem', opacity: 0.5, lineHeight: 1.6, marginTop: 8 }}>
+                  Powered by NIC (National Informatics Centre)<br />
+                  Ministry of Electronics &amp; IT, Govt. of India
+                </p>
+              </div>
+              <div>
+                <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: 12, opacity: 0.6, textTransform: 'uppercase', letterSpacing: 1 }}>Quick Links</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {[
+                    { to: '/about', label: 'About Us' },
+                    { to: '/privacy', label: 'Privacy Policy' },
+                    { to: '/terms', label: 'Terms of Use' },
+                    { to: '/feed', label: 'Public Feed' },
+                    { to: '/map', label: 'Hotspot Map' },
+                  ].map(link => (
+                    <Link key={link.to} to={link.to} style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', textDecoration: 'none' }}>
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: 12, opacity: 0.6, textTransform: 'uppercase', letterSpacing: 1 }}>Contact</h3>
+                <p style={{ fontSize: '0.82rem', opacity: 0.6, lineHeight: 1.9, margin: 0 }}>
+                  Helpline: 1800-XXX-XXXX (Toll Free)<br />
+                  Email: support@jansamadhan.gov.in<br />
+                  Mon–Sat, 9 AM – 6 PM IST
+                </p>
+              </div>
+            </div>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', paddingTop: 20, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, fontSize: '0.75rem', opacity: 0.5 }}>
+              <span>© 2025 Government of Delhi. All rights reserved.</span>
+              <span>Last Updated: March 2025 | v1.0.0 | <Link to="/about" style={{ color: 'rgba(255,255,255,0.7)' }}>Accessibility Statement</Link></span>
+            </div>
           </div>
         </footer>
       </div>
