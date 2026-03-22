@@ -34,6 +34,7 @@ export default function ComplaintDetail() {
   const [deleteForm, setDeleteForm] = useState({ reason_code: '', reason_text: '' });
   const [updateForm, setUpdateForm] = useState({ status: '', notes: '', rejection_reason: '' });
   const [mapCoords, setMapCoords] = useState(null);
+  const { activeLang } = useLanguage();
 
   useEffect(() => { loadDetail(); }, [id]);
   useEffect(() => {
@@ -161,7 +162,6 @@ export default function ComplaintDetail() {
   const isOwner = user?.id === complaint.citizen_id;
   const isOfficer = user?.role === 'officer' || user?.role === 'admin' || user?.role === 'super_admin';
   const canDeleteComplaint = isOwner && complaint.status !== 'closed';
-  const { activeLang } = useLanguage();
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto' }}>

@@ -7,7 +7,9 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "setup-db": "node src/config/setupDatabase.js",
-    "seed": "node src/seed.js"
+    "seed": "node src/seed.js",
+    "seed:locations": "node src/utils/seedCityLocations.js",
+    "seed:officers": "node src/utils/seedCityOfficers.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

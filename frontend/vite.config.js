@@ -93,9 +93,10 @@ export default defineConfig(({ mode }) => {
             }
           ]
         },
-        // Offline fallback page
+        // Offline fallback page — only for actual navigation requests, not assets/api/manifest
         navigateFallback: '/offline.html',
-        navigateFallbackAllowlist: [/^(?!\/(api|admin)).*/],
+        navigateFallbackDenylist: [/\/api\//, /\.json$/, /\.js$/, /\.css$/, /\.png$/, /\.svg$/, /\.ico$/],
+        navigateFallbackAllowlist: [/^(?!\/(api|admin|assets)).*/],
       })
     ],
     server: {

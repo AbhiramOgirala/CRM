@@ -59,6 +59,59 @@ const genTicket = async () => {
   }
 };
 
+// ── Auto-assign officer by department + district ──────────────────────────────
+const autoAssignOfficer = async (complaintId, departmentId, districtId) => {
+  try {
+    if (!departmentId) return null;
+    // Try to find an officer matching both dept and district
+    let query = supabase.from('users')
+      .select('id')
+      .eq('role', 'officer')
+      .eq('department_id', departmentId)
+      .eq('is_active', true);
+
+    if (districtId) {
+      const { data: areaOfficer } = await query.eq('district_id', districtId).limit(1).single();
+      if (areaOfficer) {
+        await supabase.from('complaints').update({
+          assigned_officer_id: areaOfficer.id,
+          assigned_at: new Date().toISOString(),
+          status: 'assigned'
+        }).eq('id', complaintId);
+        await supabase.from('complaint_timeline').insert({
+          complaint_id: complaintId, actor_id: areaOfficer.id, actor_role: 'system',
+          action: 'assigned', notes: 'Auto-assigned to area officer based on department and district'
+        });
+        return areaOfficer.id;
+      }
+    }
+    // Fallback: any officer in the department
+    const { data: deptOfficer } = await supabase.from('users')
+      .select('id')
+      .eq('role', 'officer')
+      .eq('department_id', departmentId)
+      .eq('is_active', true)
+      .limit(1)
+      .single();
+    if (deptOfficer) {
+      await supabase.from('complaints').update({
+        assigned_officer_id: deptOfficer.id,
+        assigned_at: new Date().toISOString(),
+        status: 'assigned'
+      }).eq('id', complaintId);
+      await supabase.from('complaint_timeline').insert({
+        complaint_id: complaintId, actor_id: deptOfficer.id, actor_role: 'system',
+        action: 'assigned', notes: 'Auto-assigned to department officer'
+      });
+      return deptOfficer.id;
+    }
+    return null;
+  } catch (err) {
+    console.warn('[AutoAssign] Failed:', err.message);
+    return null;
+  }
+};
+
 // ── NLP Preview ───────────────────────────────────────────────────────────────
 exports.generateTitle = async (req, res) => {
   try {
@@ -399,8 +452,69 @@ exports.fileComplaint = async (req, res) => {
       finalTitle = title || nlp.generateTitle(description || audio_transcript || '', r.category);
     }
 
-    // Get department from DB
-    const { data: dept } = await supabase.from('departments').select('id,name,sla_hours').eq('code', classificaton.deptCode).single();
+    // ── City-aware department resolution ─────────────────────────────────────
+    // Map complaint category → department code per state
+    // Falls back to Delhi codes if state not matched
+    const CITY_DEPT_MAP = {
+      'Telangana': {
+        roads: 'GHMC', infrastructure: 'GHMC', waste_management: 'GHMC',
+        parks: 'GHMC', public_services: 'GHMC', street_lights: 'GHMC',
+        water_supply: 'HMWSSB', drainage: 'HMWSSB',
+        electricity: 'TSSPDCL',
+        law_enforcement: 'HYDPOL', noise_pollution: 'HYDPOL',
+        health: 'TSHFW', education: 'TSEDU', other: 'GHMC'
+      },
+      'Maharashtra': {
+        roads: 'BMC', infrastructure: 'BMC', waste_management: 'BMC',
+        parks: 'BMC', public_services: 'BMC', street_lights: 'BMC',
+        water_supply: 'MWRRA', drainage: 'MWRRA',
+        electricity: 'MSEDCL',
+        law_enforcement: 'MUMPOL', noise_pollution: 'MUMPOL',
+        health: 'MHFW', education: 'MHEDU', other: 'BMC'
+      },
+      'West Bengal': {
+        roads: 'KMC', infrastructure: 'KMC', waste_management: 'KMC',
+        parks: 'KMC', public_services: 'KMC', street_lights: 'KMC',
+        water_supply: 'WBPHED', drainage: 'WBPHED',
+        electricity: 'CESC',
+        law_enforcement: 'KOLPOL', noise_pollution: 'KOLPOL',
+        health: 'WBHFW', education: 'WBEDU', other: 'KMC'
+      },
+      'Karnataka': {
+        roads: 'BBMP', infrastructure: 'BBMP', waste_management: 'BBMP',
+        parks: 'BBMP', public_services: 'BBMP', street_lights: 'BBMP',
+        water_supply: 'BWSSB', drainage: 'BWSSB',
+        electricity: 'BESCOM',
+        law_enforcement: 'BLRPOL', noise_pollution: 'BLRPOL',
+        health: 'KARHFW', education: 'KAREDU', other: 'BBMP'
+      }
+    };
+
+    // Get state name from state_id if provided
+    let stateName = null;
+    if (state_id) {
+      const { data: stateRow } = await supabase.from('states').select('name').eq('id', state_id).single();
+      stateName = stateRow?.name || null;
+    }
+
+    // Resolve the correct dept code for this city
+    const cityMap = stateName ? CITY_DEPT_MAP[stateName] : null;
+    const resolvedDeptCode = cityMap
+      ? (cityMap[classificaton.category] || cityMap.other)
+      : classificaton.deptCode; // fallback to NLP's Delhi code
+
+    // Fetch dept from DB using resolved code
+    let dept = null;
+    const { data: deptByCode } = await supabase.from('departments').select('id,name,sla_hours').eq('code', resolvedDeptCode).maybeSingle();
+    dept = deptByCode;
+
+    // If still not found, fall back to NLP's original code
+    if (!dept && resolvedDeptCode !== classificaton.deptCode) {
+      const { data: fallbackDept } = await supabase.from('departments').select('id,name,sla_hours').eq('code', classificaton.deptCode).maybeSingle();
+      dept = fallbackDept;
+    }
+
+    console.log(`[Routing] State: ${stateName || 'Delhi'} | Category: ${classificaton.category} | Dept Code: ${resolvedDeptCode} | Dept: ${dept?.name || 'not found'}`);
     const slaHours = classificaton.slaHours || dept?.sla_hours || 72;
     const slaDeadline = new Date(Date.now() + slaHours * 3600000);
     const ticket = await genTicket();
@@ -601,6 +715,16 @@ exports.fileComplaint = async (req, res) => {
 
     if (error) { console.error('fileComplaint insert error:', error); return res.status(500).json({ error: 'Failed to file complaint. Please try again.' }); }
 
+    // ── Auto-assign to officer by dept + district ─────────────────────────────
+    if (complaint && dept?.id) {
+      const assignedOfficerId = await autoAssignOfficer(complaint.id, dept.id, district_id || null);
+      if (assignedOfficerId) {
+        complaint.assigned_officer_id = assignedOfficerId;
+        complaint.status = 'assigned';
+        console.log(`[AutoAssign] Complaint ${complaint.ticket_number} assigned to officer ${assignedOfficerId}`);
+      }
+    }
+
     // ── Timeline with enhanced classification notes ────────────────────────────
     let timelineNotes = `Auto-classified: ${classificaton.category}. Routed to ${dept?.name || classificaton.deptName}. SLA: ${slaHours}h`;
 
@@ -691,7 +815,7 @@ const _checkDuplicates = async (newC) => {
 // ── Get Complaints ────────────────────────────────────────────────────────────
 exports.getComplaints = async (req, res) => {
   try {
-    const { status, category, priority, district_id, mandal_id, state_id, search,
+    const { status, category, priority, district_id, mandal_id, state_id, department_id, search,
       page = 1, limit = 20, sortBy = 'created_at', sortOrder = 'desc', is_public } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
@@ -720,6 +844,7 @@ exports.getComplaints = async (req, res) => {
     if (status) q = q.eq('status', status);
     if (category) q = q.eq('category', category);
     if (priority) q = q.eq('priority', priority);
+    if (department_id) q = q.eq('department_id', department_id);
     if (district_id) q = q.eq('district_id', district_id);
     if (mandal_id) q = q.eq('mandal_id', mandal_id);
     if (state_id) q = q.eq('state_id', state_id);
@@ -800,9 +925,16 @@ exports.updateComplaintStatus = async (req, res) => {
     const { data: complaint } = await supabase.from('complaints').select('*').eq('id', id).single();
     if (!complaint) return res.status(404).json({ error: 'Complaint not found' });
 
-    // Officers can only act on their own dept
-    if (req.user.role === 'officer' && complaint.department_id !== req.user.department_id) {
-      return res.status(403).json({ error: 'You can only update complaints in your department' });
+    // Officers can only act on complaints in their department
+    if (req.user.role === 'officer') {
+      const officerDept = req.user.department_id ? String(req.user.department_id) : null;
+      const complaintDept = complaint.department_id ? String(complaint.department_id) : null;
+      if (!officerDept) {
+        return res.status(403).json({ error: 'Your account has no department assigned. Contact admin.' });
+      }
+      if (complaintDept && officerDept !== complaintDept) {
+        return res.status(403).json({ error: 'You can only update complaints assigned to your department' });
+      }
     }
 
     if (status === 'resolved') {

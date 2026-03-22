@@ -31,7 +31,10 @@ export default function OfficerComplaints() {
     try {
       const params = { ...filters, limit: 15 };
       // Tab filters
-      if (activeTab === 'mine' && !isAdmin) params.department_id = user?.department_id;
+      if (activeTab === 'mine' && !isAdmin) {
+        params.department_id = user?.department_id;
+        if (user?.district_id) params.district_id = user.district_id;
+      }
       if (activeTab === 'escalated') params.status = 'escalated';
 
       const res = await complaintsAPI.getAll(params);
