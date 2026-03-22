@@ -2,14 +2,50 @@
 const { supabase } = require('../config/supabase');
 const nlp = require('../services/nlpService');
 const geocoding = require('../services/geocodingService');
+const imageProcessingService = require('../services/imageProcessingService');
 const { addCitizenPoints, addOfficerPoints, POINTS } = require('../services/gamificationService');
 const notificationService = require('../services/notificationService');
 const { notifyStatusChange } = require('../services/whatsappService');
 
+// Enhanced classification (optional, based on environment variable)
+const USE_ENHANCED_CLASSIFICATION = process.env.USE_ENHANCED_CLASSIFICATION === 'true';
+const enhancedOrchestrator = USE_ENHANCED_CLASSIFICATION ? require('../services/enhancedClassificationOrchestrator') : null;
+
 // ── Ticket number ─────────────────────────────────────────────────────────────
 const genTicket = async () => {
-  const { count } = await supabase.from('complaints').select('*',{count:'exact',head:true});
-  return `CMP-${((count||0)+1000).toString().padStart(6,'0')}`;
+  try {
+    // UUID-based ticket generation that fits in 20 characters
+    // Format: CMP-XXXXXXXXXXXXXXXX (4 + 16 = 20 chars exactly)
+    
+    // Generate random hex string
+    const part1 = Math.random().toString(16).substring(2);
+    const part2 = Math.random().toString(16).substring(2);
+    const combined = (part1 + part2).substring(0, 16);
+    
+    const ticket = `CMP-${combined}`;
+    
+    // Optional: Verify it doesn't exist (should be virtually impossible)
+    const { data: existing } = await supabase
+      .from('complaints')
+      .select('id')
+      .eq('ticket_number', ticket)
+      .limit(1);
+    
+    if (existing && existing.length > 0) {
+      // Virtually impossible, but recursive call as backup
+      console.warn(`[genTicket] Rare collision detected: ${ticket}`);
+      return genTicket();
+    }
+    
+    return ticket;
+  } catch (err) {
+    console.error('[genTicket] Error:', err.message);
+    // Fallback: generate directly without DB check
+    const part1 = Math.random().toString(16).substring(2);
+    const part2 = Math.random().toString(16).substring(2);
+    const combined = (part1 + part2).substring(0, 16);
+    return `CMP-${combined}`;
+  }
 };
 
 // ── NLP Preview ───────────────────────────────────────────────────────────────
@@ -17,20 +53,238 @@ exports.previewClassification = async (req, res) => {
   try {
     const { text } = req.body;
     if (!text||text.trim().length<5) {
+      console.log(`⚠️  [PREVIEW] Text too short (${text?.length||0} chars)`);
       return res.json({ category:'other', confidence:0, priority:'low', department:'Municipal Corporation', departmentCode:'GHMC', routing_reason:'General civic issues handled by Municipal Corporation', slaHours:72, keywords:[], subCategory:null });
     }
+
+    console.log(`📥 [PREVIEW] Input text: "${text}"`);
+
+    // Use enhanced classification if enabled
+    if (USE_ENHANCED_CLASSIFICATION && enhancedOrchestrator) {
+      try {
+        const enhanced = await enhancedOrchestrator.classifyComplaint({
+          title: text,
+          description: text,
+          audio_transcript: null,
+          images: []
+        });
+
+        // Map enhanced result to legacy format for backward compatibility
+        const { data: dept } = await supabase.from('departments').select('name').eq('code', enhanced.department_code).single();
+        
+        // Calculate department confidence (weighted average, max 100%)
+        const categoryConfScore = enhanced.confidence * 100;
+        const slaScore = (1 - Math.min(enhanced.sla_hours / 120, 1)) * 100;
+        const deptConf = Math.min((categoryConfScore * 0.6 + slaScore * 0.4), 100);
+        
+        // Log preview classification with enhanced confidence
+        if (enhanced.priority === 'critical') {
+          console.log(`🚨 [PREVIEW-ENHANCED-CRITICAL] Category: ${enhanced.final_category.toUpperCase()} | Department: ${dept?.name || enhanced.department} | Category Confidence: ${(enhanced.confidence * 100).toFixed(2)}% | Dept Confidence: ${deptConf.toFixed(2)}% | Labels: [${enhanced.all_labels.join(', ')}] | URGENT`);
+        } else {
+          console.log(`🔍 [PREVIEW-ENHANCED] Category: ${enhanced.final_category} | Priority: ${enhanced.priority} | Department: ${dept?.name || enhanced.department} | Category Confidence: ${(enhanced.confidence * 100).toFixed(2)}% | Dept Confidence: ${deptConf.toFixed(2)}% | Labels: [${enhanced.all_labels.join(', ')}]`);
+        }
+        
+        return res.json({
+          category: enhanced.final_category,
+          confidence: enhanced.confidence,
+          priority: enhanced.priority,
+          department: dept?.name || enhanced.department,
+          departmentCode: enhanced.department_code,
+          departmentConfidence: parseFloat(deptConf.toFixed(2)),
+          routing_reason: enhanced.internal?.rule_based?.deptExplanation || 'Classified by enhanced pipeline',
+          slaHours: enhanced.sla_hours,
+          subCategory: enhanced.sub_category,
+          keywords: enhanced.keywords,
+          // Enhanced metadata
+          all_labels: enhanced.all_labels,
+          requires_review: enhanced.requires_review,
+          gemini_adjusted: enhanced.gemini_adjusted,
+          confidence_breakdown: enhanced.confidence_breakdown,
+          enhancements_applied: enhanced.enhancements_applied
+        });
+      } catch (enhancedErr) {
+        console.warn('[PreviewClassification] Enhanced pipeline failed, falling back:', enhancedErr.message);
+        // Fall through to rule-based
+      }
+    }
+
+    // Fallback to original rule-based pipeline
     const r = nlp.classify(text);
-    // Try to get department name from DB
     const { data: dept } = await supabase.from('departments').select('name').eq('code',r.deptCode).single();
+    
+    // Calculate department confidence (weighted average, max 100%)
+    const categoryConfScore = r.confidence * 100;
+    const slaScore = (1 - Math.min(r.slaHours / 120, 1)) * 100;
+    const deptConf = Math.min((categoryConfScore * 0.6 + slaScore * 0.4), 100);
+    
+    // Log preview classification with emphasis on critical
+    if (r.priority === 'critical') {
+      console.log(`🚨 [PREVIEW-CRITICAL] Category: ${r.category.toUpperCase()} | Department: ${dept?.name||r.deptName} | Category Confidence: ${(r.confidence * 100).toFixed(2)}% | Dept Confidence: ${deptConf.toFixed(2)}% | URGENT`);
+    } else {
+      console.log(`🔍 [PREVIEW] Category: ${r.category} | Priority: ${r.priority} | Department: ${dept?.name||r.deptName} | Category Confidence: ${(r.confidence * 100).toFixed(2)}% | Dept Confidence: ${deptConf.toFixed(2)}%`);
+    }
+    
     return res.json({
       category:r.category, confidence:r.confidence, priority:r.priority,
       department:dept?.name||r.deptName, departmentCode:r.deptCode,
       routing_reason:r.deptExplanation, slaHours:r.slaHours,
-      subCategory:r.subCategory, keywords:r.keywords
+      subCategory:r.subCategory, keywords:r.keywords,
+      departmentConfidence: parseFloat(deptConf.toFixed(2))
+
     });
   } catch (err) {
     console.error('previewClassification:', err);
     return res.status(500).json({ error:'Classification failed' });
+  }
+};
+
+// ── Analyze Image ──────────────────────────────────────────────────────────────
+exports.analyzeImage = async (req, res) => {
+  try {
+    const { category, description } = req.body;
+    const imageBuffer = req.file?.buffer || req.body.image;
+
+    console.log('[AnalyzeImage] Request received', {
+      hasFile: !!req.file,
+      fileName: req.file?.filename,
+      fileSize: req.file?.size,
+      category,
+      hasDescription: !!description
+    });
+
+    if (!imageBuffer) {
+      console.error('[AnalyzeImage] No image buffer found');
+      return res.status(400).json({ error: 'No image provided. Please upload an image file.' });
+    }
+
+    if (!category) {
+      console.error('[AnalyzeImage] No category provided');
+      return res.status(400).json({ error: 'Category is required' });
+    }
+
+    console.log('[AnalyzeImage] Processing image:', { category, bufferSize: imageBuffer.length });
+
+    // Process image (runs local analysis + Gemini verification)
+    const analysisResult = await imageProcessingService.processImage(
+      imageBuffer,
+      category,
+      description || ''
+    );
+
+    // Get category info (department, priority, confidence)
+    const catInfo = imageProcessingService.getCategoryInfo(category);
+
+    // Extract consolidated result
+    const consolidated = analysisResult.consolidated || {};
+    const finalConfidence = parseFloat((consolidated.overallConfidence * 100).toFixed(2));
+    const deptConfidence = parseFloat((catInfo.score * 100).toFixed(2));
+
+    // Build mismatch details for response
+    let mismatchDetails = null;
+    if (consolidated.textImageMatch === 'mismatch' || consolidated.status === 'MISMATCH') {
+      mismatchDetails = {
+        description: "Image and issue are not matching",
+        what_in_image: (analysisResult.gemini?.detectedObjects && analysisResult.gemini.detectedObjects.length > 0) 
+          ? analysisResult.gemini.detectedObjects.join(', ')
+          : 'Unable to detect specific objects',
+        issues_found: analysisResult.gemini?.issues || 'Image content does not match the complaint category',
+        category_analysis: {
+          expected_category: category,
+          matches_complaint_text: analysisResult.gemini?.categoryMatchesText ?? undefined,
+          matches_image_content: analysisResult.gemini?.categoryMatchesImage ?? undefined
+        },
+        analysis_explanation: analysisResult.gemini?.explanation || 'The image content appears to be different from what is described in the complaint'
+      };
+    }
+
+    const result = {
+      // Local analysis breakdown
+      local_analysis: analysisResult.local ? {
+        confidence: parseFloat((analysisResult.local.confidence * 100).toFixed(2)),
+        detected_features: analysisResult.local.features || [],
+        detected_labels: analysisResult.local.labels || []
+      } : null,
+
+      // Gemini analysis breakdown  
+      gemini_analysis: analysisResult.gemini ? {
+        text_image_match: analysisResult.gemini.textImageMatch,
+        text_image_coherence: parseFloat((analysisResult.gemini.textImageCoherence * 100).toFixed(2)),
+        category_matches_text: analysisResult.gemini.categoryMatchesText,
+        category_matches_image: analysisResult.gemini.categoryMatchesImage,
+        visual_description_match: analysisResult.gemini.visualDescriptionMatch,
+        detected_objects: analysisResult.gemini.detectedObjects || [],
+        issues: analysisResult.gemini.issues,
+        final_validation: analysisResult.gemini.finalValidation,
+        confidence: parseFloat((analysisResult.gemini.confidence * 100).toFixed(2)),
+        explanation: analysisResult.gemini.explanation
+      } : null,
+
+      // Final unified result
+      image_analysis: {
+        text_image_match: consolidated.textImageMatch,
+        complaint_image_alignment: parseFloat((consolidated.complaintImageAlignment * 100).toFixed(2)),
+        category_valid: consolidated.categoryValid,
+        confidence: finalConfidence,
+        requires_review: consolidated.requiresReview,
+        reasoning: consolidated.reasoning
+      },
+
+      classification: {
+        category: category,
+        department: catInfo.dept,
+        priority: catInfo.priority.toUpperCase(),
+        image_confidence: finalConfidence,
+        department_confidence: deptConfidence,
+        final_confidence: Math.min(parseFloat(((finalConfidence + deptConfidence) / 2).toFixed(2)), 100)
+      },
+
+      // Include mismatch details if mismatch detected
+      mismatch_details: mismatchDetails,
+
+      status: consolidated.status
+    };
+
+    // Detailed console logging
+    const statusIcon = consolidated.status === 'VERIFIED' ? '✅' : 
+                      consolidated.status === 'MISMATCH' ? '❌' : '⚠️ ';
+    console.log(`\n${statusIcon} [COMPLAINT + IMAGE VALIDATION]`);
+    console.log(`   Category: ${category.toUpperCase()}`);
+    console.log(`   Department: ${catInfo.dept}`);
+    console.log(`   Priority: ${catInfo.priority.toUpperCase()}`);
+    
+    if (analysisResult.local) {
+      console.log(`\n   📊 LOCAL IMAGE ANALYSIS:`);
+      console.log(`      Confidence: ${result.local_analysis.confidence}%`);
+      console.log(`      Features: ${result.local_analysis.detected_features.join(', ') || 'none'}`);
+    }
+    
+    if (analysisResult.gemini) {
+      console.log(`\n   🤖 UNIFIED GEMINI VALIDATION (Text + Image):`);
+      console.log(`      Text-Image Match: ${analysisResult.gemini.textImageMatch.toUpperCase()}`);
+      console.log(`      Complaint-Image Coherence: ${result.gemini_analysis.text_image_coherence}%`);
+      console.log(`      Category Matches Text: ${analysisResult.gemini.categoryMatchesText ? 'Yes' : 'No'}`);
+      console.log(`      Category Matches Image: ${analysisResult.gemini.categoryMatchesImage ? 'Yes' : 'No'}`);
+      console.log(`      Validation: ${analysisResult.gemini.finalValidation}`);
+      console.log(`      Gemini Confidence: ${result.gemini_analysis.confidence}%`);
+      if (analysisResult.gemini.detectedObjects.length > 0) {
+        console.log(`      Detected Objects: ${analysisResult.gemini.detectedObjects.join(', ')}`);
+      }
+      if (analysisResult.gemini.issues !== 'none') {
+        console.log(`      ⚠️  Issues: ${analysisResult.gemini.issues}`);
+      }
+    }
+    
+    console.log(`\n   ✨ FINAL VERDICT:`);
+    console.log(`      Status: ${consolidated.status}`);
+    console.log(`      Complaint-Image Alignment: ${result.image_analysis.complaint_image_alignment}%`);
+    console.log(`      Category Valid: ${consolidated.categoryValid ? 'Yes' : 'No'}`);
+    console.log(`      Final Confidence: ${finalConfidence}%`);
+    console.log(`      Requires Review: ${consolidated.requiresReview ? 'YES 🚨' : 'No'}\n`);
+
+    return res.json(result);
+  } catch (err) {
+    console.error('[AnalyzeImage] Error:', err.message, err.stack);
+    return res.status(500).json({ error: 'Image analysis failed: ' + err.message });
   }
 };
 
@@ -48,20 +302,191 @@ exports.fileComplaint = async (req, res) => {
     const fullText = [title, description, audio_transcript].filter(Boolean).join(' ').trim();
     if (!fullText||fullText.length<5) return res.status(400).json({ error:'Please describe the complaint' });
 
-    const r = nlp.classify(fullText);
-    const finalTitle = title||nlp.generateTitle(description||audio_transcript||'', r.category);
+    // ── CLASSIFICATION: Use enhanced pipeline if enabled ──────────────────────
+    let classificaton = null;
+    let finalTitle = null;
+    let enhancedMetadata = null;
+
+    if (USE_ENHANCED_CLASSIFICATION && enhancedOrchestrator) {
+      try {
+        // Use enhanced orchestrator
+        const enhanced = await enhancedOrchestrator.classifyComplaint({
+          title: title || '',
+          description: description || '',
+          audio_transcript: audio_transcript || null,
+          images: images || []
+        });
+
+        classificaton = {
+          category: enhanced.final_category,
+          confidence: enhanced.confidence,
+          priority: enhanced.priority,
+          sentiment: enhanced.sentiment,
+          keywords: enhanced.keywords,
+          subCategory: enhanced.sub_category,
+          slaHours: enhanced.sla_hours,
+          deptCode: enhanced.department_code,
+          deptName: enhanced.department
+        };
+
+        finalTitle = title || enhanced.final_category;
+        enhancedMetadata = {
+          all_labels: enhanced.all_labels,
+          requires_review: enhanced.requires_review,
+          gemini_adjusted: enhanced.gemini_adjusted,
+          multi_label: enhanced.multi_label,
+          conflict_detected: enhanced.conflict_detected,
+          severity_calibrated: enhanced.severity_calibrated,
+          confidence_breakdown: enhanced.confidence_breakdown,
+          enhancements_applied: enhanced.enhancements_applied,
+          processing_time_ms: enhanced.processing_time_ms
+        };
+
+        console.log('[FileComplaint] Enhanced classification applied:', {
+          category: classificaton.category,
+          confidence: classificaton.confidence,
+          requiresReview: enhancedMetadata.requires_review
+        });
+        console.log(`✅ [ENHANCED FILED] Confidence: ${(classificaton.confidence * 100).toFixed(2)}% | All Labels: [${enhancedMetadata.all_labels.join(', ')}]`);
+      } catch (enhancedErr) {
+        console.warn('[FileComplaint] Enhanced classification failed, falling back:', enhancedErr.message);
+        // Fall through to rule-based
+      }
+    }
+
+    // Fallback to original rule-based pipeline if enhanced not available or failed
+    if (!classificaton) {
+      const r = nlp.classify(fullText);
+      classificaton = r;
+      finalTitle = title || nlp.generateTitle(description || audio_transcript || '', r.category);
+    }
 
     // Get department from DB
-    const { data: dept } = await supabase.from('departments').select('id,name,sla_hours').eq('code',r.deptCode).single();
-    const slaHours = r.slaHours || dept?.sla_hours || 72;
+    const { data: dept } = await supabase.from('departments').select('id,name,sla_hours').eq('code',classificaton.deptCode).single();
+    const slaHours = classificaton.slaHours || dept?.sla_hours || 72;
     const slaDeadline = new Date(Date.now()+slaHours*3600000);
     const ticket = await genTicket();
+
+    // Calculate department confidence (weighted average, max 100%)
+    const categoryConfScore = classificaton.confidence * 100;
+    const slaScore = (1 - Math.min(slaHours / 120, 1)) * 100;
+    const departmentConfidence = Math.min((categoryConfScore * 0.6 + slaScore * 0.4), 100);
+    const isCritical = classificaton.priority === 'critical';
+    
+    // Log with emphasis for critical cases
+    if (isCritical) {
+      console.log(`\n🚨🚨🚨 [CRITICAL COMPLAINT] Ticket: ${ticket} 🚨🚨🚨`);
+      console.log(`   ⚠️  Priority: CRITICAL`);
+      console.log(`   📍 Category: ${classificaton.category.toUpperCase()}`);
+      console.log(`   🏢 Category Confidence: ${(classificaton.confidence * 100).toFixed(2)}%`);
+      console.log(`   🎯 Department: ${dept?.name || classificaton.deptName}`);
+      console.log(`   🎯 Department Routing Confidence: ${departmentConfidence.toFixed(2)}%`);
+      console.log(`   ⏱️  URGENT SLA: ${slaHours}h (${new Date(slaDeadline).toLocaleString()})`);
+      console.log(`🚨🚨🚨\n`);
+    } else {
+      console.log(`\n📋 [COMPLAINT FILED] Ticket: ${ticket}`);
+      console.log(`   Category: ${classificaton.category}`);
+      console.log(`   Category Confidence: ${(classificaton.confidence * 100).toFixed(2)}%`);
+      console.log(`   Department: ${dept?.name || classificaton.deptName}`);
+      console.log(`   Department Routing Confidence: ${departmentConfidence.toFixed(2)}%`);
+      console.log(`   Priority: ${classificaton.priority}`);
+      console.log(`   SLA Hours: ${slaHours}\n`);
+    }
 
     // ── Automatic Geocoding ──────────────────────────────────────────────────
     let finalLatitude = latitude;
     let finalLongitude = longitude;
     let finalAddress = address;
     let geocodingAttempted = false;
+
+    // ── IMAGE ANALYSIS (if enabled and images provided) ───────────────────────
+    if (images && images.length > 0) {
+      const catInfo = imageProcessingService.getCategoryInfo(classificaton.category);
+      
+      console.log(`\n📸 [IMAGE UPLOAD DETECTED] - ${images.length} image(s) provided`);
+      console.log(`   📍 Expected Category: ${classificaton.category.toUpperCase()}`);
+      console.log(`   🏢 Expected Department: ${catInfo.dept}`);
+      console.log(`   ⚡ Expected Priority: ${catInfo.priority.toUpperCase()}`);
+      console.log(`   📊 Category Confidence: ${(classificaton.confidence * 100).toFixed(2)}%\n`);
+      
+      // Process each image if image layer is enabled
+      if (USE_ENHANCED_CLASSIFICATION && enhancedOrchestrator) {
+        try {
+          for (let i = 0; i < Math.min(images.length, 3); i++) {
+            const imgBuffer = images[i];
+            if (!imgBuffer) continue;
+            
+            const analysisResult = await imageProcessingService.processImage(
+              imgBuffer,
+              classificaton.category,
+              description
+            );
+            
+            // Extract consolidated result
+            const consolidated = analysisResult.consolidated || {};
+            const finalConfidence = parseFloat((consolidated.overallConfidence * 100).toFixed(2));
+            
+            const statusIcon = consolidated.status === 'VERIFIED' ? '✅' : 
+                              consolidated.status === 'MISMATCH' ? '❌' : '⚠️ ';
+            console.log(`${statusIcon} [IMAGE #${i+1}]`);
+            
+            // Show local analysis if available
+            if (analysisResult.local) {
+              const localConf = parseFloat((analysisResult.local.confidence * 100).toFixed(2));
+              console.log(`   📊 Local Analysis: ${localConf}% | Features: ${analysisResult.local.features.join(', ') || 'none'}`);
+            }
+            
+            // Show unified Gemini validation if available
+            if (analysisResult.gemini) {
+              const geminiConf = parseFloat((analysisResult.gemini.confidence * 100).toFixed(2));
+              const coherence = parseFloat((analysisResult.gemini.textImageCoherence * 100).toFixed(2));
+              console.log(`   🤖 Unified Validation (Text + Image):`);
+              console.log(`      Text-Image Coherence: ${coherence}%`);
+              console.log(`      Category Match (Text): ${analysisResult.gemini.categoryMatchesText ? 'Yes' : 'No'}`);
+              console.log(`      Category Match (Image): ${analysisResult.gemini.categoryMatchesImage ? 'Yes' : 'No'}`);
+              console.log(`      Validation: ${analysisResult.gemini.finalValidation}`);
+              console.log(`      Gemini Confidence: ${geminiConf}%`);
+              
+              // If MISMATCH, show detailed analysis of what's in the image
+              if (consolidated.status === 'MISMATCH' || analysisResult.gemini.textImageMatch === 'mismatch') {
+                console.log(`\n   🔍 MISMATCH ANALYSIS - Why image and issue don't match:`);
+                
+                if (analysisResult.gemini.detectedObjects && analysisResult.gemini.detectedObjects.length > 0) {
+                  console.log(`      📷 What's actually in the image: ${analysisResult.gemini.detectedObjects.join(', ')}`);
+                } else {
+                  console.log(`      📷 What's in the image: Unable to detect specific objects`);
+                }
+                
+                if (analysisResult.gemini.issues && analysisResult.gemini.issues !== 'none') {
+                  console.log(`      ⚠️  Issues detected: ${analysisResult.gemini.issues}`);
+                } else {
+                  console.log(`      ⚠️  The image content does not match the complaint category`);
+                }
+                
+                console.log(`      ❌ Category Analysis:`);
+                console.log(`         - Expected category: ${classificaton.category}`);
+                console.log(`         - Matches complaint text: ${analysisResult.gemini.categoryMatchesText ? 'Yes ✅' : 'No ❌'}`);
+                console.log(`         - Matches image content: ${analysisResult.gemini.categoryMatchesImage ? 'Yes ✅' : 'No ❌'}`);
+                
+                if (analysisResult.gemini.explanation) {
+                  console.log(`      📝 Explanation: ${analysisResult.gemini.explanation}`);
+                }
+                console.log();
+              }
+            }
+            
+            // Show final result
+            console.log(`   ✨ Final: ${consolidated.status} | Complaint-Image Alignment: ${parseFloat((consolidated.complaintImageAlignment * 100).toFixed(2))}% | Category Valid: ${consolidated.categoryValid ? 'Yes' : 'No'} | Confidence: ${finalConfidence}% | ${consolidated.requiresReview ? '🚨 NEEDS_REVIEW' : 'OK'}`);
+          }
+        } catch (imgErr) {
+          console.warn('[ImageAnalysis] Processing failed:', imgErr.message);
+        }
+      } else if (images && images.length > 0) {
+        // Show without processing if enhanced not enabled
+        const catInfo = imageProcessingService.getCategoryInfo(classificaton.category);
+        console.log(`   [Images will be processed if enhanced classification is enabled]`);
+      }
+    }
 
     // If GPS coordinates are not provided, try to geocode the address
     if ((!latitude || !longitude) && (address || landmark || pincode)) {
@@ -90,25 +515,72 @@ exports.fileComplaint = async (req, res) => {
       }
     }
 
-    const { data: complaint, error } = await supabase.from('complaints').insert({
+    // ── Store complaint with all classification data ──────────────────────────
+    // Helper function to truncate strings to 50 chars (for varchar(50) columns)
+    const truncateTo50 = (str) => str ? str.substring(0, 50) : null;
+    
+    // Extract category name (before parenthesis if it has description)
+    // e.g., "electricity (power cuts, transformer issues...)" → "electricity"
+    const extractCategoryName = (cat) => {
+      if (!cat) return null;
+      const match = cat.match(/^([^(]+)/);
+      return match ? match[1].trim() : cat;
+    };
+    
+    // Convert keywords array to PostgreSQL array format
+    // Format: {keyword1,keyword2} or null if empty
+    let keywordsArray = null;
+    if (Array.isArray(classificaton.keywords) && classificaton.keywords.length > 0) {
+      // PostgreSQL array format: {item1,item2,item3}
+      keywordsArray = classificaton.keywords.slice(0, 10); // Limit to 10 keywords
+    } else if (typeof classificaton.keywords === 'string' && classificaton.keywords.trim()) {
+      // If it's already a string, split it
+      keywordsArray = classificaton.keywords.split(',').map(k => k.trim()).slice(0, 10);
+    }
+    
+    const complaintData = {
       ticket_number:ticket, citizen_id:req.user.id,
-      title:finalTitle, description:description||audio_transcript||'', audio_transcript:audio_transcript||null,
-      category:r.category, sub_category:r.subCategory||null,
-      nlp_category:r.category, nlp_confidence:r.confidence, nlp_keywords:r.keywords, sentiment:r.sentiment,
-      priority:r.priority, status:'pending',
-      latitude:finalLatitude||null, longitude:finalLongitude||null, address:finalAddress||null,
-      landmark:landmark||null, pincode:pincode||null,
+      title:truncateTo50(finalTitle), description:description||audio_transcript||'', audio_transcript:audio_transcript||null,
+      category:extractCategoryName(classificaton.category), sub_category:truncateTo50(classificaton.subCategory)||null,
+      nlp_category:extractCategoryName(classificaton.category), nlp_confidence:classificaton.confidence, nlp_keywords:keywordsArray, sentiment:truncateTo50(classificaton.sentiment||'neutral'),
+      priority:truncateTo50(classificaton.priority), status:truncateTo50('pending'),
+      latitude:finalLatitude||null, longitude:finalLongitude||null, address:truncateTo50(finalAddress)||null,
+      landmark:truncateTo50(landmark)||null, pincode:truncateTo50(pincode)||null,
       state_id:state_id||null, district_id:district_id||null, corporation_id:corporation_id||null,
       municipality_id:municipality_id||null, taluka_id:taluka_id||null,
       mandal_id:mandal_id||null, gram_panchayat_id:gram_panchayat_id||null,
       department_id:dept?.id||null, sla_deadline:slaDeadline.toISOString(),
-      sla_hours_allotted:slaHours, is_public, is_anonymous, images, escalation_level:0, view_count:0
-    }).select().single();
+      sla_hours_allotted:slaHours, is_public, is_anonymous, escalation_level:0, view_count:0
+    };
+
+    // Add enhanced metadata if available (stored in notes, not as separate columns)
+    // Note: enhanced metadata is preserved in timeline notes
+    if (enhancedMetadata) {
+      // Enhanced metadata is logged in timeline, not stored as column
+    }
+
+    const { data: complaint, error } = await supabase.from('complaints').insert(complaintData).select().single();
 
     if (error) { console.error('fileComplaint insert error:', error); return res.status(500).json({ error:'Failed to file complaint. Please try again.' }); }
 
-    // Timeline with geocoding info
-    const timelineNotes = `Auto-classified: ${r.category}. Routed to ${dept?.name||r.deptName}. SLA: ${slaHours}h${geocodingAttempted ? (finalLatitude ? ' (GPS auto-located)' : ' (GPS lookup failed)') : ''}`;
+    // ── Timeline with enhanced classification notes ────────────────────────────
+    let timelineNotes = `Auto-classified: ${classificaton.category}. Routed to ${dept?.name||classificaton.deptName}. SLA: ${slaHours}h`;
+    
+    if (enhancedMetadata) {
+      if (enhancedMetadata.all_labels.length > 1) {
+        timelineNotes += ` Multi-label: [${enhancedMetadata.all_labels.join(', ')}]`;
+      }
+      if (enhancedMetadata.requires_review) {
+        timelineNotes += ' [REQUIRES_REVIEW]';
+      }
+      if (enhancedMetadata.gemini_adjusted) {
+        timelineNotes += ' [GEMINI_ADJUSTED]';
+      }
+      timelineNotes += ` (Enhanced: ${Object.keys(enhancedMetadata.enhancements_applied).filter(k => enhancedMetadata.enhancements_applied[k]).join(', ')})`;
+    }
+    
+    timelineNotes += geocodingAttempted ? (finalLatitude ? ' [GPS_AUTO_LOCATED]' : ' [GPS_LOOKUP_FAILED]') : '';
+
     await supabase.from('complaint_timeline').insert({
       complaint_id:complaint.id, actor_id:req.user.id, actor_role:'citizen', action:'created',
       new_value:'pending', notes:timelineNotes
@@ -133,8 +605,8 @@ exports.fileComplaint = async (req, res) => {
       message:'Complaint filed successfully',
       complaint,
       auto_detection:{ 
-        category:r.category, department:dept?.name||r.deptName, priority:r.priority, 
-        slaHours, confidence:r.confidence, routing_reason:r.deptExplanation,
+        category:classificaton.category, department:dept?.name||classificaton.deptName, priority:classificaton.priority, 
+        slaHours, confidence:classificaton.confidence, routing_reason:classificaton.deptExplanation,
         geocoding: geocodingAttempted ? {
           attempted: true,
           success: !!finalLatitude,
