@@ -7,6 +7,16 @@ const { addCitizenPoints, addOfficerPoints, POINTS } = require('../services/gami
 const notificationService = require('../services/notificationService');
 const { notifyStatusChange } = require('../services/whatsappService');
 
+const CITIZEN_DELETE_REASON_PREFIX = 'CITIZEN_DELETED:';
+const CITIZEN_DELETE_REASONS = [
+  { code: 'issue_resolved', label: 'Issue resolved already' },
+  { code: 'filed_by_mistake', label: 'Filed by mistake' },
+  { code: 'duplicate_report', label: 'I filed a duplicate report' },
+  { code: 'wrong_information', label: 'Wrong information submitted' },
+  { code: 'privacy_concern', label: 'Privacy concern' },
+  { code: 'other', label: 'Other reason' }
+];
+
 // Enhanced classification (optional, based on environment variable)
 const USE_ENHANCED_CLASSIFICATION = process.env.USE_ENHANCED_CLASSIFICATION === 'true';
 const enhancedOrchestrator = USE_ENHANCED_CLASSIFICATION ? require('../services/enhancedClassificationOrchestrator') : null;
@@ -669,9 +679,11 @@ exports.getComplaints = async (req, res) => {
     `, { count: 'exact' });
 
     const role = req.user?.role;
-    if (req.path?.includes('/my') || req.originalUrl?.includes('/my')) {
+    const isMyComplaintsRoute = req.path?.includes('/my') || req.originalUrl?.includes('/my');
+    if (isMyComplaintsRoute) {
       q = q.eq('citizen_id', req.user.id);
-      q = q.or(`rejection_reason.is.null,rejection_reason.not.ilike.CITIZEN_DELETED:%`);
+      // PostgREST filter syntax for LIKE uses * wildcard in query strings.
+      q = q.or(`rejection_reason.is.null,rejection_reason.not.like.${CITIZEN_DELETE_REASON_PREFIX}*`);
     } else if (!role || role === 'citizen') {
       q = q.eq('is_public', true);
     }
@@ -719,6 +731,10 @@ exports.getComplaintById = async (req, res) => {
     `).eq('id', id).single();
 
     if (error || !complaint) return res.status(404).json({ error: 'Complaint not found' });
+    const isCitizenDeleted = complaint.rejection_reason?.startsWith(CITIZEN_DELETE_REASON_PREFIX);
+    if (isCitizenDeleted && req.user?.id === complaint.citizen_id && req.user?.role === 'citizen') {
+      return res.status(404).json({ error: 'Complaint not found' });
+    }
     if (!complaint.is_public && req.user?.id !== complaint.citizen_id && !['officer', 'admin', 'super_admin'].includes(req.user?.role)) {
       return res.status(403).json({ error: 'This complaint is private' });
     }
