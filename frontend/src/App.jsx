@@ -49,9 +49,15 @@ const PageLoader = () => (
   </div>
 );
 
-// Root redirect — PWA smart entry point
+// Root route: desktop shows landing, mobile uses smart redirect
 const RootRedirect = () => {
   const { user, token } = useAuthStore();
+  const isMobileView = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+
+  if (!isMobileView) {
+    return <Landing />;
+  }
+
   if (token && user) {
     const map = {
       citizen: '/dashboard',
@@ -115,7 +121,7 @@ function App() {
       />
       <Suspense fallback={<PageLoader />}>
         <Routes>
-          {/* Root: PWA smart redirect — logged in → dashboard, else → landing */}
+          {/* Root: desktop → landing, mobile → smart redirect */}
           <Route path="/" element={<RootRedirect />} />
           <Route path="/landing" element={<Landing />} />
           <Route path="/feed" element={<MainLayout><PublicFeed /></MainLayout>} />
