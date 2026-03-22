@@ -982,7 +982,7 @@ exports.updateComplaintStatus = async (req, res) => {
     if (complaint.citizen_id) {
       const { data: citizen } = await supabase.from('users').select('phone').eq('id', complaint.citizen_id).single();
       if (citizen?.phone) {
-        notifyStatusChange(citizen.phone, complaint.ticket_number, status, rejection_reason).catch(console.error);
+        notifyStatusChange(citizen.phone, complaint.ticket_number, status, rejection_reason, complaint.title).catch(console.error);
       }
     }
 

@@ -8,11 +8,11 @@ const client = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
 const FROM = process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886';
 
 const STATUS_MESSAGES = {
-  assigned:    (ticket) => `📋 Your complaint *${ticket}* has been assigned to a department and is under review.`,
-  in_progress: (ticket) => `🔧 Work has started on your complaint *${ticket}*. Our team is actively working on it.`,
-  resolved:    (ticket) => `✅ Great news! Your complaint *${ticket}* has been resolved. Thank you for reporting it.`,
-  rejected:    (ticket, reason) => `❌ Your complaint *${ticket}* was rejected.\nReason: ${reason || 'Not specified'}`,
-  escalated:   (ticket) => `🔺 Your complaint *${ticket}* has been escalated to higher authorities for priority attention.`,
+  assigned:    (ticket, title) => `📋 Your complaint has been assigned to a department and is under review.\n\n🎫 *${ticket}*\n📝 ${title}`,
+  in_progress: (ticket, title) => `🔧 Work has started on your complaint. Our team is actively working on it.\n\n🎫 *${ticket}*\n📝 ${title}`,
+  resolved:    (ticket, title) => `✅ Great news! Your complaint has been resolved. Thank you for reporting it.\n\n🎫 *${ticket}*\n📝 ${title}`,
+  rejected:    (ticket, title, reason) => `❌ Your complaint was rejected.\n\n🎫 *${ticket}*\n📝 ${title}\n\n*Reason:* ${reason || 'Not specified'}`,
+  escalated:   (ticket, title) => `🔺 Your complaint has been escalated to higher authorities for priority attention.\n\n🎫 *${ticket}*\n📝 ${title}`,
 };
 
 /**
@@ -48,10 +48,10 @@ const sendWhatsApp = async (phone, message) => {
  * @param {string} status - new status
  * @param {string} reason - rejection reason (optional)
  */
-const notifyStatusChange = async (phone, ticketNumber, status, reason = '') => {
+const notifyStatusChange = async (phone, ticketNumber, status, reason = '', title = '') => {
   const msgFn = STATUS_MESSAGES[status];
-  if (!msgFn) return; // no message defined for this status
-  const body = `🏛️ *JanSamadhan Update*\n\n${msgFn(ticketNumber, reason)}\n\nTrack your complaint at jansamadhan.gov.in`;
+  if (!msgFn) return;
+  const body = `🏛️ *JanSamadhan Update*\n\n${msgFn(ticketNumber, title, reason)}\n\nTrack your complaint at jansamadhan.gov.in`;
   await sendWhatsApp(phone, body);
 };
 

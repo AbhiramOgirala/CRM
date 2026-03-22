@@ -291,6 +291,7 @@ const fileComplaint = async (phone, user, data) => {
     await sendWhatsApp(phone,
       `✅ *Complaint Filed Successfully!*\n\n` +
       `🎫 *Ticket:* ${ticket}\n` +
+      `📝 *Issue:* ${title}\n` +
       `🏢 *Assigned to:* ${deptName}\n` +
       `📍 *Location:* ${district ? district.name + ', ' : ''}${state?.name || ''}\n` +
       `⏱️ *Expected resolution:* ${result.slaHours}h\n\n` +
