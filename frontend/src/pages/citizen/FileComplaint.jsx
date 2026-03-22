@@ -36,6 +36,8 @@ export default function FileComplaint() {
   const [recognition, setRecognition] = useState(null);
   const [nlpResult, setNlpResult] = useState(null);
   const [nlpLoading, setNlpLoading] = useState(false);
+  const [imageAnalysisResult, setImageAnalysisResult] = useState(null);
+  const [imageAnalysisLoading, setImageAnalysisLoading] = useState(false);
   const nlpTimer = useRef(null);
   const [selectedLang, setSelectedLangLocal] = useState('en');
   const { setActiveLang } = useLanguage();
@@ -176,47 +178,110 @@ export default function FileComplaint() {
     );
   };
 
-  // ── Image Upload ─────────────────────────────────────────────────
+  // ── Analyze Image (Core Logic) ──────────────────────────────────
+  const analyzeImageContent = async (imagesToAnalyze) => {
+    if (!imagesToAnalyze || imagesToAnalyze.length === 0) return;
+    if (!nlpResult || !nlpResult.category) return;
+
+    setImageAnalysisLoading(true);
+    try {
+      // Convert first image to file
+      const base64Img = imagesToAnalyze[0];
+      const byteCharacters = atob(base64Img.split(',')[1]);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'image/jpeg' });
+
+      console.log('[AutoAnalyzeImage] Sending:', { category: nlpResult.category, blobSize: blob.size, blobType: blob.type });
+
+      const formData = new FormData();
+      formData.append('image', blob, 'complaint-image.jpg');
+      formData.append('category', nlpResult.category);
+      formData.append('description', form.description);
+
+      const res = await fetch('http://localhost:5001/api/image/analyze', {
+        method: 'POST',
+        body: formData
+      });
+
+      console.log('[AutoAnalyzeImage] Response status:', res.status);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('[AutoAnalyzeImage] Error response:', errorText);
+        throw new Error(`Server error: ${res.status} - ${errorText}`);
+      }
+      
+      const data = await res.json();
+      console.log('[AutoAnalyzeImage] Success:', data);
+      
+      setImageAnalysisResult(data);
+      toast.success('Image analysis complete!');
+    } catch (err) {
+      console.error('[AutoAnalyzeImage] Error:', err);
+      console.log('[AutoAnalyzeImage] Analysis skipped or failed - proceeding with complaint filing');
+    } finally {
+      setImageAnalysisLoading(false);
+    }
+  };
+
+  const fileToDataURL = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = ev => resolve(ev.target.result);
+    reader.onerror = () => reject(new Error('Failed to read image file'));
+    reader.readAsDataURL(file);
+  });
+
+  // ── Image Upload with Compression + Auto-Analysis ───────────────
   const handleImages = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length + form.images.length > 5) { toast.error('Max 5 photos allowed'); return; }
-    
-    // Import dynamically to keep initial bundle smaller if possible, or use the top-level import
-    let imageCompression;
-    try {
-      imageCompression = (await import('browser-image-compression')).default;
-    } catch (e) {
-      console.error('Failed to load image compression library');
-    }
 
-    const compressedFiles = [];
     setLoading(true);
-    
-    for (const file of files) {
-      if (imageCompression) {
-        const options = {
-          maxSizeMB: 0.5,          // compress to max 500KB
-          maxWidthOrHeight: 1280,  // resize to max 1280px
-          useWebWorker: true       // non-blocking
-        };
-        try {
-          const compressed = await imageCompression(file, options);
-          compressedFiles.push(compressed);
-        } catch (err) {
-          console.warn('Compression failed, using original', err);
+    try {
+      let imageCompression;
+      try {
+        imageCompression = (await import('browser-image-compression')).default;
+      } catch (err) {
+        console.error('Failed to load image compression library', err);
+      }
+
+      const compressedFiles = [];
+      const options = {
+        maxSizeMB: 0.5,
+        maxWidthOrHeight: 1280,
+        useWebWorker: true
+      };
+
+      for (const file of files) {
+        if (imageCompression) {
+          try {
+            const compressed = await imageCompression(file, options);
+            compressedFiles.push(compressed);
+          } catch (err) {
+            console.warn('Compression failed, using original', err);
+            compressedFiles.push(file);
+          }
+        } else {
           compressedFiles.push(file);
         }
-      } else {
-        compressedFiles.push(file);
       }
-    }
 
-    compressedFiles.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = ev => setForm(p => ({ ...p, images: [...p.images, ev.target.result] }));
-      reader.readAsDataURL(file);
-    });
-    setLoading(false);
+      const imageDataUrls = await Promise.all(compressedFiles.map(fileToDataURL));
+      setForm(prev => {
+        const updatedImages = [...prev.images, ...imageDataUrls];
+        if (imageDataUrls.length > 0 && nlpResult && nlpResult.category) {
+          analyzeImageContent(updatedImages);
+        }
+        return { ...prev, images: updatedImages };
+      });
+    } catch (err) {
+      console.error('Failed to process selected images', err);
+      toast.error('Could not process selected images. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ── Validation ───────────────────────────────────────────────────
@@ -585,6 +650,52 @@ export default function FileComplaint() {
                         }}>✕</button>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Auto-analyzing status */}
+              {form.images.length > 0 && imageAnalysisLoading && (
+                <div style={{
+                  marginTop: 12, padding: 10, borderRadius: 8,
+                  background: '#E3F2FD',
+                  border: '1px solid #90CAF9',
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  fontSize: '0.85rem', color: '#1976D2'
+                }}>
+                  <div className="loading-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                  <span>Analyzing image automatically...</span>
+                </div>
+              )}
+
+              {/* Image Analysis Results - Show only MISMATCH warning */}
+              {imageAnalysisResult && imageAnalysisResult.status === 'MISMATCH' && (
+                <div style={{
+                  marginTop: 16, padding: 14, borderRadius: 8,
+                  background: '#FFEBEE',
+                  border: '2px solid #F44336'
+                }}>
+                  <div style={{ fontWeight: 700, marginBottom: 8, fontSize: '0.95rem', color: '#C62828' }}>
+                    ❌ Image Does Not Match Your Issue
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: '#B71C1C', lineHeight: 1.6 }}>
+                    ⚠️ Make sure image matches the issue you're reporting
+                  </div>
+                </div>
+              )}
+
+              {/* Verified status - subtle confirmation */}
+              {imageAnalysisResult && imageAnalysisResult.status === 'VERIFIED' && (
+                <div style={{
+                  marginTop: 16, padding: 14, borderRadius: 8,
+                  background: '#E8F5E9',
+                  border: '2px solid #4CAF50'
+                }}>
+                  <div style={{ fontWeight: 700, marginBottom: 8, fontSize: '0.95rem', color: '#2E7D32' }}>
+                    ✅ Image Verified
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: '#1B5E20', lineHeight: 1.6 }}>
+                    Image matches your complaint description
+                  </div>
                 </div>
               )}
             </div>

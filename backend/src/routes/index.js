@@ -1,10 +1,24 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const authCtrl = require('../controllers/authController');
 const complaintsCtrl = require('../controllers/complaintsController');
 const adminCtrl = require('../controllers/adminController');
 const locationCtrl = require('../controllers/locationController');
 const { authenticate, authorize, optionalAuth } = require('../middleware/auth');
+
+// ── Multer Setup for Image Uploads ─────────────────────────────────
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only images allowed'));
+    }
+  }
+});
 
 // ── Auth ──────────────────────────────────────────────────────────
 router.post('/auth/register',           authCtrl.register);
@@ -15,6 +29,11 @@ router.put('/auth/change-password',     authenticate, authCtrl.changePassword);
 
 // ── NLP Preview ───────────────────────────────────────────────────
 router.post('/nlp/preview',             complaintsCtrl.previewClassification);
+router.post('/image/analyze',           upload.single('image'), complaintsCtrl.analyzeImage);
+router.get('/health/gemini',            (req, res) => {
+  const geminiSvc = require('../services/geminiValidationService');
+  geminiSvc.healthCheck().then(result => res.json(result));
+});
 
 // ── Complaints ────────────────────────────────────────────────────
 router.post('/complaints',              authenticate,  complaintsCtrl.fileComplaint);
