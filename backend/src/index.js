@@ -15,7 +15,6 @@ app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 // ── CORS ──────────────────────────────────────────────────────────
 const allowed = [
   process.env.FRONTEND_URL || 'http://localhost:3000',
-  'http://localhost:3000',
   'http://localhost:3001',
 ];
 app.use(cors({
@@ -46,6 +45,10 @@ if (process.env.NODE_ENV !== 'production') {
     next();
   });
 }
+
+// ── WhatsApp Webhook (Twilio hits this — no /api prefix, no auth) ─
+const { handleIncoming } = require('./services/whatsappWebhook');
+app.post('/webhook/whatsapp', express.urlencoded({ extended: false }), handleIncoming);
 
 // ── Routes ────────────────────────────────────────────────────────
 app.use('/api', routes);

@@ -167,6 +167,26 @@ exports.deleteNotification = async (req, res) => {
   } catch { return res.status(500).json({ error: 'Internal server error' }); }
 };
 
+exports.updateNotificationPreferences = async (req, res) => {
+  try {
+    const { email_enabled, sms_enabled } = req.body;
+    const update = {};
+    if (typeof email_enabled === 'boolean') update.notification_email = email_enabled;
+    if (typeof sms_enabled === 'boolean') update.notification_sms = sms_enabled;
+    if (!Object.keys(update).length) return res.status(400).json({ error: 'No preferences provided' });
+    const { error } = await supabase.from('users').update(update).eq('id', req.user.id);
+    if (error) {
+      // Column may not exist yet — log and return graceful response
+      console.warn('[Preferences] Could not save preferences (columns may not exist):', error.message);
+      return res.json({ message: 'Preferences noted (not persisted — run migration to add columns)', preferences: update });
+    }
+    return res.json({ message: 'Notification preferences updated', preferences: update });
+  } catch (err) {
+    console.error('updateNotificationPreferences:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 // ── COMMENTS ─────────────────────────────────────────────────────
 exports.addComment = async (req, res) => {
   try {
