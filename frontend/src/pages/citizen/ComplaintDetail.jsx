@@ -29,13 +29,25 @@ export default function ComplaintDetail() {
   const [upvoting, setUpvoting] = useState(false);
   const [showCommentsMobile, setShowCommentsMobile] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingComplaint, setDeletingComplaint] = useState(false);
+  const [deleteReasons, setDeleteReasons] = useState([]);
+  const [deleteForm, setDeleteForm] = useState({ reason_code: '', reason_text: '' });
   const [updateForm, setUpdateForm] = useState({ status: '', notes: '', rejection_reason: '' });
   const [mapCoords, setMapCoords] = useState(null);
 
+  useEffect(() => { loadDetail(); }, [id]);
   useEffect(() => {
-    setShowCommentsMobile(false);
-    loadDetail();
-  }, [id]);
+    if (user?.role !== 'citizen') return;
+    (async () => {
+      try {
+        const res = await complaintsAPI.getDeleteReasons();
+        setDeleteReasons(res.reasons || []);
+      } catch {
+        setDeleteReasons([]);
+      }
+    })();
+  }, [user?.role]);
 
   const loadDetail = async () => {
     setLoading(true);
@@ -52,7 +64,7 @@ export default function ComplaintDetail() {
           const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`);
           const d = await r.json();
           if (d?.[0]) setMapCoords([parseFloat(d[0].lat), parseFloat(d[0].lon)]);
-        } catch {}
+        } catch { }
       }
     } catch (err) {
       toast.error('Complaint not found');
@@ -72,7 +84,7 @@ export default function ComplaintDetail() {
         complaint: { ...prev.complaint, upvote_count: prev.complaint.upvote_count + (res.upvoted ? 1 : -1) },
         userUpvoted: res.upvoted
       }));
-    } catch {}
+    } catch { }
     setUpvoting(false);
   };
 
@@ -102,10 +114,36 @@ export default function ComplaintDetail() {
     }
   };
 
+  const handleDeleteComplaint = async (e) => {
+    e.preventDefault();
+    if (!deleteForm.reason_code) {
+      toast.error('Please select a deletion reason');
+      return;
+    }
+    if (deleteForm.reason_code === 'other' && !deleteForm.reason_text.trim()) {
+      toast.error('Please provide details for "Other reason"');
+      return;
+    }
+
+    setDeletingComplaint(true);
+    try {
+      await complaintsAPI.deleteByCitizen(id, {
+        reason_code: deleteForm.reason_code,
+        reason_text: deleteForm.reason_text
+      });
+      toast.success('Complaint deleted successfully');
+      navigate('/my-complaints');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDeletingComplaint(false);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ display: 'grid', gap: 16 }}>
-        {[1,2,3].map(i => (
+        {[1, 2, 3].map(i => (
           <div key={i} className="card">
             <div className="skeleton" style={{ height: 20, width: '60%', marginBottom: 12 }} />
             <div className="skeleton" style={{ height: 16, width: '90%', marginBottom: 8 }} />
@@ -121,14 +159,57 @@ export default function ComplaintDetail() {
   const { complaint, timeline, comments, linkedComplaints, userUpvoted } = data;
   const isOwner = user?.id === complaint.citizen_id;
   const isOfficer = user?.role === 'officer' || user?.role === 'admin' || user?.role === 'super_admin';
+  const canDeleteComplaint = isOwner && complaint.status !== 'closed';
   const { activeLang } = useLanguage();
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px' }} className="complaint-detail-wrapper">
-      {/* Back button */}
-      <button onClick={() => navigate(-1)} className="btn btn-ghost btn-sm back-button" style={{ marginBottom: 20 }}>
-        ← Back
-      </button>
+    <div style={{ maxWidth: 900, margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{ marginBottom: 16 }}>
+        <button onClick={() => navigate(-1)} className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }}>
+          ← Back
+        </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+              <span className="ticket-badge">#{complaint.ticket_number}</span>
+              <StatusBadge status={complaint.status} />
+              <PriorityBadge priority={complaint.priority} />
+              <CategoryChip category={complaint.category} />
+            </div>
+            <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.4rem', fontWeight: 800 }}>
+              {complaint.title}
+            </h1>
+            <div className="detail-title-row" style={{ marginTop: 8 }}>
+              <SpeakButton
+                text={buildComplaintReadout(complaint, activeLang)}
+                lang={activeLang}
+                variant="pill"
+                label="Read complaint"
+                translate={false}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {canDeleteComplaint && (
+              <button
+                className="btn btn-danger"
+                onClick={() => {
+                  setDeleteForm({ reason_code: '', reason_text: '' });
+                  setShowDeleteModal(true);
+                }}
+              >
+                Delete Complaint
+              </button>
+            )}
+            {isOfficer && (
+              <button className="btn btn-primary" onClick={() => setShowUpdateModal(true)}>
+                Update Status
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
 
       <div style={{ 
         display: 'grid', 
@@ -672,6 +753,53 @@ export default function ComplaintDetail() {
               <label className="form-label">Notes (optional)</label>
               <textarea className="form-control" placeholder="Add any notes or remarks..."
                 value={updateForm.notes} onChange={e => setUpdateForm(prev => ({ ...prev, notes: e.target.value }))} rows={3} />
+            </div>
+          )}
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Complaint"
+        footer={
+          <>
+            <button className="btn btn-ghost" onClick={() => setShowDeleteModal(false)} disabled={deletingComplaint}>Cancel</button>
+            <button className="btn btn-danger" onClick={handleDeleteComplaint} disabled={deletingComplaint}>
+              {deletingComplaint ? 'Deleting...' : 'Delete Complaint'}
+            </button>
+          </>
+        }
+      >
+        <form onSubmit={handleDeleteComplaint}>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 12, fontSize: '0.9rem' }}>
+            Please tell us why you are deleting this complaint.
+          </p>
+          <div className="form-group">
+            <label className="form-label">Reason <span className="required">*</span></label>
+            <select
+              className="form-control"
+              value={deleteForm.reason_code}
+              onChange={e => setDeleteForm(prev => ({ ...prev, reason_code: e.target.value }))}
+              required
+            >
+              <option value="">Select reason</option>
+              {deleteReasons.map(r => (
+                <option key={r.code} value={r.code}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+          {deleteForm.reason_code === 'other' && (
+            <div className="form-group">
+              <label className="form-label">Details <span className="required">*</span></label>
+              <textarea
+                className="form-control"
+                rows={3}
+                placeholder="Please share your reason"
+                value={deleteForm.reason_text}
+                onChange={e => setDeleteForm(prev => ({ ...prev, reason_text: e.target.value }))}
+                required
+              />
             </div>
           )}
         </form>

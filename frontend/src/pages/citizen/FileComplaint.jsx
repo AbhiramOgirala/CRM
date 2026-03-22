@@ -38,6 +38,7 @@ export default function FileComplaint() {
   const [nlpLoading, setNlpLoading] = useState(false);
   const [imageAnalysisResult, setImageAnalysisResult] = useState(null);
   const [imageAnalysisLoading, setImageAnalysisLoading] = useState(false);
+  const [generatingTitle, setGeneratingTitle] = useState(false);
   const nlpTimer = useRef(null);
   const [selectedLang, setSelectedLangLocal] = useState('en');
   const { setActiveLang } = useLanguage();
@@ -56,6 +57,35 @@ export default function FileComplaint() {
     is_public: true, is_anonymous: false, images: []
   };
 
+  const resetDraftAndStartNew = () => {
+    const hasAnyData = !!(
+      form.title || form.description || form.audio_transcript ||
+      form.images?.length || form.address || form.latitude || form.longitude
+    );
+
+    if (hasAnyData) {
+      const ok = window.confirm('Trash current draft and start a new complaint?');
+      if (!ok) return;
+    }
+
+    localStorage.removeItem('complaint_draft');
+    // Cleanup legacy key if present from older builds.
+    localStorage.removeItem('complaintDraft');
+
+    setForm(DEFAULT_FORM);
+    setStep(1);
+    setNlpResult(null);
+    setImageAnalysisResult(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    if (isRecording && recognition) {
+      recognition.stop();
+      setIsRecording(false);
+    }
+
+    toast.success('Draft trashed. You can file a new complaint now.');
+  };
+
   // Restore draft or start fresh
   const [form, setForm] = useState(() => {
     try {
@@ -64,7 +94,7 @@ export default function FileComplaint() {
         // Defer toast to after first render
         return JSON.parse(saved);
       }
-    } catch {}
+    } catch { }
     return DEFAULT_FORM;
   });
 
@@ -90,7 +120,7 @@ export default function FileComplaint() {
           toast('Draft restored. Your previous progress has been saved.', { icon: 'restore' });
         }
       }
-    } catch {}
+    } catch { }
   }, []); // Only on mount
 
   // ── Voice Recognition Setup ──────────────────────────────────────
@@ -157,6 +187,29 @@ export default function FileComplaint() {
     triggerNLPPreview(form.description);
   }, [form.description, form.title]);
 
+  const autoGenerateTitle = async () => {
+    const text = [form.description, form.audio_transcript].filter(Boolean).join(' ').trim();
+    if (!text || text.length < 10) {
+      toast.error('Please describe the issue first');
+      return;
+    }
+
+    setGeneratingTitle(true);
+    try {
+      const res = await nlpAPI.generateTitle(text, nlpResult?.category, nlpResult?.priority);
+      if (res?.title) {
+        setForm(prev => ({ ...prev, title: res.title }));
+        toast.success('Title generated');
+      } else {
+        toast.error('Could not generate title');
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to generate title');
+    } finally {
+      setGeneratingTitle(false);
+    }
+  };
+
   // ── GPS Location ─────────────────────────────────────────────────
   const getGPS = () => {
     if (!navigator.geolocation) { toast.error('GPS not available on this device'); return; }
@@ -169,7 +222,7 @@ export default function FileComplaint() {
           const d = await r.json();
           const addr = [d.address?.road, d.address?.suburb, d.address?.city || d.address?.town].filter(Boolean).join(', ');
           setForm(p => ({ ...p, address: addr || d.display_name, pincode: d.address?.postcode || '' }));
-        } catch {}
+        } catch { }
         setGettingGPS(false);
         toast.success('GPS location captured!');
       },
@@ -206,16 +259,16 @@ export default function FileComplaint() {
       });
 
       console.log('[AutoAnalyzeImage] Response status:', res.status);
-      
+
       if (!res.ok) {
         const errorText = await res.text();
         console.error('[AutoAnalyzeImage] Error response:', errorText);
         throw new Error(`Server error: ${res.status} - ${errorText}`);
       }
-      
+
       const data = await res.json();
       console.log('[AutoAnalyzeImage] Success:', data);
-      
+
       setImageAnalysisResult(data);
       toast.success('Image analysis complete!');
     } catch (err) {
@@ -344,10 +397,10 @@ export default function FileComplaint() {
             });
             const token = localStorage.getItem('token');
             await db.add('complaints-sync', { data: form, token, timestamp: Date.now() });
-            
+
             const reg = await navigator.serviceWorker.ready;
             await reg.sync.register('sync-complaints');
-            
+
             localStorage.removeItem('complaint_draft');
             toast.success('No connection. Your complaint has been queued and will be submitted automatically when you are back online.');
             navigate('/my-complaints');
@@ -368,11 +421,19 @@ export default function FileComplaint() {
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <h1 className="page-title">{t('file_complaint.title', 'File a Complaint')}</h1>
           <p className="page-subtitle">{t('file_complaint.subtitle', 'Describe your issue — we\'ll automatically detect the right department')}</p>
         </div>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={resetDraftAndStartNew}
+          title="Trash draft and start a new complaint"
+        >
+          Trash Draft
+        </button>
       </div>
 
       {/* Step indicator */}
@@ -464,10 +525,10 @@ export default function FileComplaint() {
                   </div>
                   {isRecording && (
                     <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
-                      {[1,2,3,4].map(i => (
+                      {[1, 2, 3, 4].map(i => (
                         <div key={i} style={{
                           width: 4, background: '#C62828', borderRadius: 2,
-                          animation: `wave ${0.4 + i*0.1}s ease-in-out infinite alternate`,
+                          animation: `wave ${0.4 + i * 0.1}s ease-in-out infinite alternate`,
                           height: `${8 + i * 4}px`
                         }} />
                       ))}
@@ -482,11 +543,11 @@ export default function FileComplaint() {
                   display: 'flex', alignItems: 'center', gap: 10
                 }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="1" y1="1" x2="23" y2="23"/>
-                    <path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6"/>
-                    <path d="M17 16.95A7 7 0 015 12v-2m14 0v2a7 7 0 01-.11 1.23"/>
-                    <line x1="12" y1="19" x2="12" y2="23"/>
-                    <line x1="8" y1="23" x2="16" y2="23"/>
+                    <line x1="1" y1="1" x2="23" y2="23" />
+                    <path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6" />
+                    <path d="M17 16.95A7 7 0 015 12v-2m14 0v2a7 7 0 01-.11 1.23" />
+                    <line x1="12" y1="19" x2="12" y2="23" />
+                    <line x1="8" y1="23" x2="16" y2="23" />
                   </svg>
                   Voice input is not supported in your browser. Please use Chrome or Edge, or type your complaint below.
                 </div>
@@ -498,12 +559,22 @@ export default function FileComplaint() {
             <div className="form-group">
               <div className="form-label-row">
                 <label className="form-label">{t('file_complaint.comp_title', 'Complaint Title')} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional — auto-generated if blank)</span></label>
-                <SpeakButton
-                  text={buildFieldPrompt('complaintTitle', '', LANG_CODES[selectedLang] || 'en-IN')}
-                  lang={LANG_CODES[selectedLang] || 'en-IN'}
-                  size="sm"
-                  translate={false}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={autoGenerateTitle}
+                    disabled={generatingTitle}
+                  >
+                    {generatingTitle ? 'Generating...' : 'Auto Generate'}
+                  </button>
+                  <SpeakButton
+                    text={buildFieldPrompt('complaintTitle', '', LANG_CODES[selectedLang] || 'en-IN')}
+                    lang={LANG_CODES[selectedLang] || 'en-IN'}
+                    size="sm"
+                    translate={false}
+                  />
+                </div>
               </div>
               <input
                 className="form-control"
