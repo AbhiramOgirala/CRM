@@ -54,7 +54,7 @@ export const authAPI = {
 // ── NLP ─────────────────────────────────────────────────────────────
 export const nlpAPI = {
   preview: (text) => api.post('/nlp/preview', { text }),
-  generateTitle: (text) => api.post('/nlp/generate-title', { text })
+  generateTitle: (text, category, priority) => api.post('/nlp/generate-title', { text, category, priority })
 };
 
 // ── Complaints ───────────────────────────────────────────────────────

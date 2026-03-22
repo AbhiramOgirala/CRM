@@ -17,7 +17,7 @@ class GeminiValidationService {
     this.model = 'gemini-3.1-flash-lite-preview';
     this.isAvailable = !!this.client;
     this.validationStats = { attempts: 0, successes: 0, failures: 0 };
-    
+
     if (this.isAvailable) {
       console.log('[GeminiService] Initialized with official SDK');
     } else {
@@ -47,7 +47,7 @@ class GeminiValidationService {
     try {
       const prompt = this._buildValidationPrompt(complaintText, predictedCategory, priority, keywords);
       const response = await this._callGeminiAPI(prompt);
-      
+
       if (response) {
         this.validationStats.successes++;
         geminiCache.set(cacheKey, response);
@@ -59,6 +59,65 @@ class GeminiValidationService {
     }
 
     return this._getDefaultValidation(predictedCategory, priority);
+  }
+
+  /**
+   * Generate a concise complaint title from complaint text.
+   * Returns null when Gemini is unavailable so caller can fall back safely.
+   */
+  async generateComplaintTitle(complaintText, category = 'other', priority = 'medium') {
+    if (!this.isAvailable || !complaintText?.trim()) return null;
+
+    const normalized = complaintText.trim().replace(/\s+/g, ' ');
+    const cacheKey = `title_${category}_${priority}_${normalized.substring(0, 80)}`;
+    const cached = geminiCache.get(cacheKey);
+    if (cached?.title) return cached;
+
+    const prompt = `You generate short civic complaint titles.
+
+INPUT:
+- Category: ${category}
+- Priority: ${priority}
+- Complaint text: "${normalized}"
+
+RULES:
+- Title must be clear and specific.
+- 4 to 10 words only.
+- Plain sentence case, no emojis.
+- Avoid quotes and punctuation-heavy output.
+
+Respond ONLY valid JSON:
+{"title":"..."}`;
+
+    try {
+      const model = this.client.getGenerativeModel({ model: this.model });
+      const result = await model.generateContent(prompt);
+      const responseText = result?.response?.text?.() || '';
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return null;
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      const title = this._sanitizeGeneratedTitle(parsed.title);
+      if (!title) return null;
+
+      const payload = { title, source: 'gemini' };
+      geminiCache.set(cacheKey, payload);
+      return payload;
+    } catch (err) {
+      console.warn('[GeminiTitleGeneration] Failed:', err.message);
+      return null;
+    }
+  }
+
+  _sanitizeGeneratedTitle(title) {
+    if (!title || typeof title !== 'string') return '';
+    const cleaned = title
+      .replace(/[\r\n\t]+/g, ' ')
+      .replace(/["'`]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!cleaned) return '';
+    return cleaned.substring(0, 90);
   }
 
   /**
@@ -164,13 +223,13 @@ Respond ONLY with valid JSON.`;
     try {
       console.log('[GeminiAPI] Calling model:', this.model);
       const model = this.client.getGenerativeModel({ model: this.model });
-      
+
       const result = await model.generateContent(prompt);
       const response = result.response;
       const responseText = response.text();
-      
+
       console.log('[GeminiAPI] Success - received response');
-      
+
       // Extract JSON from response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -182,7 +241,7 @@ Respond ONLY with valid JSON.`;
           adjusted: parsed.should_override || !parsed.category_correct
         };
       }
-      
+
       throw new Error('No JSON found in response');
     } catch (err) {
       console.error('[GeminiAPI] Error:', err.message);
@@ -225,7 +284,7 @@ Respond ONLY with valid JSON.`;
 
       // Parse image data (handle both data URL and pure base64)
       const { base64, mimeType } = this._parseImageData(imageBase64);
-      
+
       if (!base64) {
         throw new Error('No valid base64 image data found');
       }
@@ -234,14 +293,14 @@ Respond ONLY with valid JSON.`;
       console.log('[GeminiImageAPI] Base64 length:', base64.length, 'chars');
 
       const model = this.client.getGenerativeModel({ model: this.model });
-      
+
       console.log('[GeminiImageAPI] Generating content...');
-      
+
       // Add timeout protection
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Gemini API call timeout')), 30000)
       );
-      
+
       const result = await Promise.race([
         model.generateContent([
           prompt,
@@ -254,17 +313,17 @@ Respond ONLY with valid JSON.`;
         ]),
         timeoutPromise
       ]);
-      
+
       console.log('[GeminiImageAPI] Got result object, extracting text...');
-      
+
       const response = result?.response;
       if (!response) {
         throw new Error('No response from model');
       }
-      
+
       const responseText = response.text();
       console.log('[GeminiImageAPI] Response text length:', responseText.length);
-      
+
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         console.log('[GeminiImageAPI] Success - parsed JSON');
@@ -274,7 +333,7 @@ Respond ONLY with valid JSON.`;
           timestamp: new Date().toISOString()
         };
       }
-      
+
       throw new Error('No JSON found in vision response');
     } catch (err) {
       console.error('[GeminiImageAPI] Error:', err.message, err.stack);
@@ -352,7 +411,7 @@ Respond ONLY with valid JSON:
 
       console.log('[GeminiUnifiedValidation] Validating complaint + image together...');
       const response = await this._callGeminiAPIWithImage(prompt, imageBase64);
-      
+
       this.validationStats.successes++;
 
       // Process unified result
@@ -371,7 +430,7 @@ Respond ONLY with valid JSON:
     const result = {
       timestamp: new Date().toISOString(),
       source: 'unified',
-      
+
       gemini: {
         textImageMatch: geminiResult.text_image_match || 'uncertain',
         textImageCoherence: geminiResult.text_image_coherence || 0,
@@ -396,14 +455,14 @@ Respond ONLY with valid JSON:
         textImageMatch: geminiResult.text_image_match || 'uncertain',
         overallConfidence: (geminiResult.confidence_score + (localResult?.categoryMatch || 0)) / 2,
         categoryValid: (geminiResult.category_matches_text && geminiResult.category_matches_image),
-        requiresReview: geminiResult.final_validation === 'suspicious' || 
-                       geminiResult.text_image_coherence < 0.6 ||
-                       (geminiResult.text_image_match === 'mismatch'),
+        requiresReview: geminiResult.final_validation === 'suspicious' ||
+          geminiResult.text_image_coherence < 0.6 ||
+          (geminiResult.text_image_match === 'mismatch'),
         complaintImageAlignment: geminiResult.text_image_coherence,
         status: this._determineUnifiedStatus(geminiResult, localResult),
         reasoning: `Text-Image Coherence: ${(geminiResult.text_image_coherence * 100).toFixed(1)}% | ` +
-                  `Category Valid: ${geminiResult.category_matches_text && geminiResult.category_matches_image ? 'Yes' : 'No'} | ` +
-                  `Validation: ${geminiResult.final_validation}`
+          `Category Valid: ${geminiResult.category_matches_text && geminiResult.category_matches_image ? 'Yes' : 'No'} | ` +
+          `Validation: ${geminiResult.final_validation}`
       }
     };
 
@@ -430,7 +489,7 @@ Respond ONLY with valid JSON:
     return {
       timestamp: new Date().toISOString(),
       source: 'fallback',
-      
+
       gemini: null,
 
       local: {
@@ -501,7 +560,7 @@ Respond ONLY with valid JSON:
 
       console.log('[GeminiImageVerification] Verifying with Gemini...');
       const response = await this._callGeminiAPIWithImage(prompt, imageBase64);
-      
+
       this.validationStats.successes++;
 
       // Consolidate results
@@ -520,7 +579,7 @@ Respond ONLY with valid JSON:
     const consolidated = {
       timestamp: new Date().toISOString(),
       source: 'consolidated',
-      
+
       // Local analysis component
       localAnalysis: {
         confidence: localResult.categoryMatch,
@@ -542,8 +601,8 @@ Respond ONLY with valid JSON:
         match: this._determineFinalMatch(localResult, geminiResult),
         confidence: this._calculateFinalConfidence(localResult, geminiResult),
         agreementLevel: geminiResult.agreement_level || 'unknown',
-        requiresReview: geminiResult.agreement_level === 'disagreement' || 
-                       (geminiResult.gemini_confidence < 0.6 && localResult.categoryMatch < 0.6),
+        requiresReview: geminiResult.agreement_level === 'disagreement' ||
+          (geminiResult.gemini_confidence < 0.6 && localResult.categoryMatch < 0.6),
         reasoning: `Local confidence: ${(localResult.categoryMatch * 100).toFixed(1)}% | Gemini confidence: ${(geminiResult.gemini_confidence * 100).toFixed(1)}% | Agreement: ${geminiResult.agreement_level}`
       }
     };
@@ -567,8 +626,8 @@ Respond ONLY with valid JSON:
 
     // If one is clearly higher, use that
     if (Math.abs(geminiConfidence - localConfidence) > 0.3) {
-      const higher = geminiConfidence > localConfidence ? geminiResult.gemini_category_match : 
-                     (localConfidence > 0.7 ? 'match' : 'uncertain');
+      const higher = geminiConfidence > localConfidence ? geminiResult.gemini_category_match :
+        (localConfidence > 0.7 ? 'match' : 'uncertain');
       return higher;
     }
 
@@ -603,7 +662,7 @@ Respond ONLY with valid JSON:
     return {
       timestamp: new Date().toISOString(),
       source: source,
-      
+
       localAnalysis: {
         confidence: localResult.categoryMatch,
         detectedFeatures: localResult.detectedFeatures || [],
@@ -613,8 +672,8 @@ Respond ONLY with valid JSON:
       geminiAnalysis: null,
 
       final: {
-        match: localResult.categoryMatch > 0.7 ? 'match' : 
-               (localResult.categoryMatch > 0.4 ? 'uncertain' : 'mismatch'),
+        match: localResult.categoryMatch > 0.7 ? 'match' :
+          (localResult.categoryMatch > 0.4 ? 'uncertain' : 'mismatch'),
         confidence: localResult.categoryMatch,
         agreementLevel: 'fallback',
         requiresReview: localResult.categoryMatch < 0.7,
@@ -646,7 +705,7 @@ Respond ONLY with valid JSON:
    * Get validation statistics
    */
   getStats() {
-    const successRate = this.validationStats.attempts > 0 
+    const successRate = this.validationStats.attempts > 0
       ? ((this.validationStats.successes / this.validationStats.attempts) * 100).toFixed(2)
       : 0;
 
