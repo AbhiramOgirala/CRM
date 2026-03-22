@@ -35,6 +35,7 @@ export function FeedCardDesktop({ complaint, onUpvote }) {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [imgError, setImgError] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const hasImage = complaint.images?.length > 0 && !imgError;
   const pri = PRIORITY_COLORS[complaint.priority] || PRIORITY_COLORS.low;
@@ -133,14 +134,42 @@ export function FeedCardDesktop({ complaint, onUpvote }) {
           {complaint.title}
         </h2>
 
-        {/* Description */}
+        {/* Description — expandable on mobile */}
         {complaint.description && (
-          <p style={{
-            fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 8,
-            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-          }}>
-            {complaint.description}
-          </p>
+          <div>
+            <p style={{
+              fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 6,
+              display: expanded ? 'block' : '-webkit-box',
+              WebkitLineClamp: expanded ? 'unset' : 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: expanded ? 'visible' : 'hidden',
+              wordWrap: 'break-word',
+              whiteSpace: 'pre-wrap',
+            }}>
+              {complaint.description}
+            </p>
+            {complaint.description.length > 150 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded(!expanded);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--primary)',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  padding: 0,
+                  marginBottom: 8,
+                }}
+                aria-expanded={expanded}
+              >
+                {expanded ? 'Show less' : 'Read more...'}
+              </button>
+            )}
+          </div>
         )}
 
         {/* Location tags */}
@@ -256,6 +285,7 @@ export function FeedCard({ complaint, onUpvote }) {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [imgError, setImgError] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const hasImage = complaint.images?.length > 0 && !imgError;
   const pri = PRIORITY_COLORS[complaint.priority] || PRIORITY_COLORS.low;
@@ -321,6 +351,45 @@ export function FeedCard({ complaint, onUpvote }) {
         }}>
           {complaint.title}
         </h2>
+
+        {/* Description — mobile version with expandable text */}
+        {complaint.description && (
+          <div style={{ marginBottom: 10 }}>
+            <p style={{
+              fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5,
+              display: expanded ? 'block' : '-webkit-box',
+              WebkitLineClamp: expanded ? 'unset' : 1,
+              WebkitBoxOrient: 'vertical',
+              overflow: expanded ? 'visible' : 'hidden',
+              wordWrap: 'break-word',
+              whiteSpace: 'pre-wrap',
+              margin: 0,
+            }}>
+              {complaint.description}
+            </p>
+            {complaint.description.length > 100 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded(!expanded);
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--primary)',
+                  cursor: 'pointer',
+                  fontSize: '0.72rem',
+                  fontWeight: 600,
+                  padding: '2px 0',
+                  marginTop: 4,
+                }}
+                aria-expanded={expanded}
+              >
+                {expanded ? 'Show less' : 'Read more...'}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Location + ticket */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 10, flexWrap: 'wrap' }}>

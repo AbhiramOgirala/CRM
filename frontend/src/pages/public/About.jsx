@@ -99,7 +99,7 @@ export default function About() {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 24 }}>
             <Link to="/privacy" className="btn btn-outline">Privacy Policy</Link>
             <Link to="/terms" className="btn btn-ghost">Terms of Use</Link>
-            <Link to="/" className="btn btn-ghost">Back to Home</Link>
+            <Link to="/" className="btn btn-ghost back-button">Back to Home</Link>
           </div>
         </div>
       </div>

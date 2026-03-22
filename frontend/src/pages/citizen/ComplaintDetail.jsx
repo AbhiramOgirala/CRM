@@ -27,11 +27,15 @@ export default function ComplaintDetail() {
   const [comment, setComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [upvoting, setUpvoting] = useState(false);
+  const [showCommentsMobile, setShowCommentsMobile] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updateForm, setUpdateForm] = useState({ status: '', notes: '', rejection_reason: '' });
   const [mapCoords, setMapCoords] = useState(null);
 
-  useEffect(() => { loadDetail(); }, [id]);
+  useEffect(() => {
+    setShowCommentsMobile(false);
+    loadDetail();
+  }, [id]);
 
   const loadDetail = async () => {
     setLoading(true);
@@ -80,7 +84,6 @@ export default function ComplaintDetail() {
       const res = await complaintsAPI.addComment(id, { content: comment });
       setData(prev => ({ ...prev, comments: [...(prev.comments || []), res.comment] }));
       setComment('');
-      toast.success('Comment added');
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -92,7 +95,6 @@ export default function ComplaintDetail() {
     e.preventDefault();
     try {
       await complaintsAPI.updateStatus(id, updateForm);
-      toast.success('Status updated successfully');
       setShowUpdateModal(false);
       loadDetail();
     } catch (err) {
@@ -122,99 +124,238 @@ export default function ComplaintDetail() {
   const { activeLang } = useLanguage();
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: 16 }}>
-        <button onClick={() => navigate(-1)} className="btn btn-ghost btn-sm" style={{ marginBottom: 12 }}>
-          ← Back
-        </button>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-              <span className="ticket-badge">#{complaint.ticket_number}</span>
-              <StatusBadge status={complaint.status} />
-              <PriorityBadge priority={complaint.priority} />
-              <CategoryChip category={complaint.category} />
-            </div>
-            <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.4rem', fontWeight: 800 }}>
-              {complaint.title}
-            </h1>
-            <div className="detail-title-row" style={{ marginTop: 8 }}>
-              <SpeakButton
-                text={buildComplaintReadout(complaint, activeLang)}
-                lang={activeLang}
-                variant="pill"
-                label="Read complaint"
-                translate={false}
-              />
-            </div>
-          </div>
-          {isOfficer && (
-            <button className="btn btn-primary" onClick={() => setShowUpdateModal(true)}>
-              Update Status
-            </button>
-          )}
-        </div>
-      </div>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 16px' }} className="complaint-detail-wrapper">
+      {/* Back button */}
+      <button onClick={() => navigate(-1)} className="btn btn-ghost btn-sm back-button" style={{ marginBottom: 20 }}>
+        ← Back
+      </button>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20 }}>
-        {/* Left column */}
-        <div style={{ display: 'grid', gap: 16 }}>
-          {/* Description */}
-          <div className="card">
-            <div className="detail-section-header">
-              <h2 className="card-title" style={{ marginBottom: 12 }}>📄 Description</h2>
-              <SpeakButton
-                text={buildDescriptionReadout(complaint.description, activeLang).text}
-                lang={activeLang}
-                size="sm"
-                variant="icon"
-              />
-            </div>
-            <p style={{ lineHeight: 1.7, color: 'var(--text-secondary)', fontSize: '0.95rem' }}>{complaint.description}</p>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: '1fr 380px', 
+        gap: 24
+      }} className="complaint-detail-grid">
+        {/* Main content - Twitter/X style */}
+        <div>
+          {/* Complaint card - like a tweet */}
+          <div className="card complaint-main-card" style={{ 
+            padding: '20px',
+            borderBottom: '1px solid var(--border)',
+            marginBottom: 0,
+            borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0'
+          }}>
+            {/* Header with badges */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                <span className="ticket-badge">#{complaint.ticket_number}</span>
+                <StatusBadge status={complaint.status} />
+                <PriorityBadge priority={complaint.priority} />
+              </div>
+              
+              {/* Title */}
+              <h1 style={{ 
+                fontFamily: 'var(--font-heading)', 
+                fontSize: '1.75rem', 
+                fontWeight: 800,
+                lineHeight: 1.2,
+                marginBottom: 8
+              }}>
+                {complaint.title}
+              </h1>
 
+              <div className="complaint-read-aloud">
+                <SpeakButton
+                  text={buildComplaintReadout(complaint, activeLang)}
+                  lang={activeLang}
+                  variant="pill"
+                  label="🔊 Read aloud"
+                  translate={false}
+                />
+              </div>
+
+              {/* Meta info */}
+              <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: 12 }}>
+                {complaint.category && (
+                  <>
+                    Category: <CategoryChip category={complaint.category} style={{ display: 'inline-block' }} />
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Description */}
+            <div style={{ 
+              fontSize: '1rem',
+              lineHeight: 1.6,
+              color: 'var(--text-secondary)',
+              marginBottom: 20
+            }}>
+              {complaint.description}
+            </div>
+
+            {/* Images gallery */}
             {complaint.images?.length > 0 && (
-              <div style={{ marginTop: 16 }}>
-                <h3 style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: 8, color: 'var(--text-secondary)' }}>Attached Photos</h3>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {complaint.images.map((img, i) => (
-                    <img key={i} src={img} alt="" style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', cursor: 'pointer' }}
-                      onClick={() => window.open(img, '_blank')} />
-                  ))}
-                </div>
+              <div style={{ marginBottom: 20 }}>
+                {complaint.images.length === 1 ? (
+                  <div style={{ borderRadius: 12, overflow: 'hidden', marginBottom: 16 }}>
+                    <img 
+                      src={complaint.images[0]} 
+                      alt="Complaint" 
+                      style={{ 
+                        width: '100%',
+                        maxHeight: 500,
+                        objectFit: 'cover',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => window.open(complaint.images[0], '_blank')}
+                    />
+                  </div>
+                ) : (
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: complaint.images.length === 2 ? 'repeat(2, 1fr)' : 'repeat(2, 1fr)',
+                    gap: 8,
+                    marginBottom: 16,
+                    borderRadius: 12,
+                    overflow: 'hidden'
+                  }}>
+                    {complaint.images.map((img, i) => (
+                      <div key={i} style={{ aspectRatio: '1', overflow: 'hidden' }}>
+                        <img 
+                          src={img} 
+                          alt={`Photo ${i+1}`}
+                          style={{ 
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => window.open(img, '_blank')}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
+
+            {/* Date posted */}
+            <div style={{ 
+              paddingBottom: 16,
+              borderBottom: '1px solid var(--border)',
+              fontSize: '0.875rem',
+              color: 'var(--text-muted)'
+            }}>
+              {new Date(complaint.created_at).toLocaleString('en-IN', { 
+                day: 'numeric', 
+                month: 'long', 
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
+            </div>
+
+            {/* Engagement metrics row - like Twitter stats */}
+            <div className="complaint-metrics-row" style={{ 
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 16,
+              padding: '16px 0',
+              borderBottom: '1px solid var(--border)',
+              fontSize: '0.875rem'
+            }}>
+              <div className="complaint-metric-item" style={{ textAlign: 'center' }}>
+                <div className="complaint-metric-number" style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                  {complaint.upvote_count || 0}
+                </div>
+                <div className="complaint-metric-label" style={{ color: 'var(--text-muted)' }}>Supports</div>
+              </div>
+              <div
+                className="complaint-metric-item complaint-comments-toggle"
+                style={{ textAlign: 'center', cursor: 'pointer' }}
+                onClick={() => setShowCommentsMobile(v => !v)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowCommentsMobile(v => !v); } }}
+                aria-expanded={showCommentsMobile}
+                aria-controls="complaint-comments-section"
+              >
+                <div className="complaint-metric-number" style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                  {comments?.length || 0}
+                </div>
+                <div className="complaint-metric-label" style={{ color: 'var(--text-muted)' }}>
+                  Comments
+                </div>
+              </div>
+              <div className="complaint-metric-item" style={{ textAlign: 'center' }}>
+                <div className="complaint-metric-number" style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                  {complaint.view_count || 0}
+                </div>
+                <div className="complaint-metric-label" style={{ color: 'var(--text-muted)' }}>Views</div>
+              </div>
+            </div>
+
+            {/* Action buttons - like Twitter */}
+            <div style={{ 
+              display: 'flex',
+              justifyContent: 'space-between',
+              padding: '12px 0',
+              gap: 12,
+              borderBottom: '1px solid var(--border)'
+            }}>
+              <button
+                className={`btn ${userUpvoted ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={handleUpvote}
+                disabled={upvoting}
+                style={{ flex: 1, justifyContent: 'center' }}
+              >
+                👍 {userUpvoted ? 'Supported' : 'Support'}
+              </button>
+              
+              {isOfficer && (
+                <button 
+                  className="btn btn-primary" 
+                  onClick={() => setShowUpdateModal(true)}
+                  style={{ flex: 1, justifyContent: 'center' }}
+                >
+                  📝 Update Status
+                </button>
+              )}
+            </div>
+
           </div>
 
-          {/* Engagement */}
-          <div className="card" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <button
-              className={`btn ${userUpvoted ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={handleUpvote}
-              disabled={upvoting}
-            >
-              Support: {complaint.upvote_count || 0} Upvotes {!userUpvoted ? '(Click to support)' : '(Supported)'}
-            </button>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-              {comments?.length || 0} comments
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-              {complaint.view_count || 0} views
-            </span>
-            {complaint.duplicate_count > 0 && (
-              <span style={{ background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 20, padding: '4px 12px', fontSize: '0.8rem', fontWeight: 700 }}>
-                {complaint.duplicate_count} similar reports
-              </span>
-            )}
-          </div>
-
-          {/* Linked duplicates */}
+          {/* Similar Reports */}
           {linkedComplaints?.length > 0 && (
-            <div className="card">
-              <h2 className="card-title" style={{ marginBottom: 12 }}>Similar Reports ({linkedComplaints.length})</h2>
+            <div className="card" style={{ 
+              padding: '20px',
+              borderRadius: 0,
+              borderBottom: '1px solid var(--border)',
+              marginBottom: 0
+            }}>
+              <h2 style={{ 
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                marginBottom: 12 
+              }}>
+                Similar Reports ({linkedComplaints.length})
+              </h2>
               {linkedComplaints.map(lc => (
-                <div key={lc.id} style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 8, cursor: 'pointer', fontSize: '0.85rem' }}
-                  onClick={() => navigate(`/complaint/${lc.id}`)}>
+                <div 
+                  key={lc.id} 
+                  style={{ 
+                    padding: '12px',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    marginBottom: 8,
+                    cursor: 'pointer',
+                    fontSize: '0.875rem',
+                    transition: 'background 0.2s'
+                  }}
+                  onClick={() => navigate(`/complaint/${lc.id}`)}
+                  onMouseOver={(e) => e.target.parentElement.style.background = 'var(--surface-2)'}
+                  onMouseOut={(e) => e.target.parentElement.style.background = 'transparent'}
+                >
                   <span className="ticket-badge">#{lc.ticket_number}</span>
                   {' '}{lc.title}
                 </div>
@@ -222,91 +363,172 @@ export default function ComplaintDetail() {
             </div>
           )}
 
-          {/* Comments */}
-          <div className="card">
-            <h2 className="card-title" style={{ marginBottom: 16 }}>Comments & Updates</h2>
+          {/* Comments section */}
+          <div id="complaint-comments-section" className={`card complaint-comments-card ${showCommentsMobile ? 'open' : ''}`} style={{ 
+            padding: '20px',
+            borderRadius: '0 0 var(--radius-lg) var(--radius-lg)',
+            marginBottom: 20
+          }}>
+            <h2 className="complaint-comments-title" style={{ 
+              fontSize: '1rem',
+              fontWeight: 700,
+              marginBottom: 20 
+            }}>
+              Comments ({comments?.length || 0})
+            </h2>
 
+            {/* Comment form */}
             {user && (
-              <form onSubmit={handleComment} style={{ marginBottom: 20 }}>
+              <form onSubmit={handleComment} style={{ marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
                 <textarea
                   className="form-control"
                   placeholder={isOfficer ? "Add official response or update..." : "Add a comment or ask for update..."}
                   value={comment}
                   onChange={e => setComment(e.target.value)}
                   rows={3}
-                  style={{ marginBottom: 8 }}
+                  style={{ marginBottom: 12 }}
                 />
-                <button type="submit" className="btn btn-primary btn-sm" disabled={submittingComment || !comment.trim()}>
-                  {submittingComment ? 'Posting...' : isOfficer ? 'Post Official Response' : 'Add Comment'}
+                <button 
+                  type="submit" 
+                  className="btn btn-primary" 
+                  disabled={submittingComment || !comment.trim()}
+                  style={{ width: '100%' }}
+                >
+                  {submittingComment ? 'Posting...' : isOfficer ? 'Post Official Response' : 'Post Comment'}
                 </button>
               </form>
             )}
 
+            {/* Comments list */}
             {comments?.length === 0 ? (
-              <div className="empty-state" style={{ padding: '20px 0' }}>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No comments yet</p>
+              <div style={{ 
+                padding: '40px 20px', 
+                textAlign: 'center',
+                color: 'var(--text-muted)',
+                fontSize: '0.875rem'
+              }}>
+                No comments yet — be the first to share your thoughts!
               </div>
             ) : (
               comments.map(c => (
                 <div key={c.id} style={{
-                  padding: '12px 14px', marginBottom: 10,
-                  border: c.is_official ? '1px solid #90CAF9' : '1px solid var(--border)',
-                  borderRadius: 'var(--radius-sm)',
-                  background: c.is_official ? 'var(--info-bg)' : 'var(--surface-2)'
-                }}>
-                  <div style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <strong style={{ fontSize: '0.875rem' }}>{c.users?.full_name}</strong>
-                    {c.is_official && <span className="badge" style={{ background: 'var(--info-bg)', color: 'var(--info)', borderColor: '#90CAF9' }}>Official</span>}
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                      {new Date(c.created_at).toLocaleString('en-IN')}
-                    </span>
+                  paddingBottom: 20,
+                  marginBottom: 20,
+                  borderBottom: '1px solid var(--border)',
+                  transition: 'background 0.2s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = 'var(--surface-2)'}
+                onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  <div style={{ display: 'flex', gap: 12, marginBottom: 8, alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
+                        <strong className="complaint-comment-name" style={{ fontSize: '0.95rem' }}>{c.users?.full_name}</strong>
+                        {c.is_official && (
+                          <span style={{ 
+                            background: 'var(--info-bg)', 
+                            color: 'var(--info)', 
+                            padding: '2px 8px',
+                            borderRadius: 4,
+                            fontSize: '0.75rem',
+                            fontWeight: 600
+                          }}>
+                            Official
+                          </span>
+                        )}
+                        <span className="complaint-comment-time" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          {new Date(c.created_at).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <p className="complaint-comment-content" style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                        {c.content}
+                      </p>
+                    </div>
                   </div>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{c.content}</p>
                 </div>
               ))
             )}
           </div>
         </div>
 
-        {/* Right column */}
+        {/* Right sidebar */}
         <div style={{ display: 'grid', gap: 16, alignContent: 'start' }}>
-          {/* Details */}
+          {/* Details card */}
           <div className="card">
-            <h2 className="card-title" style={{ marginBottom: 12 }}>Complaint Details</h2>
+            <h2 style={{ 
+              fontSize: '0.95rem',
+              fontWeight: 700,
+              marginBottom: 16 
+            }}>Details</h2>
             {[
-              { label: 'Ticket No', value: `#${complaint.ticket_number}` },
               { label: 'Status', value: <StatusBadge status={complaint.status} /> },
               { label: 'Priority', value: <PriorityBadge priority={complaint.priority} /> },
               { label: 'Department', value: complaint.departments?.name || 'Unassigned' },
-              { label: 'Filed On', value: new Date(complaint.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) },
-              complaint.resolved_at && { label: 'Resolved On', value: new Date(complaint.resolved_at).toLocaleDateString('en-IN') },
-              complaint.sla_deadline && { label: 'SLA Deadline', value: new Date(complaint.sla_deadline).toLocaleDateString('en-IN') },
+              { label: 'Filed On', value: new Date(complaint.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) },
+              complaint.resolved_at && { label: 'Resolved', value: new Date(complaint.resolved_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) },
+              complaint.sla_deadline && { label: 'SLA Deadline', value: new Date(complaint.sla_deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) },
             ].filter(Boolean).map(item => (
-              <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: '0.85rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
-                <span style={{ fontWeight: 600, textAlign: 'right' }}>{item.value}</span>
+              <div key={item.label} style={{ paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 4 }}>
+                  {item.label}
+                </div>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                  {item.value}
+                </div>
               </div>
             ))}
           </div>
 
-          {/* Location */}
+          {/* Location card */}
           <div className="card">
-            <h2 className="card-title" style={{ marginBottom: 12 }}>Location</h2>
-            <div style={{ fontSize: '0.85rem', display: 'grid', gap: 6 }}>
+            <h2 style={{ 
+              fontSize: '0.95rem',
+              fontWeight: 700,
+              marginBottom: 12 
+            }}>📍 Location</h2>
+            <div style={{ fontSize: '0.85rem', display: 'grid', gap: 8 }}>
               {complaint.reporter_name && (
-                <div><strong>Reported by:</strong> {complaint.reporter_name}</div>
+                <div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: 2 }}>Reported by</div>
+                  <div style={{ fontWeight: 600 }}>{complaint.reporter_name}</div>
+                </div>
               )}
-              {complaint.states && <div><strong>State:</strong> {complaint.states.name}</div>}
-              {complaint.districts && <div><strong>District:</strong> {complaint.districts.name}</div>}
-              {complaint.mandals && <div><strong>Mandal:</strong> {complaint.mandals.name}</div>}
-              {complaint.address && <div><strong>Address:</strong> {complaint.address}</div>}
-              {complaint.pincode && <div><strong>Pincode:</strong> {complaint.pincode}</div>}
+              {complaint.states && (
+                <div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: 2 }}>State</div>
+                  <div style={{ fontWeight: 600 }}>{complaint.states.name}</div>
+                </div>
+              )}
+              {complaint.districts && (
+                <div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: 2 }}>District</div>
+                  <div style={{ fontWeight: 600 }}>{complaint.districts.name}</div>
+                </div>
+              )}
+              {complaint.mandals && (
+                <div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: 2 }}>Mandal</div>
+                  <div style={{ fontWeight: 600 }}>{complaint.mandals.name}</div>
+                </div>
+              )}
+              {complaint.address && (
+                <div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: 2 }}>Address</div>
+                  <div style={{ fontWeight: 600 }}>{complaint.address}</div>
+                </div>
+              )}
+              {complaint.pincode && (
+                <div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: 2 }}>Pincode</div>
+                  <div style={{ fontWeight: 600 }}>{complaint.pincode}</div>
+                </div>
+              )}
               {mapCoords ? (
                 <div style={{ marginTop: 8 }}>
                   <MapContainer
                     center={mapCoords}
                     zoom={15}
-                    style={{ height: 180, width: '100%', borderRadius: 8, zIndex: 0 }}
+                    style={{ height: 200, width: '100%', borderRadius: 8, zIndex: 0 }}
                     scrollWheelZoom={false}
                   >
                     <TileLayer
@@ -320,14 +542,14 @@ export default function ComplaintDetail() {
                   <a
                     href={`https://maps.google.com/?q=${mapCoords[0]},${mapCoords[1]}`}
                     target="_blank" rel="noopener noreferrer"
-                    style={{ display: 'block', textAlign: 'center', marginTop: 6, fontSize: '0.78rem', color: 'var(--primary)' }}
+                    style={{ display: 'block', textAlign: 'center', marginTop: 8, fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600 }}
                   >
                     Open in Google Maps ↗
                   </a>
                 </div>
               ) : (complaint.address || complaint.districts) ? (
-                <div style={{ marginTop: 8, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 8, fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-                  📍 Map unavailable — no GPS coordinates for this complaint
+                <div style={{ marginTop: 8, padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 8, fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                  📍 Map unavailable
                 </div>
               ) : null}
             </div>
@@ -335,18 +557,22 @@ export default function ComplaintDetail() {
 
           {/* Timeline */}
           <div className="card">
-            <h2 className="card-title" style={{ marginBottom: 16 }}>Timeline</h2>
-            <div className="timeline">
+            <h2 style={{ 
+              fontSize: '0.95rem',
+              fontWeight: 700,
+              marginBottom: 12 
+            }}>Timeline</h2>
+            <div className="timeline" style={{ fontSize: '0.8rem' }}>
               {timeline?.map(t => (
                 <div key={t.id} className="timeline-item">
                   <div className="timeline-dot" />
-                  <div className="timeline-time">{new Date(t.created_at).toLocaleString('en-IN')}</div>
+                  <div className="timeline-time">{new Date(t.created_at).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                   <div className="timeline-content">
-                    <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: 2 }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.8rem', marginBottom: 2 }}>
                       {t.action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                     </div>
-                    {t.notes && <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{t.notes}</div>}
-                    {t.users && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 2 }}>by {t.users.full_name}</div>}
+                    {t.notes && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{t.notes}</div>}
+                    {t.users && <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 2 }}>by {t.users.full_name}</div>}
                   </div>
                 </div>
               ))}
@@ -356,19 +582,19 @@ export default function ComplaintDetail() {
           {/* Resolution notes if resolved */}
           {complaint.status === 'resolved' && complaint.resolution_notes && (
             <div className="card" style={{ background: 'var(--success-bg)', borderColor: '#A5D6A7' }}>
-              <h2 style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--success)', marginBottom: 8 }}>Resolution Notes</h2>
-              <p style={{ fontSize: '0.875rem', color: 'var(--success)', marginBottom: complaint.proof_images?.length ? 12 : 0 }}>
+              <h2 style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--success)', marginBottom: 12 }}>✅ Resolution Notes</h2>
+              <p style={{ fontSize: '0.875rem', color: 'var(--success)', marginBottom: complaint.proof_images?.length ? 12 : 0, lineHeight: 1.5 }}>
                 {complaint.resolution_notes}
               </p>
               {complaint.proof_images?.length > 0 && (
                 <>
                   <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--success)', marginBottom: 8 }}>
-                    Proof of Work Photos:
+                    Proof of Work:
                   </div>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
                     {complaint.proof_images.map((img, i) => (
                       <img key={i} src={img} alt={`Proof ${i+1}`}
-                        style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, border: '2px solid #A5D6A7', cursor: 'pointer' }}
+                        style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, border: '2px solid #A5D6A7', cursor: 'pointer' }}
                         onClick={() => window.open(img, '_blank')} />
                     ))}
                   </div>
@@ -380,15 +606,21 @@ export default function ComplaintDetail() {
           {/* Escalation info */}
           {complaint.escalation_level > 0 && (
             <div className="card" style={{ background: '#FFF8E1', borderColor: '#FFCC02' }}>
-              <h2 style={{ fontWeight: 700, fontSize: '0.9rem', color: '#E65100', marginBottom: 8 }}>Escalation Status</h2>
-              <div style={{ fontSize: '0.875rem' }}>
-                <div><strong>Level:</strong> {complaint.escalation_level} — {complaint.escalated_to}</div>
+              <h2 style={{ fontWeight: 700, fontSize: '0.9rem', color: '#E65100', marginBottom: 12 }}>⚠️ Escalation Status</h2>
+              <div style={{ fontSize: '0.875rem',  display: 'grid', gap: 8 }}>
+                <div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: 2 }}>Level</div>
+                  <div style={{ fontWeight: 600 }}>Level {complaint.escalation_level} — {complaint.escalated_to}</div>
+                </div>
                 {complaint.escalated_at && (
-                  <div style={{ color: 'var(--text-muted)', marginTop: 4 }}>
-                    Escalated on: {new Date(complaint.escalated_at).toLocaleString('en-IN')}
+                  <div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: 2 }}>Escalated on</div>
+                    <div style={{ fontWeight: 600 }}>
+                      {new Date(complaint.escalated_at).toLocaleString('en-IN')}
+                    </div>
                   </div>
                 )}
-                <div style={{ marginTop: 8, fontSize: '0.8rem', color: '#5C6080' }}>
+                <div style={{ marginTop: 4, fontSize: '0.8rem', color: '#5C6080', lineHeight: 1.5 }}>
                   This complaint has been escalated to higher authorities for priority attention.
                 </div>
               </div>

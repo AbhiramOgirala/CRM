@@ -37,17 +37,18 @@ const runEscalation = async () => {
       });
 
       if (c.citizen_id) {
-        await supabase.from('notifications').insert({
-          user_id:c.citizen_id, type:'escalation',
-          title:'🔺 Complaint Escalated',
-          message:`Your complaint "${c.title}" (${c.ticket_number}) escalated to ${ESCALATION_TO[lvl]}.`,
-          complaint_id:c.id
+        await notificationService.sendInApp(c.citizen_id, {
+          type: 'escalation',
+          title: '🔺 Complaint Escalated',
+          message: `Your complaint "${c.title}" (${c.ticket_number}) escalated to ${ESCALATION_TO[lvl]}.`,
+          complaint_id: c.id,
         });
         // WhatsApp notification
         const { data: citizen } = await supabase.from('users').select('phone').eq('id', c.citizen_id).single();
         if (citizen?.phone) notifyStatusChange(citizen.phone, c.ticket_number, 'escalated').catch(console.error);
       }
 
+      let admins = [];
       if (lvl >= 2) {
         const { data: adminRows } = await supabase.from('users').select('id,email').in('role',['admin','super_admin']).eq('is_active',true).limit(5);
         admins = adminRows || [];

@@ -304,7 +304,7 @@ export default function Register() {
                 <input className="form-control" placeholder={t('register.pincode_ph', '6-digit pincode')} maxLength="6" value={form.pincode} onChange={e => set('pincode', e.target.value)} />
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
-                <button type="button" className="btn btn-ghost w-full" onClick={() => setStep(1)}>{t('register.btn_back', '← Back')}</button>
+                <button type="button" className="btn btn-ghost w-full back-button" onClick={() => setStep(1)}>{t('register.btn_back', '← Back')}</button>
                 <button type="button" className="btn btn-primary w-full" onClick={() => setStep(3)}>{t('register.btn_next', 'Next →')}</button>
               </div>
             </div>
@@ -339,7 +339,7 @@ export default function Register() {
               </div>
 
               <div style={{ display: 'flex', gap: 10 }}>
-                <button type="button" className="btn btn-ghost w-full" onClick={() => setStep(2)}>{t('register.btn_back', '← Back')}</button>
+                <button type="button" className="btn btn-ghost w-full back-button" onClick={() => setStep(2)}>{t('register.btn_back', '← Back')}</button>
                 <button type="submit" className="btn btn-primary w-full" disabled={loading}>
                   {loading ? (
                     <><div className="loading-spinner" style={{ width: 16, height: 16, borderWidth: 2 }} /> {t('register.logging_in', 'Registering...')}</>

@@ -1,5 +1,7 @@
 'use strict';
 const { supabase } = require('../config/supabase');
+const notificationStore = require('../notifications/notificationStore');
+const sseHub = require('../notifications/sseHub');
 
 // ── Lazy-init clients (only created if env vars present) ──────────────────────
 let _resend = null;
@@ -80,10 +82,12 @@ const buildEmailHtml = ({ heading, body, ticketNumber, ctaLabel, ctaUrl }) => `
 // ── Core: In-App ───────────────────────────────────────────────────────────────
 const sendInApp = async (userId, { type, title, message, complaint_id }) => {
   try {
-    await supabase.from('notifications').insert({
+    const notification = await notificationStore.createNotification({
       user_id: userId, type, title, message,
       complaint_id: complaint_id || null
     });
+    const unreadCount = await notificationStore.getUnreadCount(userId);
+    sseHub.emitToUser(userId, 'notification', { notification, unreadCount });
   } catch (err) {
     console.error('[Notification] In-app insert failed:', err.message);
   }
@@ -92,15 +96,11 @@ const sendInApp = async (userId, { type, title, message, complaint_id }) => {
 const sendInAppBulk = async (userIds, payload) => {
   if (!userIds?.length) return;
   try {
-    await supabase.from('notifications').insert(
-      userIds.map(uid => ({
-        user_id: uid,
-        type: payload.type,
-        title: payload.title,
-        message: payload.message,
-        complaint_id: payload.complaint_id || null
-      }))
-    );
+    const notifications = await notificationStore.createNotificationsBulk(userIds, payload);
+    for (const notification of notifications) {
+      const unreadCount = await notificationStore.getUnreadCount(notification.user_id);
+      sseHub.emitToUser(notification.user_id, 'notification', { notification, unreadCount });
+    }
   } catch (err) {
     console.error('[Notification] Bulk in-app insert failed:', err.message);
   }

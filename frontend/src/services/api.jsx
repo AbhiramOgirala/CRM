@@ -3,6 +3,11 @@ import toast from 'react-hot-toast';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
+export const getNotificationsStreamUrl = (token) => {
+  const encodedToken = encodeURIComponent(token || '');
+  return `${API_URL}/notifications/stream?token=${encodedToken}`;
+};
+
 const api = axios.create({
   baseURL: API_URL,
   timeout: 30000,
@@ -94,6 +99,7 @@ export const leaderboardAPI = {
 export const notificationsAPI = {
   getAll:    (params) => api.get('/notifications', { params }),
   markRead:  (data)   => api.put('/notifications/read', data),
+  clear:     ()       => api.delete('/notifications'),
   delete:    (id)     => api.delete(`/notifications/${id}`)
 };
 

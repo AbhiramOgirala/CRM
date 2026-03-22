@@ -1,4 +1,5 @@
 const { supabase } = require('../config/supabase');
+const notificationService = require('../services/notificationService');
 const { getCitizenLeaderboard, getDeptLeaderboard, getOfficerLeaderboard } = require('../services/gamificationService');
 
 // ── LOCATION ──────────────────────────────────────────────────────
@@ -202,12 +203,12 @@ exports.addComment = async (req, res) => {
     if (error) return res.status(500).json({ error: 'Failed to post comment' });
     const { data: userData } = await supabase.from('users').select('full_name, role, badge_level, govt_badge').eq('id', req.user.id).maybeSingle();
     if (complaint.citizen_id && complaint.citizen_id !== req.user.id) {
-      supabase.from('notifications').insert({
-        user_id: complaint.citizen_id, type: 'update',
+      notificationService.sendInApp(complaint.citizen_id, {
+        type: 'update',
         title: isOfficial ? '📢 Official Response on Your Complaint' : '💬 New Comment',
         message: `${req.user.full_name || 'Someone'}: "${content.trim().substring(0, 80)}"`,
         complaint_id
-      }).then(() => {}).catch(() => {});
+      }).catch(() => {});
     }
     return res.status(201).json({ comment: { ...comment, users: userData } });
   } catch (err) {

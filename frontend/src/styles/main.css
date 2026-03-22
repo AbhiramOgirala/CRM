@@ -1093,6 +1093,100 @@ tr:hover td {
   .grid-2 {
     grid-template-columns: 1fr;
   }
+
+  /* Hide back button on mobile */
+  .back-button {
+    display: none !important;
+  }
+
+  /* Complaint Detail — stack on mobile */
+  .complaint-detail-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* Main container narrower padding on mobile */
+  .complaint-detail-wrapper {
+    padding: 0 6px !important;
+  }
+
+  /* Main content card padding reduced on mobile */
+  .complaint-detail-grid > div:first-child .card {
+    padding: 10px !important;
+  }
+
+  /* Sidebar cards on mobile */
+  .complaint-detail-grid > div:last-child .card {
+    padding: 10px !important;
+  }
+
+  /* Sidebar on mobile */
+  .complaint-detail-grid > div:last-child {
+    order: 10; /* Push to bottom */
+  }
+
+  /* Title sizing on mobile */
+  .complaint-detail-grid h1 {
+    font-size: 1.2rem !important;
+    margin-bottom: 8px !important;
+  }
+
+  /* Description on mobile */
+  .complaint-detail-grid p {
+    font-size: 0.9rem !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Cards tighter padding on mobile */
+  .complaint-detail-grid .card {
+    margin-bottom: 0 !important;
+  }
+
+  /* Images smaller on mobile */
+  .complaint-detail-grid img {
+    max-height: 300px !important;
+    border-radius: 8px !important;
+  }
+
+  /* Reduce heading sizes in cards on mobile */
+  .complaint-detail-grid h2 {
+    font-size: 0.9rem !important;
+    margin-bottom: 10px !important;
+  }
+
+  /* Read-aloud button below title on mobile */
+  .complaint-read-aloud {
+    position: static !important;
+    margin: 6px 0 10px 0;
+  }
+
+  /* Engagement metrics grid on mobile */
+  .complaint-detail-grid .engagement-row {
+    gap: 12px !important;
+  }
+
+  /* Hide map on very small screens */
+  @media (max-width: 480px) {
+    .leaflet-container {
+      display: none !important;
+    }
+  }
+}
+
+/* Read-aloud button at top-right on desktop */
+.complaint-main-card {
+  position: relative;
+}
+
+.complaint-read-aloud {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1;
+}
+
+.complaint-comments-toggle {
+  user-select: none;
 }
 
 /* ===================== HERO SECTION ===================== */
@@ -1962,6 +2056,55 @@ tr:hover td {
 @media (max-width: 768px) {
   .mobile-only { display: block; }
   .desktop-only { display: none !important; }
+  
+  /* Hide back button on mobile */
+  .back-button {
+    display: none !important;
+  }
+
+  /* Read-aloud button below title on mobile/tablet */
+  .complaint-read-aloud {
+    position: static !important;
+    margin: 6px 0 10px 0;
+  }
+
+  .complaint-metrics-row {
+    gap: 8px !important;
+    padding: 12px 0 !important;
+  }
+
+  .complaint-metric-number {
+    font-size: 0.9rem !important;
+  }
+
+  .complaint-metric-label {
+    font-size: 0.72rem !important;
+  }
+
+  .complaint-comments-title {
+    font-size: 0.9rem !important;
+    margin-bottom: 12px !important;
+  }
+
+  .complaint-comment-name {
+    font-size: 0.82rem !important;
+  }
+
+  .complaint-comment-time {
+    font-size: 0.72rem !important;
+  }
+
+  .complaint-comment-content {
+    font-size: 0.82rem !important;
+  }
+
+  .complaint-comments-card {
+    display: none;
+  }
+
+  .complaint-comments-card.open {
+    display: block;
+  }
 }
 
 /* ===================== MOBILE BOTTOM NAV ===================== */

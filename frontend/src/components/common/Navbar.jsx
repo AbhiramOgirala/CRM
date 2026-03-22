@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import useAccessibilityStore from '../../store/accessibilityStore';
-import { notificationsAPI } from '../../services/api';
+import { getNotificationsStreamUrl, notificationsAPI } from '../../services/api';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTranslation } from 'react-i18next';
 
@@ -56,14 +56,67 @@ export default function Navbar({ onMenuToggle }) {
   const langRef = useRef();
 
   useEffect(() => {
-    if (user) fetchUnread();
-    const interval = setInterval(() => { if (user) fetchUnread(); }, 30000);
-    return () => clearInterval(interval);
+    if (!user) {
+      setUnreadCount(0);
+      setNotifications([]);
+      return undefined;
+    }
+
+    fetchUnread();
+
+    const token = localStorage.getItem('token');
+    if (!token) return undefined;
+
+    const stream = new EventSource(getNotificationsStreamUrl(token));
+
+    stream.addEventListener('snapshot', (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        setUnreadCount(payload.unreadCount || 0);
+        setNotifications(payload.notifications || []);
+      } catch {
+        // ignore malformed events
+      }
+    });
+
+    stream.addEventListener('notification', (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (payload.notification) {
+          setNotifications((prev) => [payload.notification, ...prev].slice(0, 100));
+        }
+        if (typeof payload.unreadCount === 'number') {
+          setUnreadCount(payload.unreadCount);
+        }
+      } catch {
+        // ignore malformed events
+      }
+    });
+
+    stream.addEventListener('unread_count', (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (typeof payload.unreadCount === 'number') {
+          setUnreadCount(payload.unreadCount);
+        }
+      } catch {
+        // ignore malformed events
+      }
+    });
+
+    stream.addEventListener('cleared', () => {
+      setUnreadCount(0);
+      setNotifications([]);
+    });
+
+    return () => {
+      stream.close();
+    };
   }, [user]);
 
   const fetchUnread = async () => {
     try {
-      const res = await notificationsAPI.getAll({ limit: 5, unread_only: true });
+      const res = await notificationsAPI.getAll({ limit: 100 });
       setUnreadCount(res.unreadCount || 0);
       setNotifications(res.notifications || []);
     } catch { }
@@ -83,6 +136,12 @@ export default function Navbar({ onMenuToggle }) {
     await notificationsAPI.markRead({ all: true });
     setUnreadCount(0);
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+  };
+
+  const clearAllNotifications = async () => {
+    await notificationsAPI.clear();
+    setUnreadCount(0);
+    setNotifications([]);
   };
 
   const getDashboardLink = () => {
@@ -352,14 +411,24 @@ export default function Navbar({ onMenuToggle }) {
                       background: 'var(--secondary)', color: 'white'
                     }}>
                       <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{t('nav_notifications', 'Notifications')}</span>
-                      {unreadCount > 0 && (
-                        <button onClick={markAllRead} style={{
-                          fontSize: '0.75rem', color: 'var(--primary-border)', background: 'none', border: 'none',
-                          cursor: 'pointer', fontWeight: 600
-                        }}>
-                          {t('nav_mark_all_read', 'Mark all read')}
-                        </button>
-                      )}
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        {unreadCount > 0 && (
+                          <button onClick={markAllRead} style={{
+                            fontSize: '0.75rem', color: 'var(--primary-border)', background: 'none', border: 'none',
+                            cursor: 'pointer', fontWeight: 600
+                          }}>
+                            {t('nav_mark_all_read', 'Mark all read')}
+                          </button>
+                        )}
+                        {notifications.length > 0 && (
+                          <button onClick={clearAllNotifications} style={{
+                            fontSize: '0.75rem', color: '#FFCDD2', background: 'none', border: 'none',
+                            cursor: 'pointer', fontWeight: 600
+                          }}>
+                            {t('nav_clear_all', 'Clear all')}
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div style={{ maxHeight: 400, overflowY: 'auto' }}>
                       {notifications.length === 0 ? (

@@ -80,7 +80,7 @@ export default function PrivacyPolicy() {
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 24 }}>
             <Link to="/about" className="btn btn-outline">About Us</Link>
             <Link to="/terms" className="btn btn-ghost">Terms of Use</Link>
-            <Link to="/" className="btn btn-ghost">Back to Home</Link>
+            <Link to="/" className="btn btn-ghost back-button">Back to Home</Link>
           </div>
         </div>
       </div>

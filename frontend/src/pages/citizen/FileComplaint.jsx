@@ -235,8 +235,25 @@ export default function FileComplaint() {
 
   // ── Image Upload with Compression + Auto-Analysis ───────────────
   const handleImages = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length + form.images.length > 5) { toast.error('Max 5 photos allowed'); return; }
+    const selectedFiles = Array.from(e.target.files || []);
+    if (!selectedFiles.length) return;
+
+    const imageFiles = selectedFiles.filter(file => file.type?.startsWith('image/'));
+    if (imageFiles.length !== selectedFiles.length) {
+      toast.error('Only image files are allowed');
+    }
+
+    const remainingSlots = Math.max(0, 5 - form.images.length);
+    if (remainingSlots === 0) {
+      toast.error('Maximum 5 photos already added');
+      e.target.value = '';
+      return;
+    }
+
+    const files = imageFiles.slice(0, remainingSlots);
+    if (imageFiles.length > remainingSlots) {
+      toast(`Only ${remainingSlots} more photo(s) can be added (max 5)`);
+    }
 
     setLoading(true);
     try {
@@ -281,6 +298,7 @@ export default function FileComplaint() {
       toast.error('Could not process selected images. Please try again.');
     } finally {
       setLoading(false);
+      e.target.value = '';
     }
   };
 
@@ -311,10 +329,6 @@ export default function FileComplaint() {
       const { complaint, auto_detection } = res;
       // Clear draft on success
       localStorage.removeItem('complaint_draft');
-      toast.success(
-        `Complaint filed!\nTicket: ${complaint.ticket_number}\nRouted to: ${auto_detection?.department}`,
-        { duration: 5000 }
-      );
       navigate(`/complaint/${complaint.id}`);
     } catch (err) {
       // Check if it's a network error (offline)
@@ -624,15 +638,15 @@ export default function FileComplaint() {
               <label className="form-label">Add Photos <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional, max 5)</span></label>
               <div
                 className="image-upload-area"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => form.images.length < 5 && fileInputRef.current?.click()}
                 style={{ padding: 20 }}
               >
                 <div style={{ fontSize: '1.2rem', marginBottom: 6, fontWeight: 700, color: 'var(--text-secondary)' }}>UPLOAD</div>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
-                  Click to upload photos of the issue
+                  {form.images.length >= 5 ? 'Maximum photos reached' : 'Click to upload photos of the issue'}
                 </p>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
-                  Photos help resolve issues 2x faster
+                  {form.images.length}/5 selected • Photos help resolve issues 2x faster
                 </p>
               </div>
               <input ref={fileInputRef} type="file" style={{ display: 'none' }} accept="image/*" multiple onChange={handleImages} />
@@ -773,7 +787,7 @@ export default function FileComplaint() {
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>
-              <button type="button" className="btn btn-ghost w-full" onClick={() => setStep(1)}>{t('file_complaint.btn_back', 'Back')}</button>
+              <button type="button" className="btn btn-ghost w-full back-button" onClick={() => setStep(1)}>{t('file_complaint.btn_back', 'Back')}</button>
               <button type="button" className="btn btn-primary w-full btn-lg" onClick={() => validateStep() && setStep(3)}>
                 {t('file_complaint.btn_next', 'Next: Review & Submit')}
               </button>
@@ -876,7 +890,7 @@ export default function FileComplaint() {
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>
-              <button type="button" className="btn btn-ghost w-full" onClick={() => setStep(2)}>{t('file_complaint.btn_back', 'Back')}</button>
+              <button type="button" className="btn btn-ghost w-full back-button" onClick={() => setStep(2)}>{t('file_complaint.btn_back', 'Back')}</button>
               <button type="submit" className="btn btn-primary w-full btn-lg" disabled={loading}>
                 {loading
                   ? <><div className="loading-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> {t('file_complaint.btn_sub_load', 'Submitting...')}</>

@@ -10,6 +10,38 @@ const { notifyStatusChange } = require('../services/whatsappService');
 // Enhanced classification (optional, based on environment variable)
 const USE_ENHANCED_CLASSIFICATION = process.env.USE_ENHANCED_CLASSIFICATION === 'true';
 const enhancedOrchestrator = USE_ENHANCED_CLASSIFICATION ? require('../services/enhancedClassificationOrchestrator') : null;
+const MAX_COMPLAINT_IMAGES = 5;
+
+const isImageDataUrl = (value) => typeof value === 'string' && /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(value);
+
+const parseImageToBuffer = (imageInput) => {
+  if (!imageInput) return null;
+
+  if (Buffer.isBuffer(imageInput)) return imageInput;
+
+  if (typeof imageInput === 'string') {
+    const rawBase64 = imageInput.includes(',') ? imageInput.split(',')[1] : imageInput;
+    try {
+      return Buffer.from(rawBase64, 'base64');
+    } catch {
+      return null;
+    }
+  }
+
+  if (typeof imageInput === 'object') {
+    if (Buffer.isBuffer(imageInput.buffer)) return imageInput.buffer;
+    if (typeof imageInput.buffer === 'string') {
+      const rawBase64 = imageInput.buffer.includes(',') ? imageInput.buffer.split(',')[1] : imageInput.buffer;
+      try {
+        return Buffer.from(rawBase64, 'base64');
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  return null;
+};
 
 // ── Ticket number ─────────────────────────────────────────────────────────────
 const genTicket = async () => {
@@ -296,8 +328,40 @@ exports.fileComplaint = async (req, res) => {
       latitude, longitude, address, landmark, pincode,
       state_id, district_id, corporation_id, municipality_id,
       taluka_id, mandal_id, gram_panchayat_id,
-      is_public=true, is_anonymous=false, images=[]
+      is_public=true, is_anonymous=false, images: rawImages=[]
     } = req.body;
+
+    const incomingImages = Array.isArray(rawImages)
+      ? rawImages.filter(Boolean)
+      : (rawImages ? [rawImages] : []);
+
+    if (incomingImages.length > MAX_COMPLAINT_IMAGES) {
+      return res.status(400).json({ error: `Maximum ${MAX_COMPLAINT_IMAGES} images allowed per complaint` });
+    }
+
+    const invalidImage = incomingImages.find((img) => {
+      if (typeof img === 'string') return !isImageDataUrl(img);
+      if (Buffer.isBuffer(img)) return false;
+      if (img && typeof img === 'object') {
+        if (Buffer.isBuffer(img.buffer)) return false;
+        if (typeof img.buffer === 'string') return !isImageDataUrl(img.buffer);
+      }
+      return true;
+    });
+
+    if (invalidImage) {
+      return res.status(400).json({ error: 'Invalid image format. Please upload valid image files.' });
+    }
+
+    const imagesForStorage = incomingImages.map((img) => {
+      if (typeof img === 'string') return img;
+      if (img && typeof img === 'object' && typeof img.buffer === 'string') return img.buffer;
+      return null;
+    }).filter(Boolean);
+
+    const imageBuffers = incomingImages
+      .map(parseImageToBuffer)
+      .filter((buf) => Buffer.isBuffer(buf) && buf.length > 0);
 
     const fullText = [title, description, audio_transcript].filter(Boolean).join(' ').trim();
     if (!fullText||fullText.length<5) return res.status(400).json({ error:'Please describe the complaint' });
@@ -314,7 +378,7 @@ exports.fileComplaint = async (req, res) => {
           title: title || '',
           description: description || '',
           audio_transcript: audio_transcript || null,
-          images: images || []
+          images: imageBuffers.map((buffer) => ({ buffer }))
         });
 
         classificaton = {
@@ -400,10 +464,10 @@ exports.fileComplaint = async (req, res) => {
     let geocodingAttempted = false;
 
     // ── IMAGE ANALYSIS (if enabled and images provided) ───────────────────────
-    if (images && images.length > 0) {
+    if (imagesForStorage.length > 0) {
       const catInfo = imageProcessingService.getCategoryInfo(classificaton.category);
       
-      console.log(`\n📸 [IMAGE UPLOAD DETECTED] - ${images.length} image(s) provided`);
+      console.log(`\n📸 [IMAGE UPLOAD DETECTED] - ${imagesForStorage.length} image(s) provided`);
       console.log(`   📍 Expected Category: ${classificaton.category.toUpperCase()}`);
       console.log(`   🏢 Expected Department: ${catInfo.dept}`);
       console.log(`   ⚡ Expected Priority: ${catInfo.priority.toUpperCase()}`);
@@ -412,8 +476,8 @@ exports.fileComplaint = async (req, res) => {
       // Process each image if image layer is enabled
       if (USE_ENHANCED_CLASSIFICATION && enhancedOrchestrator) {
         try {
-          for (let i = 0; i < Math.min(images.length, 3); i++) {
-            const imgBuffer = images[i];
+          for (let i = 0; i < Math.min(imageBuffers.length, 3); i++) {
+            const imgBuffer = imageBuffers[i];
             if (!imgBuffer) continue;
             
             const analysisResult = await imageProcessingService.processImage(
@@ -481,7 +545,7 @@ exports.fileComplaint = async (req, res) => {
         } catch (imgErr) {
           console.warn('[ImageAnalysis] Processing failed:', imgErr.message);
         }
-      } else if (images && images.length > 0) {
+      } else if (imagesForStorage.length > 0) {
         // Show without processing if enhanced not enabled
         const catInfo = imageProcessingService.getCategoryInfo(classificaton.category);
         console.log(`   [Images will be processed if enhanced classification is enabled]`);
@@ -549,6 +613,7 @@ exports.fileComplaint = async (req, res) => {
       state_id:state_id||null, district_id:district_id||null, corporation_id:corporation_id||null,
       municipality_id:municipality_id||null, taluka_id:taluka_id||null,
       mandal_id:mandal_id||null, gram_panchayat_id:gram_panchayat_id||null,
+      images:imagesForStorage,
       department_id:dept?.id||null, sla_deadline:slaDeadline.toISOString(),
       sla_hours_allotted:slaHours, is_public, is_anonymous, escalation_level:0, view_count:0
     };

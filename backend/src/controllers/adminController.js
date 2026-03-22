@@ -2,6 +2,7 @@
 const bcrypt = require('bcryptjs');
 const { supabase } = require('../config/supabase');
 const { generateToken } = require('../middleware/auth');
+const notificationService = require('../services/notificationService');
 
 // ── Get all users ─────────────────────────────────────────────────────────────
 exports.getAllUsers = async (req, res) => {
@@ -70,11 +71,14 @@ exports.registerOfficer = async (req, res) => {
     // Notify admins to approve
     const { data: admins } = await supabase.from('users').select('id').in('role',['admin','super_admin']).eq('is_active',true).limit(5);
     if (admins?.length) {
-      await supabase.from('notifications').insert(admins.map(a=>({
-        user_id:a.id, type:'info',
-        title:'🏛️ New Officer Registration Pending',
-        message:`${full_name} from employee ID ${employee_id||'N/A'} has registered. Please review and activate their account.`
-      })));
+      await notificationService.sendInAppBulk(
+        admins.map(a => a.id),
+        {
+          type: 'info',
+          title: '🏛️ New Officer Registration Pending',
+          message: `${full_name} from employee ID ${employee_id||'N/A'} has registered. Please review and activate their account.`
+        }
+      );
     }
 
     return res.status(201).json({ message:'Registration submitted. Your account will be activated after admin verification.', officer });

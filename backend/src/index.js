@@ -6,6 +6,7 @@ const helmet  = require('helmet');
 const rateLimit = require('express-rate-limit');
 const routes  = require('./routes');
 const { startScheduler } = require('./services/escalationService');
+const notificationStore = require('./notifications/notificationStore');
 
 const app = express();
 
@@ -69,12 +70,22 @@ app.use((err, _req, res, _next) => {
 
 // ── Start ─────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log('\n╔══════════════════════════════════════╗');
-  console.log(`║  🏛️  JanSamadhan API — Port ${PORT}      ║`);
-  console.log(`║  ENV: ${(process.env.NODE_ENV||'development').padEnd(29)}║`);
-  console.log('╚══════════════════════════════════════╝\n');
-  startScheduler();
-});
+
+notificationStore.initialize()
+  .then(() => {
+    console.log('[Notifications] SQLite store initialized');
+  })
+  .catch((err) => {
+    console.error('[Notifications] SQLite initialization failed:', err.message);
+  })
+  .finally(() => {
+    app.listen(PORT, () => {
+      console.log('\n╔══════════════════════════════════════╗');
+      console.log(`║  🏛️  JanSamadhan API — Port ${PORT}      ║`);
+      console.log(`║  ENV: ${(process.env.NODE_ENV||'development').padEnd(29)}║`);
+      console.log('╚══════════════════════════════════════╝\n');
+      startScheduler();
+    });
+  });
 
 module.exports = app;

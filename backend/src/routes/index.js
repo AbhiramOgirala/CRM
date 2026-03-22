@@ -5,6 +5,7 @@ const authCtrl = require('../controllers/authController');
 const complaintsCtrl = require('../controllers/complaintsController');
 const adminCtrl = require('../controllers/adminController');
 const locationCtrl = require('../controllers/locationController');
+const notificationsCtrl = require('../controllers/notificationsController');
 const { authenticate, authorize, optionalAuth } = require('../middleware/auth');
 
 // ── Multer Setup for Image Uploads ─────────────────────────────────
@@ -64,10 +65,12 @@ router.get('/leaderboard/area',        locationCtrl.getAreaLeaderboard);
 router.get('/leaderboard/district',    locationCtrl.getDistrictLeaderboard);
 
 // ── Notifications ─────────────────────────────────────────────────
-router.get('/notifications',                authenticate, locationCtrl.getNotifications);
-router.put('/notifications/read',           authenticate, locationCtrl.markNotificationsRead);
+router.get('/notifications/stream',         notificationsCtrl.streamNotifications);
+router.get('/notifications',                authenticate, notificationsCtrl.getNotifications);
+router.put('/notifications/read',           authenticate, notificationsCtrl.markNotificationsRead);
 router.put('/notifications/preferences',    authenticate, locationCtrl.updateNotificationPreferences);
-router.delete('/notifications/:id',         authenticate, locationCtrl.deleteNotification);
+router.delete('/notifications',             authenticate, notificationsCtrl.clearNotifications);
+router.delete('/notifications/:id',         authenticate, notificationsCtrl.deleteNotification);
 
 // ── Admin ─────────────────────────────────────────────────────────
 router.get('/admin/users',                    authenticate, authorize('admin','super_admin'), adminCtrl.getAllUsers);
