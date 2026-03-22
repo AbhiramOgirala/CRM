@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
 import { complaintsAPI } from '../../services/api';
-import { ComplaintCard, SkeletonCard, Pagination } from '../../components/common';
+import { ComplaintCard, SkeletonCard, Pagination, Modal } from '../../components/common';
 import { useTranslation } from 'react-i18next';
 
 const STATUSES = ['', 'pending', 'assigned', 'in_progress', 'resolved', 'rejected', 'escalated'];
@@ -10,6 +11,11 @@ export default function MyComplaints() {
   const { t } = useTranslation();
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [deleteReasons, setDeleteReasons] = useState([]);
+  const [deleteForm, setDeleteForm] = useState({ reason_code: '', reason_text: '' });
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
   const [filters, setFilters] = useState({ status: '', category: '', search: '', page: 1 });
 
@@ -24,7 +30,8 @@ export default function MyComplaints() {
       });
       setComplaints(res.complaints || []);
       setPagination(res.pagination || { page: 1, totalPages: 1, total: 0 });
-    } catch {
+    } catch (err) {
+      toast.error(err?.message || 'Failed to load your complaints');
     } finally {
       setLoading(false);
     }
@@ -32,7 +39,53 @@ export default function MyComplaints() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await complaintsAPI.getDeleteReasons();
+        setDeleteReasons(res.reasons || []);
+      } catch {
+        setDeleteReasons([]);
+      }
+    })();
+  }, []);
+
   const setFilter = (key, val) => setFilters(prev => ({ ...prev, [key]: val, page: 1 }));
+
+  const openDeleteModal = (complaint) => {
+    setSelectedComplaint(complaint);
+    setDeleteForm({ reason_code: '', reason_text: '' });
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteComplaint = async (e) => {
+    e.preventDefault();
+    if (!selectedComplaint) return;
+    if (!deleteForm.reason_code) {
+      toast.error('Please select a deletion reason');
+      return;
+    }
+    if (deleteForm.reason_code === 'other' && !deleteForm.reason_text.trim()) {
+      toast.error('Please provide details for "Other reason"');
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await complaintsAPI.deleteByCitizen(selectedComplaint.id, {
+        reason_code: deleteForm.reason_code,
+        reason_text: deleteForm.reason_text
+      });
+      toast.success('Complaint deleted successfully');
+      setShowDeleteModal(false);
+      setSelectedComplaint(null);
+      load();
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div>
@@ -74,7 +127,7 @@ export default function MyComplaints() {
 
       {loading ? (
         <div style={{ display: 'grid', gap: 12 }}>
-          {[1,2,3,4,5].map(i => <SkeletonCard key={i} />)}
+          {[1, 2, 3, 4, 5].map(i => <SkeletonCard key={i} />)}
         </div>
       ) : complaints.length === 0 ? (
         <div className="card">
@@ -92,7 +145,22 @@ export default function MyComplaints() {
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 12 }}>
-          {complaints.map(c => <ComplaintCard key={c.id} complaint={c} />)}
+          {complaints.map(c => (
+            <ComplaintCard
+              key={c.id}
+              complaint={c}
+              actions={
+                <button
+                  className="btn btn-danger btn-sm"
+                  onClick={() => openDeleteModal(c)}
+                  disabled={c.status === 'closed'}
+                  title={c.status === 'closed' ? 'Already deleted' : 'Delete complaint'}
+                >
+                  Delete
+                </button>
+              }
+            />
+          ))}
         </div>
       )}
 
@@ -101,6 +169,53 @@ export default function MyComplaints() {
         totalPages={pagination.totalPages}
         onPageChange={(p) => setFilters(prev => ({ ...prev, page: p }))}
       />
+
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Complaint"
+        footer={
+          <>
+            <button className="btn btn-ghost" onClick={() => setShowDeleteModal(false)} disabled={deleting}>Cancel</button>
+            <button className="btn btn-danger" onClick={handleDeleteComplaint} disabled={deleting}>
+              {deleting ? 'Deleting...' : 'Delete Complaint'}
+            </button>
+          </>
+        }
+      >
+        <form onSubmit={handleDeleteComplaint}>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 12, fontSize: '0.9rem' }}>
+            {selectedComplaint ? `Why are you deleting complaint #${selectedComplaint.ticket_number}?` : 'Please select a reason.'}
+          </p>
+          <div className="form-group">
+            <label className="form-label">Reason <span className="required">*</span></label>
+            <select
+              className="form-control"
+              value={deleteForm.reason_code}
+              onChange={e => setDeleteForm(prev => ({ ...prev, reason_code: e.target.value }))}
+              required
+            >
+              <option value="">Select reason</option>
+              {deleteReasons.map(r => (
+                <option key={r.code} value={r.code}>{r.label}</option>
+              ))}
+            </select>
+          </div>
+          {deleteForm.reason_code === 'other' && (
+            <div className="form-group">
+              <label className="form-label">Details <span className="required">*</span></label>
+              <textarea
+                className="form-control"
+                rows={3}
+                placeholder="Please share your reason"
+                value={deleteForm.reason_text}
+                onChange={e => setDeleteForm(prev => ({ ...prev, reason_text: e.target.value }))}
+                required
+              />
+            </div>
+          )}
+        </form>
+      </Modal>
     </div>
   );
 }
