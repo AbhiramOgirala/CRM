@@ -20,17 +20,19 @@ const genTicket = async () => {
   return `CMP-${((count || 0) + 1000).toString().padStart(6, '0')}`;
 };
 
-// ── NLP Preview ───────────────────────────────────────────────────────────────  exports.generateTitle = async (req, res) => {
-try {
-  const { text, category } = req.body;
-  if (!text || text.trim().length < 5) return res.json({ title: '' });
-  const title = nlp.generateTitle(text, category || 'general');
-  return res.json({ title });
-} catch (err) {
-  console.error(err);
-  return res.status(500).json({ error: 'Failed to generate title' });
-}
-  };
+// ── NLP Preview ───────────────────────────────────────────────────────────────
+
+exports.generateTitle = async (req, res) => {
+  try {
+    const { text, category } = req.body;
+    if (!text || text.trim().length < 5) return res.json({ title: '' });
+    const title = nlp.generateTitle(text, category || 'general');
+    return res.json({ title });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: 'Failed to generate title' });
+  }
+};
 exports.previewClassification = async (req, res) => {
   try {
     const { text } = req.body;
@@ -213,9 +215,9 @@ exports.getComplaints = async (req, res) => {
     `, { count: 'exact' });
 
     const role = req.user?.role;
-    if (req.path?.includes('/my')) {
+    if (req.path?.includes('/my') || req.originalUrl?.includes('/my')) {
       q = q.eq('citizen_id', req.user.id);
-      q = q.not('rejection_reason', 'ilike', `${CITIZEN_DELETE_REASON_PREFIX}%`);
+      q = q.or(`rejection_reason.is.null,rejection_reason.not.ilike.${CITIZEN_DELETE_REASON_PREFIX}%`);
     } else if (!role || role === 'citizen') {
       q = q.eq('is_public', true);
     }

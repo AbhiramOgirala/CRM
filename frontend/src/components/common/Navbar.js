@@ -91,11 +91,11 @@ export default function Navbar({ onMenuToggle }) {
 
       {/* Brand */}
       <Link to={getDashboardLink()} className="navbar-brand">
-        <div className="navbar-flag">
-          <div className="flag-stripe" style={{ background: '#FF9933' }} />
-          <div className="flag-stripe" style={{ background: '#FFFFFF' }} />
-          <div className="flag-stripe" style={{ background: '#138808' }} />
-        </div>
+        <img
+          src="/Flag_of_India.webp"
+          alt="India Flag"
+          className="navbar-flag-img"
+        />
         <div>
           <span className="logo-text">JanSamadhan</span>
           <span className="logo-sub">जन समाधान</span>

@@ -29,11 +29,19 @@ export default function Landing() {
         <div className="hero">
           <div style={{ position: 'relative', zIndex: 1 }}>
             {/* India flag colors top bar */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
-              <div style={{ width: 40, height: 5, borderRadius: 3, background: '#FF9933' }} />
-              <div style={{ width: 40, height: 5, borderRadius: 3, background: '#FFFFFF' }} />
-              <div style={{ width: 40, height: 5, borderRadius: 3, background: '#138808' }} />
-            </div>
+            <img
+              src="/Flag_of_India.webp"
+              alt="India Flag"
+              style={{
+                width: 60,
+                height: 40,
+                margin: '0 auto 24px',
+                borderRadius: 6,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                objectFit: 'cover',
+                display: 'block'
+              }}
+            />
 
             <h1 className="hero-title">
               <span className="highlight">जन समाधान</span>

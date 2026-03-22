@@ -88,13 +88,13 @@ export default function CitizenDashboard() {
     }]
   } : null;
 
-  const darkChartOptions = {
+  const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: { legend: { display: false } },
     scales: {
-      y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false }, ticks: { color: '#8b92a5', maxTicksLimit: 5 } },
-      x: { grid: { display: false, drawBorder: false }, ticks: { color: '#8b92a5' } }
+      y: { beginAtZero: true, grid: { color: 'rgba(26, 26, 46, 0.08)', drawBorder: false }, ticks: { color: '#5C6080', maxTicksLimit: 5 } },
+      x: { grid: { display: false, drawBorder: false }, ticks: { color: '#5C6080' } }
     }
   };
 
@@ -144,9 +144,9 @@ export default function CitizenDashboard() {
       {/* Citizen Personal Charts */}
       {stats && stats.total > 0 && (
         <div className="grid-2" style={{ marginBottom: 24, gap: '24px' }}>
-          <div style={{ background: '#111827', borderRadius: '12px', padding: '24px', border: '1px solid #1f2937' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'white', marginBottom: '24px', fontFamily: 'Inter, sans-serif' }}>My Complaints by Status</h2>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '30px' }}>
+          <div className="card citizen-chart-card">
+            <h2 className="card-title" style={{ marginBottom: 24 }}>My Complaints by Status</h2>
+            <div className="citizen-chart-content">
               <div style={{ width: '150px', height: '150px', position: 'relative' }}>
                 {donutData ? (
                   <Doughnut data={donutData} options={{ maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false } } }} />
@@ -160,24 +160,24 @@ export default function CitizenDashboard() {
                   { label: 'In Progress', color: '#6366F1', value: stats.inProgress },
                   { label: 'Resolved', color: '#10B981', value: stats.resolved },
                   { label: 'Escalated', color: '#EF4444', value: stats.escalated }
-                ].filter(item => item.value > 0).map(item => (
+                ].map(item => (
                   <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.color }} />
-                      <span style={{ color: '#8b92a5', fontSize: '0.85rem' }}>{item.label}</span>
+                      <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{item.label}</span>
                     </div>
-                    <span style={{ color: 'white', fontWeight: 700, fontSize: '0.9rem' }}>{item.value}</span>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '0.9rem' }}>{item.value}</span>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          <div style={{ background: '#111827', borderRadius: '12px', padding: '24px', border: '1px solid #1f2937' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'white', marginBottom: '24px', fontFamily: 'Inter, sans-serif' }}>Most Frequent Categories</h2>
+          <div className="card citizen-chart-card">
+            <h2 className="card-title" style={{ marginBottom: 24 }}>Most Frequent Categories</h2>
             <div style={{ height: '150px' }}>
               {barData ? (
-                <Bar data={barData} options={darkChartOptions} />
+                <Bar data={barData} options={chartOptions} />
               ) : (
                 <div className="skeleton" style={{ height: '100%' }} />
               )}

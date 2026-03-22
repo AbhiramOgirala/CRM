@@ -6,9 +6,9 @@ import { SkeletonCard, Pagination, StatusBadge, PriorityBadge, Modal } from '../
 import useAuthStore from '../../store/authStore';
 
 const TABS = [
-  { key: 'all',        label: '🌐 All Complaints',    desc: 'View (read-only for other depts)' },
-  { key: 'mine',       label: '📌 My Department',      desc: 'Your dept — full control' },
-  { key: 'escalated',  label: '🔺 Escalated',          desc: 'Needs urgent attention' },
+  { key: 'all', label: '🌐 All Complaints', desc: 'View (read-only for other depts)' },
+  { key: 'mine', label: '📌 My Department', desc: 'Your dept — full control' },
+  { key: 'escalated', label: '🔺 Escalated', desc: 'Needs urgent attention' },
 ];
 
 export default function OfficerComplaints() {
@@ -66,6 +66,7 @@ export default function OfficerComplaints() {
       reader.onload = ev => setUpdateForm(p => ({ ...p, proof_images: [...p.proof_images, ev.target.result] }));
       reader.readAsDataURL(file);
     });
+    e.target.value = ''; // Allow selecting same image repeatedly or individually
   };
 
   const handleUpdate = async (e) => {
@@ -159,18 +160,18 @@ export default function OfficerComplaints() {
         {activeTab !== 'escalated' && (
           <select className="form-control" value={filters.status} onChange={e => setFilter('status', e.target.value)}>
             <option value="">All Statuses</option>
-            {['pending','assigned','in_progress','escalated','resolved','rejected'].map(s => (
+            {['pending', 'assigned', 'in_progress', 'escalated', 'resolved', 'rejected'].map(s => (
               <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
             ))}
           </select>
         )}
         <select className="form-control" value={filters.priority} onChange={e => setFilter('priority', e.target.value)}>
           <option value="">All Priorities</option>
-          {['critical','high','medium','low'].map(p => <option key={p} value={p}>{p}</option>)}
+          {['critical', 'high', 'medium', 'low'].map(p => <option key={p} value={p}>{p}</option>)}
         </select>
         <select className="form-control" value={filters.category} onChange={e => setFilter('category', e.target.value)}>
           <option value="">All Categories</option>
-          {['roads','water_supply','electricity','waste_management','drainage','infrastructure','parks','health','education','other'].map(c => (
+          {['roads', 'water_supply', 'electricity', 'waste_management', 'drainage', 'infrastructure', 'parks', 'health', 'education', 'other'].map(c => (
             <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>
           ))}
         </select>
@@ -182,7 +183,7 @@ export default function OfficerComplaints() {
       {/* Complaints Table */}
       {loading ? (
         <div style={{ display: 'grid', gap: 10 }}>
-          {[1,2,3,4].map(i => <SkeletonCard key={i} />)}
+          {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
         </div>
       ) : complaints.length === 0 ? (
         <div className="card">
@@ -315,10 +316,10 @@ export default function OfficerComplaints() {
               <label className="form-label">New Status <span className="required">*</span></label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 {[
-                  { value: 'assigned',    icon: '📌', label: 'Assigned',    desc: 'Acknowledged and assigned' },
+                  { value: 'assigned', icon: '📌', label: 'Assigned', desc: 'Acknowledged and assigned' },
                   { value: 'in_progress', icon: '🔄', label: 'In Progress', desc: 'Actively working on it' },
-                  { value: 'resolved',    icon: '✅', label: 'Resolved',    desc: 'Issue fixed — needs proof photo' },
-                  { value: 'rejected',    icon: '❌', label: 'Rejected',    desc: 'Not valid / out of scope' },
+                  { value: 'resolved', icon: '✅', label: 'Resolved', desc: 'Issue fixed — needs proof photo' },
+                  { value: 'rejected', icon: '❌', label: 'Rejected', desc: 'Not valid / out of scope' },
                 ].map(opt => (
                   <div key={opt.value}
                     onClick={() => setUpdateForm(p => ({ ...p, status: opt.value }))}

@@ -1,80 +1,109 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#1A237E" />
-    <meta name="description" content="JanSamadhan - Smart Citizen Grievance Portal. File civic complaints, track resolution, and hold government accountable." />
-    <meta name="keywords" content="citizen grievance, complaint portal, civic issues, government services, India" />
-    <title>JanSamadhan | जन समाधान — Citizen Grievance Portal</title>
 
-    <!-- Preconnect -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#1A237E" />
+  <meta name="description"
+    content="JanSamadhan - Smart Citizen Grievance Portal. File civic complaints, track resolution, and hold government accountable." />
+  <meta name="keywords" content="citizen grievance, complaint portal, civic issues, government services, India" />
+  <title>JanSamadhan | जन समाधान — Citizen Grievance Portal</title>
 
-    <!-- Favicon placeholder -->
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏛️</text></svg>">
+  <!-- Preconnect -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-    <style>
-      /* Critical CSS - prevent flash */
-      body { margin: 0; font-family: 'Noto Sans', Arial, sans-serif; background: #F5F6FA; }
-      #root { min-height: 100vh; }
-      .initial-loader {
-        position: fixed; inset: 0;
-        display: flex; align-items: center; justify-content: center;
-        flex-direction: column; gap: 12px;
-        background: #1A237E;
-        z-index: 9999;
-        transition: opacity 0.3s;
+  <!-- Favicon placeholder -->
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏛️</text></svg>">
+
+  <style>
+    /* Critical CSS - prevent flash */
+    body {
+      margin: 0;
+      font-family: 'Noto Sans', Arial, sans-serif;
+      background: #F5F6FA;
+    }
+
+    #root {
+      min-height: 100vh;
+    }
+
+    .initial-loader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 12px;
+      background: #1A237E;
+      z-index: 9999;
+      transition: opacity 0.3s;
+    }
+
+    .initial-loader .logo {
+      font-size: 2rem;
+      font-weight: 900;
+      color: #FFD54F;
+      font-family: Georgia, serif;
+      letter-spacing: -1px;
+    }
+
+    .initial-loader .sub {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.85rem;
+    }
+
+    .spin {
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #FFD54F;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
       }
-      .initial-loader .logo {
-        font-size: 2rem; font-weight: 900; color: #FFD54F;
-        font-family: Georgia, serif; letter-spacing: -1px;
-      }
-      .initial-loader .sub { color: rgba(255,255,255,0.7); font-size: 0.85rem; }
-      .spin {
-        width: 32px; height: 32px;
-        border: 3px solid rgba(255,255,255,0.2);
-        border-top-color: #FFD54F;
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-      }
-      @keyframes spin { to { transform: rotate(360deg); } }
-    </style>
-  </head>
-  <body>
-    <noscript>
-      <div style="text-align:center;padding:40px;font-family:sans-serif">
-        <h2>JavaScript Required</h2>
-        <p>JanSamadhan requires JavaScript to work. Please enable JavaScript in your browser.</p>
-      </div>
-    </noscript>
+    }
+  </style>
+</head>
 
-    <!-- Initial loading screen -->
-    <div class="initial-loader" id="initial-loader">
-      <div style="display:flex;gap:6px;margin-bottom:8px">
-        <div style="width:6px;height:28px;border-radius:3px;background:#FF9933"></div>
-        <div style="width:6px;height:28px;border-radius:3px;background:#FFFFFF"></div>
-        <div style="width:6px;height:28px;border-radius:3px;background:#138808"></div>
-      </div>
-      <div class="logo">JanSamadhan</div>
-      <div class="sub">जन समाधान — Citizen Grievance Portal</div>
-      <div class="spin"></div>
+<body>
+  <noscript>
+    <div style="text-align:center;padding:40px;font-family:sans-serif">
+      <h2>JavaScript Required</h2>
+      <p>JanSamadhan requires JavaScript to work. Please enable JavaScript in your browser.</p>
     </div>
+  </noscript>
 
-    <div id="root"></div>
+  <!-- Initial loading screen -->
+  <div class="initial-loader" id="initial-loader">
+    <img src="/Flag_of_India.webp" alt="India Flag"
+      style="width: 45px; height: 30px; margin-bottom: 12px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); object-fit: cover;" />
+    <div class="logo">JanSamadhan</div>
+    <div class="sub">जन समाधान — Citizen Grievance Portal</div>
+    <div class="spin"></div>
+  </div>
 
-    <script>
-      // Remove loader when React mounts
-      window.addEventListener('load', function() {
-        setTimeout(function() {
-          var loader = document.getElementById('initial-loader');
-          if (loader) {
-            loader.style.opacity = '0';
-            setTimeout(function() { loader.remove(); }, 300);
-          }
-        }, 500);
-      });
-    </script>
-  </body>
+  <div id="root"></div>
+
+  <script>
+    // Remove loader when React mounts
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        var loader = document.getElementById('initial-loader');
+        if (loader) {
+          loader.style.opacity = '0';
+          setTimeout(function () { loader.remove(); }, 300);
+        }
+      }, 500);
+    });
+  </script>
+</body>
+
 </html>

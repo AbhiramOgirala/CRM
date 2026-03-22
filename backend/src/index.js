@@ -1,10 +1,10 @@
 'use strict';
 require('dotenv').config();
 const express = require('express');
-const cors    = require('cors');
-const helmet  = require('helmet');
+const cors = require('cors');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const routes  = require('./routes');
+const routes = require('./routes');
 const { startScheduler } = require('./services/escalationService');
 
 const app = express();
@@ -25,19 +25,19 @@ app.use(cors({
     cb(null, true); // allow all in development
   },
   credentials: true,
-  methods: ['GET','POST','PUT','DELETE','PATCH','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.options('*', cors());
 
 // ── Rate limiting ─────────────────────────────────────────────────
-app.use('/api/', rateLimit({ windowMs: 15*60*1000, max: 500, standardHeaders: true, legacyHeaders: false }));
-app.use('/api/auth/login',    rateLimit({ windowMs: 15*60*1000, max: 20 }));
-app.use('/api/auth/register', rateLimit({ windowMs: 15*60*1000, max: 20 }));
+app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false }));
+app.use('/api/auth/login', rateLimit({ windowMs: 15 * 60 * 1000, max: 20 }));
+app.use('/api/auth/register', rateLimit({ windowMs: 15 * 60 * 1000, max: 20 }));
 
 // ── Body parsing ──────────────────────────────────────────────────
-app.use(express.json({ limit: '25mb' }));
-app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ── Request logger (dev) ──────────────────────────────────────────
 if (process.env.NODE_ENV !== 'production') {
@@ -69,7 +69,7 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log('\n╔══════════════════════════════════════╗');
   console.log(`║  🏛️  JanSamadhan API — Port ${PORT}      ║`);
-  console.log(`║  ENV: ${(process.env.NODE_ENV||'development').padEnd(29)}║`);
+  console.log(`║  ENV: ${(process.env.NODE_ENV || 'development').padEnd(29)}║`);
   console.log('╚══════════════════════════════════════╝\n');
   startScheduler();
 });

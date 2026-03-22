@@ -181,6 +181,8 @@ export default function FileComplaint() {
       reader.onload = ev => setForm(p => ({ ...p, images: [...p.images, ev.target.result] }));
       reader.readAsDataURL(file);
     });
+    // Allow selecting same file again or taking multiple photos one by one
+    e.target.value = '';
   };
 
   // ── Validation ───────────────────────────────────────────────────

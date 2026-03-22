@@ -14,7 +14,9 @@ router.put('/auth/profile', authenticate, authCtrl.updateProfile);
 router.put('/auth/change-password', authenticate, authCtrl.changePassword);
 
 // ── NLP Preview ───────────────────────────────────────────────────
-router.post('/nlp/preview', complaintsCtrl.previewClassification); router.post('/nlp/generate-title', complaintsCtrl.generateTitle);
+router.post('/nlp/preview', complaintsCtrl.previewClassification);
+router.post('/nlp/generate-title', complaintsCtrl.generateTitle);
+
 // ── Complaints ────────────────────────────────────────────────────
 router.post('/complaints', authenticate, complaintsCtrl.fileComplaint);
 router.get('/complaints/my', authenticate, complaintsCtrl.getComplaints);

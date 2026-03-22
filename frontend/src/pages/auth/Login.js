@@ -47,11 +47,19 @@ export default function Login() {
         {/* Header */}
         <div style={{ background: '#1A237E', padding: '28px 32px', textAlign: 'center' }}>
           {/* India flag strip */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 14 }}>
-            <div style={{ width: 8, height: 32, borderRadius: 4, background: '#FF9933' }} />
-            <div style={{ width: 8, height: 32, borderRadius: 4, background: '#FFFFFF' }} />
-            <div style={{ width: 8, height: 32, borderRadius: 4, background: '#138808' }} />
-          </div>
+          <img
+            src="/Flag_of_India.webp"
+            alt="India Flag"
+            style={{
+              width: 45,
+              height: 30,
+              margin: '0 auto 16px',
+              borderRadius: 4,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+              objectFit: 'cover',
+              display: 'block'
+            }}
+          />
           <div style={{ fontFamily: 'Georgia, serif', fontSize: '1.8rem', fontWeight: 900, color: '#FFD54F', letterSpacing: '-1px' }}>
             JanSamadhan
           </div>

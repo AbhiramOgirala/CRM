@@ -7,13 +7,13 @@ import useAuthStore from '../../store/authStore';
 import api from '../../services/api';
 
 const CATEGORY_ICONS = {
-  roads:'🛣️', water_supply:'💧', electricity:'⚡', waste_management:'🗑️',
-  drainage:'🌊', infrastructure:'🏗️', parks:'🌳', health:'🏥',
-  education:'📚', public_services:'🏢', street_lights:'💡',
-  law_enforcement:'👮', noise_pollution:'🔊', other:'📌'
+  roads: '🛣️', water_supply: '💧', electricity: '⚡', waste_management: '🗑️',
+  drainage: '🌊', infrastructure: '🏗️', parks: '🌳', health: '🏥',
+  education: '📚', public_services: '🏢', street_lights: '💡',
+  law_enforcement: '👮', noise_pollution: '🔊', other: '📌'
 };
 
-const PRIORITY_COLORS = { critical:'#B71C1C', high:'#E65100', medium:'#F57F17', low:'#33691E' };
+const PRIORITY_COLORS = { critical: '#B71C1C', high: '#E65100', medium: '#F57F17', low: '#33691E' };
 
 export default function GovtPortal() {
   const { user, refreshProfile } = useAuthStore();
@@ -64,9 +64,9 @@ export default function GovtPortal() {
     setLbLoading(true);
     setLeaderboard({ level, data: [] });
     try {
-      const res = await api.get('/leaderboard/govt', { params: { level, month: new Date().getMonth()+1, year: new Date().getFullYear() } });
+      const res = await api.get('/leaderboard/govt', { params: { level, month: new Date().getMonth() + 1, year: new Date().getFullYear() } });
       setLeaderboard({ level, data: res.leaderboard || [] });
-    } catch {}
+    } catch { }
     setLbLoading(false);
   };
 
@@ -83,6 +83,7 @@ export default function GovtPortal() {
       reader.onload = e => setCompletionImages(prev => [...prev, e.target.result]);
       reader.readAsDataURL(file);
     });
+    e.target.value = '';
   };
 
   const handleUpdate = async (e) => {
@@ -115,7 +116,7 @@ export default function GovtPortal() {
   const isOfficer = user?.role === 'officer';
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
 
-  const MEDAL = (i) => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`;
+  const MEDAL = (i) => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
   const MEDAL_COLOR = (i) => i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : 'var(--border)';
 
   return (
@@ -160,21 +161,21 @@ export default function GovtPortal() {
               onChange={e => setFilter('search', e.target.value)} style={{ flex: 2, minWidth: 180 }} />
             <select className="form-control" value={filters.status} onChange={e => setFilter('status', e.target.value)}>
               <option value="">All Statuses</option>
-              {['pending','assigned','in_progress','escalated','resolved','rejected','closed'].map(s => (
-                <option key={s} value={s}>{s.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
+              {['pending', 'assigned', 'in_progress', 'escalated', 'resolved', 'rejected', 'closed'].map(s => (
+                <option key={s} value={s}>{s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
               ))}
             </select>
             <select className="form-control" value={filters.priority} onChange={e => setFilter('priority', e.target.value)}>
               <option value="">All Priorities</option>
-              {['critical','high','medium','low'].map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>)}
+              {['critical', 'high', 'medium', 'low'].map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
             </select>
             <select className="form-control" value={filters.category} onChange={e => setFilter('category', e.target.value)}>
               <option value="">All Categories</option>
-              {Object.entries(CATEGORY_ICONS).map(([k,v]) => (
-                <option key={k} value={k}>{v} {k.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
+              {Object.entries(CATEGORY_ICONS).map(([k, v]) => (
+                <option key={k} value={k}>{v} {k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
               ))}
             </select>
-            <button className="btn btn-ghost btn-sm" onClick={() => setFilters({ status:'', category:'', priority:'', search:'', page:1 })}>Clear</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => setFilters({ status: '', category: '', priority: '', search: '', page: 1 })}>Clear</button>
           </div>
 
           {/* Stats bar */}
@@ -200,46 +201,46 @@ export default function GovtPortal() {
                   <tbody>
                     {complaints.map(c => {
                       const isMyDept = user?.department_id === c.department_id;
-                      const isSLABreached = c.sla_deadline && new Date(c.sla_deadline) < new Date() && !['resolved','closed','rejected'].includes(c.status);
+                      const isSLABreached = c.sla_deadline && new Date(c.sla_deadline) < new Date() && !['resolved', 'closed', 'rejected'].includes(c.status);
                       return (
                         <tr key={c.id} style={{ background: isSLABreached ? '#FFF3E0' : 'transparent' }}>
                           <td>
-                            <span className="ticket-badge" style={{ cursor:'pointer' }} onClick={() => navigate(`/complaint/${c.id}`)}>#{c.ticket_number}</span>
-                            {isSLABreached && <div style={{ fontSize:'0.65rem', color:'var(--danger)', fontWeight:700 }}>⚠️ SLA Breached</div>}
-                            {c.escalation_level > 0 && <div style={{ fontSize:'0.65rem', color:'#C2185B', fontWeight:700 }}>🔺 Escalated L{c.escalation_level}</div>}
+                            <span className="ticket-badge" style={{ cursor: 'pointer' }} onClick={() => navigate(`/complaint/${c.id}`)}>#{c.ticket_number}</span>
+                            {isSLABreached && <div style={{ fontSize: '0.65rem', color: 'var(--danger)', fontWeight: 700 }}>⚠️ SLA Breached</div>}
+                            {c.escalation_level > 0 && <div style={{ fontSize: '0.65rem', color: '#C2185B', fontWeight: 700 }}>🔺 Escalated L{c.escalation_level}</div>}
                           </td>
-                          <td style={{ maxWidth:200 }}>
-                            <div style={{ fontWeight:600, fontSize:'0.85rem', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', cursor:'pointer', color:'var(--primary)' }} onClick={() => navigate(`/complaint/${c.id}`)}>
+                          <td style={{ maxWidth: 200 }}>
+                            <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer', color: 'var(--primary)' }} onClick={() => navigate(`/complaint/${c.id}`)}>
                               {c.title}
                             </div>
-                            <div style={{ fontSize:'0.72rem', color:'var(--text-muted)' }}>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                               🏢 {c.department_name || c.department_code || 'Unassigned'}
-                              {!isMyDept && <span style={{ color:'var(--warning)', marginLeft:4 }}>⚡ Other dept</span>}
+                              {!isMyDept && <span style={{ color: 'var(--warning)', marginLeft: 4 }}>⚡ Other dept</span>}
                             </div>
-                            {c.duplicate_count > 0 && <span style={{ fontSize:'0.68rem', background:'var(--danger-bg)', color:'var(--danger)', borderRadius:4, padding:'1px 5px' }}>🔗 {c.duplicate_count} reports</span>}
+                            {c.duplicate_count > 0 && <span style={{ fontSize: '0.68rem', background: 'var(--danger-bg)', color: 'var(--danger)', borderRadius: 4, padding: '1px 5px' }}>🔗 {c.duplicate_count} reports</span>}
                           </td>
-                          <td style={{ fontSize:'0.8rem' }}>
-                            {CATEGORY_ICONS[c.category]} {c.category?.replace(/_/g,' ')}
+                          <td style={{ fontSize: '0.8rem' }}>
+                            {CATEGORY_ICONS[c.category]} {c.category?.replace(/_/g, ' ')}
                           </td>
                           <td><PriorityBadge priority={c.priority} /></td>
                           <td><StatusBadge status={c.status} /></td>
-                          <td style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>
+                          <td style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                             {c.district_name || c.mandal_name || c.address?.split(',')[0] || '—'}
                           </td>
-                          <td style={{ fontSize:'0.75rem', whiteSpace:'nowrap' }}>
+                          <td style={{ fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
                             {c.sla_deadline ? (
                               <div style={{ color: isSLABreached ? 'var(--danger)' : 'var(--text-muted)' }}>
                                 {new Date(c.sla_deadline).toLocaleDateString('en-IN')}
-                                {c.sla_hours_assigned && <div style={{ fontSize:'0.65rem' }}>{c.sla_hours_assigned}h SLA</div>}
+                                {c.sla_hours_assigned && <div style={{ fontSize: '0.65rem' }}>{c.sla_hours_assigned}h SLA</div>}
                               </div>
                             ) : '—'}
                           </td>
                           <td>
-                            <div style={{ display:'flex', gap:4 }}>
+                            <div style={{ display: 'flex', gap: 4 }}>
                               <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/complaint/${c.id}`)}>View</button>
-                              {(isMyDept || isAdmin) && !['resolved','closed','rejected'].includes(c.status) && (
+                              {(isMyDept || isAdmin) && !['resolved', 'closed', 'rejected'].includes(c.status) && (
                                 <button className="btn btn-primary btn-sm"
-                                  onClick={() => { setSelected(c); setUpdateForm({ status:'', notes:'', rejection_reason:'' }); setCompletionImages([]); }}>
+                                  onClick={() => { setSelected(c); setUpdateForm({ status: '', notes: '', rejection_reason: '' }); setCompletionImages([]); }}>
                                   Update
                                 </button>
                               )}
@@ -258,7 +259,7 @@ export default function GovtPortal() {
           {pagination.totalPages > 1 && (
             <div className="pagination">
               <button className="pagination-btn" onClick={() => setFilter('page', filters.page - 1)} disabled={filters.page <= 1}>‹</button>
-              <span style={{ padding:'0 12px', fontSize:'0.85rem', color:'var(--text-muted)' }}>Page {filters.page} of {pagination.totalPages}</span>
+              <span style={{ padding: '0 12px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Page {filters.page} of {pagination.totalPages}</span>
               <button className="pagination-btn" onClick={() => setFilter('page', filters.page + 1)} disabled={filters.page >= pagination.totalPages}>›</button>
             </div>
           )}
@@ -291,26 +292,26 @@ export default function GovtPortal() {
           </div>
 
           {lbLoading ? (
-            <div style={{ textAlign:'center', padding:40 }}><div className="loading-spinner" style={{ margin:'0 auto 12px' }} />Loading rankings...</div>
+            <div style={{ textAlign: 'center', padding: 40 }}><div className="loading-spinner" style={{ margin: '0 auto 12px' }} />Loading rankings...</div>
           ) : leaderboard.data.length === 0 ? (
             <div className="card"><div className="empty-state"><div className="empty-state-icon">📊</div><h3 className="empty-state-title">No data yet for this level</h3><p className="empty-state-desc">Rankings appear after complaints are resolved</p></div></div>
           ) : (
             <div>
               {leaderboard.data.map((item, i) => (
-                <div key={item.id || i} style={{ display:'flex', alignItems:'center', gap:14, padding:'14px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius)', marginBottom:8, borderLeft:`4px solid ${MEDAL_COLOR(i)}`, boxShadow:'var(--shadow)' }}>
-                  <div style={{ width:36, height:36, borderRadius:'50%', background:MEDAL_COLOR(i), display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:i<3?'1rem':'0.85rem', color:i<3?'white':'var(--text-muted)', flexShrink:0 }}>
+                <div key={item.id || i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: 8, borderLeft: `4px solid ${MEDAL_COLOR(i)}`, boxShadow: 'var(--shadow)' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: MEDAL_COLOR(i), display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: i < 3 ? '1rem' : '0.85rem', color: i < 3 ? 'white' : 'var(--text-muted)', flexShrink: 0 }}>
                     {MEDAL(i)}
                   </div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontWeight:700, fontSize:'0.95rem' }}>{item.entity_name}</div>
-                    <div style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{item.entity_name}</div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                       🏢 {item.department_name} · ✅ {item.complaints_resolved} resolved this month
                     </div>
-                    {item.district_name && <div style={{ fontSize:'0.72rem', color:'var(--text-muted)' }}>📍 {item.district_name}</div>}
+                    {item.district_name && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>📍 {item.district_name}</div>}
                   </div>
-                  <div style={{ textAlign:'right' }}>
-                    <div style={{ fontFamily:'var(--font-heading)', fontSize:'1.4rem', fontWeight:800, color:'var(--warning)' }}>{item.points_earned}</div>
-                    <div style={{ fontSize:'0.68rem', color:'var(--text-muted)' }}>points</div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1.4rem', fontWeight: 800, color: 'var(--warning)' }}>{item.points_earned}</div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>points</div>
                   </div>
                 </div>
               ))}
@@ -329,13 +330,13 @@ export default function GovtPortal() {
         </>}>
         {selected && (
           <div>
-            <div style={{ background:'var(--surface-2)', borderRadius:8, padding:'10px 14px', marginBottom:16, fontSize:'0.85rem' }}>
+            <div style={{ background: 'var(--surface-2)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: '0.85rem' }}>
               <strong>{selected.title}</strong>
-              <div style={{ color:'var(--text-muted)', marginTop:2, display:'flex', gap:8, flexWrap:'wrap' }}>
+              <div style={{ color: 'var(--text-muted)', marginTop: 2, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 Current: <StatusBadge status={selected.status} /> <PriorityBadge priority={selected.priority} />
               </div>
               {selected.dept_routing_reason && (
-                <div style={{ fontSize:'0.75rem', color:'var(--info)', marginTop:4 }}>ℹ️ {selected.dept_routing_reason}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--info)', marginTop: 4 }}>ℹ️ {selected.dept_routing_reason}</div>
               )}
             </div>
 
@@ -344,7 +345,7 @@ export default function GovtPortal() {
               <select className="form-control" value={updateForm.status} onChange={e => setUpdateForm(p => ({ ...p, status: e.target.value }))}>
                 <option value="">Select status</option>
                 {selected.status === 'pending' && <option value="assigned">📌 Assigned — Taking up</option>}
-                {['pending','assigned'].includes(selected.status) && <option value="in_progress">🔄 In Progress — Work started</option>}
+                {['pending', 'assigned'].includes(selected.status) && <option value="in_progress">🔄 In Progress — Work started</option>}
                 <option value="resolved">✅ Resolved / Completed</option>
                 <option value="rejected">❌ Rejected — Not valid</option>
                 <option value="escalated">🔺 Escalate to Higher Authority</option>
@@ -361,30 +362,30 @@ export default function GovtPortal() {
                 {/* COMPLETION PHOTO — MANDATORY */}
                 <div className="form-group">
                   <label className="form-label">Completion Photos <span className="required">* (Required to close)</span></label>
-                  <div style={{ background:'var(--warning-bg)', border:'2px dashed var(--warning)', borderRadius:'var(--radius-sm)', padding:16, textAlign:'center', cursor:'pointer', marginBottom:8 }}
+                  <div style={{ background: 'var(--warning-bg)', border: '2px dashed var(--warning)', borderRadius: 'var(--radius-sm)', padding: 16, textAlign: 'center', cursor: 'pointer', marginBottom: 8 }}
                     onClick={() => fileInputRef.current?.click()}>
-                    <div style={{ fontSize:'1.5rem' }}>📸</div>
-                    <div style={{ fontSize:'0.82rem', color:'var(--warning)', fontWeight:700 }}>Upload photos of completed work (mandatory)</div>
-                    <div style={{ fontSize:'0.72rem', color:'var(--text-muted)', marginTop:2 }}>Before/after photos show accountability</div>
+                    <div style={{ fontSize: '1.5rem' }}>📸</div>
+                    <div style={{ fontSize: '0.82rem', color: 'var(--warning)', fontWeight: 700 }}>Upload photos of completed work (mandatory)</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>Before/after photos show accountability</div>
                   </div>
-                  <input type="file" ref={fileInputRef} style={{ display:'none' }} accept="image/*" multiple onChange={handleCompletionImageUpload} />
+                  <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*" multiple onChange={handleCompletionImageUpload} />
                   {completionImages.length > 0 && (
-                    <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       {completionImages.map((img, i) => (
-                        <div key={i} style={{ position:'relative' }}>
-                          <img src={img} alt="" style={{ width:72, height:72, objectFit:'cover', borderRadius:8, border:'2px solid var(--success)' }} />
-                          <button type="button" onClick={() => setCompletionImages(prev => prev.filter((_,j) => j !== i))}
-                            style={{ position:'absolute', top:-6, right:-6, width:18, height:18, borderRadius:'50%', background:'var(--danger)', color:'white', border:'none', cursor:'pointer', fontSize:'0.6rem' }}>✕</button>
+                        <div key={i} style={{ position: 'relative' }}>
+                          <img src={img} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '2px solid var(--success)' }} />
+                          <button type="button" onClick={() => setCompletionImages(prev => prev.filter((_, j) => j !== i))}
+                            style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: 'var(--danger)', color: 'white', border: 'none', cursor: 'pointer', fontSize: '0.6rem' }}>✕</button>
                         </div>
                       ))}
                     </div>
                   )}
                   {completionImages.length === 0 && (
-                    <div style={{ color:'var(--danger)', fontSize:'0.75rem', fontWeight:600 }}>⚠️ At least 1 photo required to resolve complaint</div>
+                    <div style={{ color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 600 }}>⚠️ At least 1 photo required to resolve complaint</div>
                   )}
                 </div>
 
-                <div style={{ background:'var(--success-bg)', borderRadius:6, padding:'8px 10px', fontSize:'0.78rem', color:'var(--success)', marginBottom:8 }}>
+                <div style={{ background: 'var(--success-bg)', borderRadius: 6, padding: '8px 10px', fontSize: '0.78rem', color: 'var(--success)', marginBottom: 8 }}>
                   🏅 You will earn {selected.priority === 'critical' ? 25 : selected.priority === 'high' ? 20 : selected.priority === 'medium' ? 15 : 10} points for resolving this {selected.priority} priority complaint!
                 </div>
               </>
