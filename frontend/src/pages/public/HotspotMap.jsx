@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { complaintsAPI, locationAPI } from '../../services/api';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -14,6 +14,8 @@ export default function HotspotMap() {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
+  const userMarkerRef = useRef(null);
+  const nearbyCircleRef = useRef(null);
   const [hotspots, setHotspots] = useState([]);
   const [states, setStates] = useState([]);
   const [filters, setFilters] = useState({ state_id: '', category: '', days: 30 });
@@ -21,6 +23,51 @@ export default function HotspotMap() {
   const [stats, setStats] = useState({ total: 0, byCategory: {} });
   const [error, setError] = useState(null);
   const [totalComplaints, setTotalComplaints] = useState(0);
+  const [mapReady, setMapReady] = useState(false);
+  const [loadedStateFilter, setLoadedStateFilter] = useState('');
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [nearbyOnly, setNearbyOnly] = useState(false);
+  const [nearbyRadiusKm, setNearbyRadiusKm] = useState(10);
+  const [detectedStateName, setDetectedStateName] = useState('');
+  const [detectedStateId, setDetectedStateId] = useState('');
+
+  const normalizeStateName = (name) => String(name || '')
+    .toLowerCase()
+    .replace(/union territory|nct of|state|ut|&/g, ' ')
+    .replace(/[^a-z\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const haversineKm = (lat1, lon1, lat2, lon2) => {
+    const toRad = (deg) => (deg * Math.PI) / 180;
+    const earthRadiusKm = 6371;
+    const deltaLat = toRad(lat2 - lat1);
+    const deltaLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+    return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const displayedHotspots = useMemo(() => {
+    if (!nearbyOnly || !userLocation) return hotspots;
+    return hotspots.filter(h => {
+      const latitude = Number(h.latitude);
+      const longitude = Number(h.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return false;
+      return haversineKm(userLocation.lat, userLocation.lng, latitude, longitude) <= nearbyRadiusKm;
+    });
+  }, [hotspots, nearbyOnly, userLocation, nearbyRadiusKm]);
+
+  const displayedCategoryStats = useMemo(() => {
+    const byCategory = {};
+    displayedHotspots.forEach(h => {
+      byCategory[h.category] = (byCategory[h.category] || 0) + 1;
+    });
+    return byCategory;
+  }, [displayedHotspots]);
 
   useEffect(() => {
     locationAPI.getStates()
@@ -29,8 +76,76 @@ export default function HotspotMap() {
         console.error('Failed to load states:', error);
         setStates([]);
       });
-    initMap();
+    
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(initMap, 100);
+
+    // Handle container resize automatically
+    const resizeObserver = new ResizeObserver(() => {
+        if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize();
+        }
+    });
+    
+    if (mapRef.current) {
+        resizeObserver.observe(mapRef.current);
+    }
+
+    // Force updates on window events
+    const forceUpdate = () => {
+        if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
+    };
+    window.addEventListener('resize', forceUpdate);
+    window.addEventListener('orientationchange', forceUpdate);
+    
+    return () => {
+        clearTimeout(timer);
+        resizeObserver.disconnect();
+        window.removeEventListener('resize', forceUpdate);
+        window.removeEventListener('orientationchange', forceUpdate);
+        if (mapInstanceRef.current) {
+            mapInstanceRef.current.remove();
+            mapInstanceRef.current = null;
+            setMapReady(false);
+        }
+        userMarkerRef.current = null;
+        nearbyCircleRef.current = null;
+    };
   }, []);
+
+  // Sync map markers whenever hotspots change or map becomes ready
+  useEffect(() => {
+    if (mapReady) {
+      updateMapMarkers(displayedHotspots);
+    }
+  }, [mapReady, displayedHotspots, userLocation, nearbyOnly, nearbyRadiusKm]);
+
+  useEffect(() => {
+    if (!mapReady || !filters.state_id || !hotspots.length) return;
+    if ((filters.state_id || '') !== loadedStateFilter) return;
+
+    const selectedState = states.find(s => String(s.id) === String(filters.state_id));
+    const stateLat = Number(selectedState?.center_lat ?? selectedState?.latitude ?? selectedState?.lat);
+    const stateLng = Number(selectedState?.center_lng ?? selectedState?.longitude ?? selectedState?.lng);
+
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (Number.isFinite(stateLat) && Number.isFinite(stateLng)) {
+      map.flyTo([stateLat, stateLng], 7, { duration: 0.8 });
+      return;
+    }
+
+    const validCoords = hotspots
+      .map(h => ({ lat: Number(h.latitude), lng: Number(h.longitude) }))
+      .filter(c => Number.isFinite(c.lat) && Number.isFinite(c.lng));
+
+    if (!validCoords.length) return;
+
+    const avgLat = validCoords.reduce((sum, c) => sum + c.lat, 0) / validCoords.length;
+    const avgLng = validCoords.reduce((sum, c) => sum + c.lng, 0) / validCoords.length;
+    map.flyTo([avgLat, avgLng], 7, { duration: 0.8 });
+  }, [mapReady, filters.state_id, hotspots, loadedStateFilter, states]);
 
   useEffect(() => {
     loadHotspots();
@@ -42,19 +157,36 @@ export default function HotspotMap() {
   };
 
   const setupMap = () => {
-    if (!mapRef.current || mapInstanceRef.current) return;
+    if (!mapRef.current) return;
+    if (mapInstanceRef.current) return; // Map already initialized
 
     try {
-      const map = L.map(mapRef.current).setView([20.5937, 78.9629], 5);
+      const map = L.map(mapRef.current, {
+        zoomControl: false, // Reposition later for better mobile UX
+        attributionControl: false,
+        zoomAnimation: true,
+        fadeAnimation: true,
+        markerZoomAnimation: true
+      }).setView([20.5937, 78.9629], 5);
+
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+      
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19,
+        tileSize: 256,
+        zoomOffset: 0
       }).addTo(map);
+      
       mapInstanceRef.current = map;
 
-      // Load hotspots after map is ready
-      if (hotspots.length > 0) {
-        updateMapMarkers(hotspots);
-      }
+      // Force initial invalidateSize to ensure tiles render
+      setTimeout(() => { 
+        if (map) map.invalidateSize(); 
+      }, 500);
+
+      // Signal map is ready
+      setMapReady(true);
     } catch (error) {
       console.error('Failed to initialize map:', error);
       setError('Failed to initialize map. Please refresh the page.');
@@ -64,18 +196,20 @@ export default function HotspotMap() {
   const loadHotspots = async () => {
     setLoading(true);
     setError(null);
+    const activeFilters = { ...filters };
     try {
-      console.log('Loading hotspots with filters:', filters);
+      console.log('Loading hotspots with filters:', activeFilters);
 
       // Load both hotspots and total complaints for comparison
       const [hotspotsRes, dashboardRes] = await Promise.all([
-        complaintsAPI.getHotspots(filters),
+        complaintsAPI.getHotspots(activeFilters),
         complaintsAPI.getDashboard()
       ]);
 
       console.log('Hotspots API response:', hotspotsRes);
       const data = hotspotsRes.hotspots || [];
       setHotspots(data);
+      setLoadedStateFilter(activeFilters.state_id || '');
       setTotalComplaints(dashboardRes.stats?.total || 0);
 
       // Update stats
@@ -83,8 +217,6 @@ export default function HotspotMap() {
       data.forEach(h => { byCategory[h.category] = (byCategory[h.category] || 0) + 1; });
       setStats({ total: data.length, byCategory });
 
-      // Update map markers
-      updateMapMarkers(data);
     } catch (error) {
       console.error('Failed to load hotspots:', error);
       setError('Failed to load hotspot data. Please try again.');
@@ -104,21 +236,42 @@ export default function HotspotMap() {
       // Remove existing markers
       markersRef.current.forEach(m => map.removeLayer(m));
       markersRef.current = [];
+      if (userMarkerRef.current) {
+        map.removeLayer(userMarkerRef.current);
+        userMarkerRef.current = null;
+      }
+      if (nearbyCircleRef.current) {
+        map.removeLayer(nearbyCircleRef.current);
+        nearbyCircleRef.current = null;
+      }
 
       data.forEach(h => {
         if (!h.latitude || !h.longitude) return;
         const color = CATEGORY_COLORS[h.category] || '#546E7A';
-        const prioritySize = { critical: 14, high: 12, medium: 10, low: 8 };
-        const size = prioritySize[h.priority] || 8;
+        const prioritySize = { critical: 16, high: 14, medium: 12, low: 10 };
+        const size = prioritySize[h.priority] || 10;
+        const markerSize = size + 4;
+        const latitude = Number(h.latitude);
+        const longitude = Number(h.longitude);
 
-        const marker = L.circleMarker([h.latitude, h.longitude], {
-            radius: size, // larger radius for hotspot look
-            fillColor: color,
-            color: color,
-            weight: 1,
-            opacity: 1,
-            fillOpacity: 0.6
-        })
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+        // Mobile-safe marker icon via inline SVG data URL
+        const svgMarkup = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="${markerSize}" height="${markerSize}" viewBox="0 0 ${markerSize} ${markerSize}">
+            <circle cx="${markerSize / 2}" cy="${markerSize / 2}" r="${size / 2}" fill="${color}" stroke="#ffffff" stroke-width="2" />
+          </svg>
+        `;
+
+        const icon = L.icon({
+          iconUrl: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svgMarkup)}`,
+          iconSize: [markerSize, markerSize],
+          iconAnchor: [markerSize / 2, markerSize / 2],
+          popupAnchor: [0, -markerSize / 2],
+          className: 'hotspot-marker-icon'
+        });
+
+        const marker = L.marker([latitude, longitude], { icon })
           .bindPopup(`
             <div style="min-width:200px;font-family:sans-serif">
               <strong style="font-size:0.9rem">${h.title || h.category}</strong><br>
@@ -131,14 +284,143 @@ export default function HotspotMap() {
         markersRef.current.push(marker);
       });
 
+      if (userLocation) {
+        const userMarker = L.circleMarker([userLocation.lat, userLocation.lng], {
+          radius: 7,
+          color: '#ffffff',
+          weight: 2,
+          fillColor: '#1A237E',
+          fillOpacity: 1
+        }).bindPopup('📍 Your current location');
+
+        userMarker.addTo(map);
+        userMarkerRef.current = userMarker;
+
+        if (nearbyOnly) {
+          const nearbyCircle = L.circle([userLocation.lat, userLocation.lng], {
+            radius: nearbyRadiusKm * 1000,
+            color: '#1A237E',
+            weight: 1,
+            fillColor: '#1A237E',
+            fillOpacity: 0.08
+          });
+          nearbyCircle.addTo(map);
+          nearbyCircleRef.current = nearbyCircle;
+        }
+      }
+
       // Fit map to bounds of all markers
       if (markersRef.current.length > 0) {
         const group = L.featureGroup(markersRef.current);
         map.fitBounds(group.getBounds(), { padding: [50, 50] });
+      } else if (userLocation) {
+        map.setView([userLocation.lat, userLocation.lng], 11);
       }
+
+      // Force map update for mobile rendering
+      setTimeout(() => { 
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize();
+        }
+      }, 500); // Increased timeout to ensure layout is settled
     } catch (error) {
       console.error('Failed to update map markers:', error);
     }
+  };
+
+  const focusDetectedStateCenter = () => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const targetStateId = detectedStateId || filters.state_id;
+    if (!targetStateId) {
+      if (userLocation) map.flyTo([userLocation.lat, userLocation.lng], 10, { duration: 0.8 });
+      return;
+    }
+
+    const selectedState = states.find(s => String(s.id) === String(targetStateId));
+    const stateLat = Number(selectedState?.center_lat ?? selectedState?.latitude ?? selectedState?.lat);
+    const stateLng = Number(selectedState?.center_lng ?? selectedState?.longitude ?? selectedState?.lng);
+
+    if (Number.isFinite(stateLat) && Number.isFinite(stateLng)) {
+      map.flyTo([stateLat, stateLng], 7, { duration: 0.8 });
+      return;
+    }
+
+    if (hotspots.length > 0) {
+      const group = L.featureGroup(
+        hotspots
+          .map(h => {
+            const latitude = Number(h.latitude);
+            const longitude = Number(h.longitude);
+            return Number.isFinite(latitude) && Number.isFinite(longitude)
+              ? L.marker([latitude, longitude])
+              : null;
+          })
+          .filter(Boolean)
+      );
+      if (group.getLayers().length > 0) {
+        map.fitBounds(group.getBounds(), { padding: [50, 50] });
+      }
+    }
+  };
+
+  const detectStateFromCoordinates = async (latitude, longitude) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=5&addressdetails=1`
+      );
+      const payload = await response.json();
+      const rawState = payload?.address?.state || payload?.address?.state_district || '';
+      if (!rawState) return;
+
+      setDetectedStateName(rawState);
+      const normalizedRaw = normalizeStateName(rawState);
+      const matchedState = states.find(s => {
+        const normalizedState = normalizeStateName(s.name);
+        return normalizedState === normalizedRaw || normalizedState.includes(normalizedRaw) || normalizedRaw.includes(normalizedState);
+      });
+
+      if (!matchedState) return;
+
+      setDetectedStateId(String(matchedState.id));
+      setFilters(prev => ({ ...prev, state_id: String(matchedState.id) }));
+    } catch (reverseError) {
+      console.warn('Could not detect state from current location:', reverseError);
+    }
+  };
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported on this device/browser.');
+      return;
+    }
+
+    setLocationLoading(true);
+    setError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        const location = { lat: latitude, lng: longitude };
+
+        setUserLocation(location);
+        setNearbyOnly(true);
+
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.flyTo([latitude, longitude], 11, { duration: 0.8 });
+        }
+
+        await detectStateFromCoordinates(latitude, longitude);
+        setLocationLoading(false);
+      },
+      () => {
+        setError('Unable to fetch current location. Please allow location permission and try again.');
+        setLocationLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+    );
   };
 
   return (
@@ -165,7 +447,7 @@ export default function HotspotMap() {
       )}
 
       {/* Empty state message */}
-      {!loading && !error && stats.total === 0 && (
+      {!loading && !error && displayedHotspots.length === 0 && (
         <div style={{
           background: '#f5f5f5',
           color: '#666',
@@ -175,8 +457,8 @@ export default function HotspotMap() {
           textAlign: 'center',
           border: '1px solid #e0e0e0'
         }}>
-          📍 No complaint hotspots found for the selected filters.<br />
-          Try adjusting the time range or location filters.<br />
+          📍 {nearbyOnly ? 'No nearby hotspots found for your current location.' : 'No complaint hotspots found for the selected filters.'}<br />
+          Try adjusting the time range, location filters, or nearby radius.<br />
           <small style={{ fontSize: '0.75rem', marginTop: '8px', display: 'block' }}>
             Note: Only complaints with GPS coordinates are shown on the map.
           </small>
@@ -209,29 +491,80 @@ export default function HotspotMap() {
         >
           {loading ? '🔄 Loading...' : '🔄 Refresh'}
         </button>
+        <button
+          className="btn"
+          onClick={useCurrentLocation}
+          disabled={locationLoading}
+          style={{ minWidth: '180px', border: '1px solid var(--border)' }}
+        >
+          {locationLoading ? '📍 Locating...' : '📍 Use Current Location'}
+        </button>
+        <button
+          className="btn"
+          onClick={focusDetectedStateCenter}
+          disabled={!detectedStateId && !filters.state_id}
+          style={{ minWidth: '150px', border: '1px solid var(--border)' }}
+        >
+          🗺️ Focus My State
+        </button>
+        <select
+          className="form-control"
+          value={nearbyRadiusKm}
+          onChange={e => setNearbyRadiusKm(Number(e.target.value))}
+          disabled={!userLocation}
+        >
+          <option value={5}>Nearby (5 km)</option>
+          <option value={10}>Nearby (10 km)</option>
+          <option value={20}>Nearby (20 km)</option>
+          <option value={30}>Nearby (30 km)</option>
+        </select>
+        <button
+          className="btn"
+          onClick={() => setNearbyOnly(prev => !prev)}
+          disabled={!userLocation}
+          style={{ minWidth: '130px', border: '1px solid var(--border)' }}
+        >
+          {nearbyOnly ? '✅ Nearby On' : 'Nearby Off'}
+        </button>
         {loading && <div className="loading-spinner" style={{ width: 20, height: 20, borderWidth: 2 }} />}
       </div>
+
+      {(detectedStateName || userLocation) && (
+        <div style={{ marginBottom: 10, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+          {detectedStateName && <span>Detected state: <strong>{detectedStateName}</strong>. </span>}
+          {userLocation && <span>Current location mode is active{nearbyOnly ? ` (${nearbyRadiusKm} km radius).` : '.'}</span>}
+        </div>
+      )}
 
       {/* Stats strip */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         <span style={{ background: 'var(--secondary)', color: 'white', borderRadius: 20, padding: '4px 14px', fontSize: '0.8rem', fontWeight: 700 }}>
-          📍 {stats.total} of {totalComplaints} complaints shown (with GPS)
+          📍 {displayedHotspots.length} of {totalComplaints} complaints shown (with GPS)
         </span>
-        {Object.entries(stats.byCategory).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([cat, count]) => (
+        {Object.entries(displayedCategoryStats).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([cat, count]) => (
           <span key={cat} style={{ background: CATEGORY_COLORS[cat] + '20', color: CATEGORY_COLORS[cat], borderRadius: 20, padding: '4px 12px', fontSize: '0.75rem', fontWeight: 700, border: `1px solid ${CATEGORY_COLORS[cat]}40` }}>
             {cat.replace(/_/g, ' ')}: {count}
           </span>
         ))}
       </div>
 
-      {/* Map */}
-      <div style={{ borderRadius: 'var(--radius)', overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', position: 'relative', zIndex: 1 }}>
+      <div style={{ 
+        height: '65vh', 
+        minHeight: '400px', 
+        width: '100%', 
+        borderRadius: 'var(--radius)', 
+        overflow: 'hidden', 
+        border: '1px solid var(--border)', 
+        marginTop: '16px',
+        background: '#E8EAF6',
+        position: 'relative',
+        zIndex: 0
+      }}>
         <div
           ref={mapRef}
-          style={{ height: 500, background: '#E8EAF6' }}
+          style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
           role="application"
           aria-label="Interactive hotspot map showing civic complaint locations across India"
-          tabIndex={0}
         />
       </div>
 
