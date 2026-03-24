@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { authAPI } from '../../services/api';
+import { authAPI, locationAPI } from '../../services/api';
 import useAuthStore from '../../store/authStore';
 import { useTranslation } from 'react-i18next';
 
@@ -24,15 +24,31 @@ export default function Profile() {
   const { t } = useTranslation();
   const { user, updateUser, refreshProfile } = useAuthStore();
   const [tab, setTab] = useState('profile');
+  const [states, setStates] = useState([]);
+  const [districts, setDistricts] = useState([]);
   const [profileForm, setProfileForm] = useState({
     full_name: user?.full_name || '',
     phone: user?.phone || '',
     address: user?.address || '',
     pincode: user?.pincode || '',
-    preferred_language: user?.preferred_language || 'en'
+    preferred_language: user?.preferred_language || 'en',
+    state_id: user?.state_id || '',
+    district_id: user?.district_id || '',
   });
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    locationAPI.getStates().then(r => setStates(r.states || []));
+  }, []);
+
+  useEffect(() => {
+    if (profileForm.state_id) {
+      locationAPI.getDistricts(profileForm.state_id).then(r => setDistricts(r.districts || []));
+    } else {
+      setDistricts([]);
+    }
+  }, [profileForm.state_id]);
 
   const handleProfileSave = async (e) => {
     e.preventDefault();
@@ -40,6 +56,7 @@ export default function Profile() {
     try {
       const res = await authAPI.updateProfile(profileForm);
       updateUser(res.user);
+      await refreshProfile(); // re-fetch full profile including state/district names
       toast.success('Profile updated successfully');
     } catch (err) {
       toast.error(err.message);
@@ -236,6 +253,26 @@ export default function Profile() {
                   <option value="kn">ಕನ್ನಡ (Kannada)</option>
                   <option value="gu">ગુજરાતી (Gujarati)</option>
                   <option value="bn">বাংলা (Bengali)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid-2" style={{ gap: 14 }}>
+              <div className="form-group">
+                <label className="form-label">State</label>
+                <select className="form-control" value={profileForm.state_id}
+                  onChange={e => setProfileForm(p => ({ ...p, state_id: e.target.value, district_id: '' }))}>
+                  <option value="">Select State</option>
+                  {states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">District</label>
+                <select className="form-control" value={profileForm.district_id}
+                  onChange={e => setProfileForm(p => ({ ...p, district_id: e.target.value }))}
+                  disabled={!profileForm.state_id}>
+                  <option value="">Select District</option>
+                  {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </div>
             </div>
