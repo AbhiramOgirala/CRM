@@ -6,17 +6,8 @@ import { notificationsAPI } from '../../services/api';
 import { useLanguage } from '../../context/LanguageContext';
 
 const LANG_OPTIONS = [
-  { code: 'en-IN', label: 'EN', full: 'English' },
-  { code: 'hi-IN', label: 'हि', full: 'हिंदी' },
-  { code: 'te-IN', label: 'తె', full: 'తెలుగు' },
-  { code: 'ta-IN', label: 'த', full: 'தமிழ்' },
-  { code: 'kn-IN', label: 'ಕ', full: 'ಕನ್ನಡ' },
-  { code: 'ml-IN', label: 'മ', full: 'മലയാളം' },
-  { code: 'mr-IN', label: 'म', full: 'मराठी' },
-  { code: 'gu-IN', label: 'ગ', full: 'ગુજરાતી' },
-  { code: 'pa-IN', label: 'ਪ', full: 'ਪੰਜਾਬੀ' },
-  { code: 'bn-IN', label: 'ব', full: 'বাংলা' },
-  { code: 'ur-IN', label: 'اُ', full: 'اردو' },
+  { code: 'en', label: 'EN', full: 'English' },
+  { code: 'hi', label: 'हि', full: 'हिंदी' },
 ];
 
 // Badge level labels — text only, no emoji

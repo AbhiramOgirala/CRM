@@ -72,7 +72,8 @@ const PublicOnlyRoute = ({ children }) => {
   return children;
 };
 
-function App() {
+function AppContent() {
+  const { user, token } = useAuthStore();
   const { initAccessibility } = useAccessibilityStore();
 
   React.useEffect(() => {
@@ -80,7 +81,6 @@ function App() {
   }, [initAccessibility]);
 
   return (
-    <LanguageProvider>
     <Router>
       <Toaster
         position="top-right"
@@ -182,7 +182,13 @@ function App() {
         </Routes>
       </Suspense>
     </Router>
-    <InstallBanner />
+  );
+}
+
+function App() {
+  return (
+    <LanguageProvider>
+      <AppContent />
     </LanguageProvider>
   );
 }
