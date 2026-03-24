@@ -9,6 +9,7 @@ i18n
   .use(initReactI18next) // Pass the i18n instance to react-i18next
   .init({
     fallbackLng: 'en', // Fallback to English if translation is missing
+    supportedLngs: ['en', 'hi', 'te', 'ta', 'kn', 'ml', 'mr', 'gu', 'pa', 'bn', 'ur'],
     backend: {
       loadPath: '/locales/{{lng}}/{{ns}}.json', // Path to translation files
     },
