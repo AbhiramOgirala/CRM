@@ -4,6 +4,10 @@ import { complaintsAPI } from '../../services/api';
 import { ComplaintCard, SkeletonCard } from '../../components/common';
 import useAuthStore from '../../store/authStore';
 import { useTranslation } from 'react-i18next';
+import { Bar, Line, Doughnut } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend);
 
 const BADGE_DATA = {
   newcomer:      { label: 'Newcomer',      next: 'Contributor',    nextPts: 50,   color: '#2E7D32' },
@@ -27,6 +31,7 @@ export default function CitizenDashboard() {
   const { user, refreshProfile } = useAuthStore();
   const { t } = useTranslation();
   const [stats, setStats] = useState(null);
+  const [dashboardData, setDashboardData] = useState(null);
   const [recentComplaints, setRecentComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,12 +47,78 @@ export default function CitizenDashboard() {
         complaintsAPI.getMy({ limit: 5, sortBy: 'created_at', sortOrder: 'desc' })
       ]);
       setStats(statsRes.stats);
+      setDashboardData(statsRes);
       setRecentComplaints(complaintsRes.complaints || []);
     } catch { } finally { setLoading(false); }
   };
 
   const badge = BADGE_DATA[user?.badge_level] || BADGE_DATA.newcomer;
   const progress = badge.nextPts ? Math.min(((user?.points || 0) / badge.nextPts) * 100, 100) : 100;
+
+  const statusData = dashboardData?.stats ? {
+    labels: [t('Pending'), t('Active'), t('Resolved')],
+    datasets: [{
+      data: [
+        dashboardData.stats.pending || 0,
+        dashboardData.stats.inProgress || 0,
+        dashboardData.stats.resolved || 0
+      ],
+      backgroundColor: ['#FF9800', '#2979FF', '#00C853'],
+      borderWidth: 0,
+    }]
+  } : null;
+
+  const barData = dashboardData?.byCategory ? {
+    labels: dashboardData.byCategory.slice(0, 5).map(c => c.category?.replace(/_/g, ' ')),
+    datasets: [{
+      label: 'Complaints',
+      data: dashboardData.byCategory.slice(0, 5).map(c => c.count),
+      backgroundColor: '#5C6BC0', 
+      borderRadius: 4,
+      barPercentage: 0.6
+    }]
+  } : null;
+
+  const lineData = dashboardData?.monthlyTrends ? {
+    labels: dashboardData.monthlyTrends.map(m => {
+      const d = new Date(m.month + '-01');
+      return d.toLocaleString('en-IN', { month: 'short' });
+    }),
+    datasets: [{
+      label: 'Trend',
+      data: dashboardData.monthlyTrends.map(m => m.count),
+      borderColor: '#5C6BC0', 
+      backgroundColor: 'rgba(92, 107, 192, 0.1)',
+      tension: 0.4,
+      fill: true,
+      pointRadius: 3
+    }]
+  } : null;
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1A237E',
+        padding: 12,
+        cornerRadius: 4,
+        displayColors: false
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: '#E0E3EF', drawBorder: false },
+        ticks: { font: { size: 10 }, color: '#666' }
+      },
+      x: {
+        grid: { display: false, drawBorder: false },
+        ticks: { font: { size: 10 }, color: '#666' }
+      }
+    }
+  };
 
   const statItems = [
     { label: t('dashboard.stat_total', 'Total'),      value: stats?.total      || 0, type: 'total',      color: 'var(--secondary)' },
@@ -94,6 +165,37 @@ export default function CitizenDashboard() {
               <div className="tile-label">{s.label}</div>
             </div>
           ))}
+        </div>
+
+        {/* Mobile Community Overview Charts */}
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: '0.95rem', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>Community Overview</h2>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Status Breakdown (Donut) */}
+            <div className="card" style={{ padding: 16 }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: 12 }}>Status Breakdown</div>
+              <div style={{ height: 180, position: 'relative' }}>
+                {statusData ? <Doughnut data={statusData} options={{ maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right', labels: { boxWidth: 8, font: { size: 10 } } } } }} /> : <div className="skeleton" style={{ height: '100%' }} />}
+              </div>
+            </div>
+
+            {/* By Category (Bar) */}
+            <div className="card" style={{ padding: 16 }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: 12 }}>Top Categories</div>
+              <div style={{ height: 180 }}>
+                {barData ? <Bar data={barData} options={chartOptions} /> : <div className="skeleton" style={{ height: '100%' }} />}
+              </div>
+            </div>
+
+            {/* Monthly Trend (Line) */}
+            <div className="card" style={{ padding: 16 }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: 12 }}>Monthly Trend</div>
+              <div style={{ height: 180 }}>
+                {lineData ? <Line data={lineData} options={chartOptions} /> : <div className="skeleton" style={{ height: '100%' }} />}
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="dash-actions">
@@ -221,6 +323,41 @@ export default function CitizenDashboard() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Community Overview Charts */}
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: '0.95rem', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+            Community Overview
+            <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--text-muted)', background: 'var(--surface-variant)', padding: '2px 8px', borderRadius: 4 }}>
+              Current city stats
+            </span>
+          </h2>
+          <div className="grid-3">
+            {/* Status Breakdown (Donut) */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', padding: 16 }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: 12 }}>Status Breakdown</div>
+              <div style={{ flex: 1, position: 'relative', minHeight: 140 }}>
+                {statusData ? <Doughnut data={statusData} options={{ maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right', labels: { boxWidth: 8, font: { size: 10 } } } } }} /> : <div className="skeleton" style={{ height: '100%' }} />}
+              </div>
+            </div>
+
+            {/* By Category (Bar) */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', padding: 16 }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: 12 }}>Top Categories</div>
+              <div style={{ flex: 1, minHeight: 140 }}>
+                {barData ? <Bar data={barData} options={chartOptions} /> : <div className="skeleton" style={{ height: '100%' }} />}
+              </div>
+            </div>
+
+            {/* Monthly Trend (Line) */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', padding: 16 }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: 12 }}>Monthly Trend</div>
+              <div style={{ flex: 1, minHeight: 140 }}>
+                {lineData ? <Line data={lineData} options={chartOptions} /> : <div className="skeleton" style={{ height: '100%' }} />}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Quick actions */}

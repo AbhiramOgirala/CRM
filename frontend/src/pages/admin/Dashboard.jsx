@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Bar, Line } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
+import { Bar, Line, Doughnut } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend } from 'chart.js';
 import { complaintsAPI, adminAPI } from '../../services/api';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, ArcElement, Title, Tooltip, Legend);
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
@@ -20,13 +20,27 @@ export default function AdminDashboard() {
       .finally(() => setLoading(false));
   }, []);
 
+  const statusData = dashboardData?.stats ? {
+    labels: ['Pending', 'In Progress', 'Resolved'],
+    datasets: [{
+      data: [
+        dashboardData.stats.pending || 0,
+        dashboardData.stats.inProgress || 0,
+        dashboardData.stats.resolved || 0
+      ],
+      backgroundColor: ['#FF9800', '#2979FF', '#00C853'],
+      borderWidth: 0,
+    }]
+  } : null;
+
   const barData = dashboardData?.byCategory ? {
     labels: dashboardData.byCategory.slice(0, 8).map(c => c.category?.replace(/_/g, ' ')),
     datasets: [{
       label: 'Complaints',
       data: dashboardData.byCategory.slice(0, 8).map(c => c.count),
-      backgroundColor: ['#E65100','#1A237E','#1B5E20','#880E4F','#E65100','#004D40','#BF360C','#0D47A1'],
-      borderRadius: 6
+      backgroundColor: '#5C6BC0', // Indigo color from screenshot
+      borderRadius: 4,
+      barPercentage: 0.6
     }]
   } : null;
 
@@ -38,16 +52,47 @@ export default function AdminDashboard() {
     datasets: [{
       label: 'Complaints Filed',
       data: dashboardData.monthlyTrends.map(m => m.count),
-      borderColor: 'var(--primary)',
-      backgroundColor: 'rgba(230,81,0,0.1)',
-      tension: 0.4, fill: true, pointRadius: 5
+      borderColor: '#5C6BC0', // Indigo color
+      backgroundColor: 'rgba(92, 107, 192, 0.1)',
+      tension: 0.4,
+      fill: true,
+      pointRadius: 4,
+      pointHoverRadius: 6
     }]
   } : null;
 
   const chartOptions = {
     responsive: true,
-    plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true, grid: { color: '#E0E3EF' } }, x: { grid: { display: false } } }
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#1A237E',
+        padding: 12,
+        titleFont: { size: 13 },
+        bodyFont: { size: 13 },
+        cornerRadius: 4,
+        displayColors: false
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: { color: '#E0E3EF', drawBorder: false },
+        ticks: { font: { size: 11 }, color: '#666' }
+      },
+      x: {
+        grid: { display: false, drawBorder: false },
+        ticks: { font: { size: 11 }, color: '#666' }
+      }
+    }
+  };
+
+  const donutOptions = {
+    cutout: '70%',
+    plugins: {
+      legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8 } }
+    }
   };
 
   return (
@@ -97,26 +142,51 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Charts */}
-      <div className="grid-2" style={{ marginBottom: 24 }}>
-        <div className="card">
-          <h2 className="card-title" style={{ marginBottom: 16 }}>Complaints by Category</h2>
-          {barData ? (
-            <div style={{ overflowX: 'auto' }}>
-              <Bar data={barData} options={{ ...chartOptions, plugins: { ...chartOptions.plugins, title: { display: false } } }} height={200} />
-            </div>
-          ) : (
-            <div className="skeleton" style={{ height: 200 }} />
-          )}
+      {/* Charts Row 1 */}
+      <div className="grid-2" style={{ marginBottom: 24, alignItems: 'stretch' }}>
+        {/* Status Breakdown (Donut) */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+          <h2 className="card-title" style={{ marginBottom: 16 }}>Status Breakdown</h2>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200, position: 'relative' }}>
+            {statusData ? (
+              <div style={{ width: '100%', height: 200 }}>
+                <Doughnut data={statusData} options={{ maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8, padding: 20, font: { size: 12 } } } } }} />
+                <div style={{ position: 'absolute', top: '50%', left: '35%', transform: 'translate(-50%, -50%)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {dashboardData?.stats?.total || 0}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total</div>
+                </div>
+              </div>
+            ) : (
+              <div className="skeleton" style={{ width: '100%', height: 200 }} />
+            )}
+          </div>
         </div>
-        <div className="card">
-          <h2 className="card-title" style={{ marginBottom: 16 }}>Monthly Trends</h2>
+
+        {/* Complaints by Category (Bar) */}
+        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h2 className="card-title" style={{ margin: 0 }}>By Category</h2>
+          </div>
+          <div style={{ flex: 1, minHeight: 200 }}>
+            {barData ? (
+              <Bar data={barData} options={chartOptions} />
+            ) : (
+              <div className="skeleton" style={{ width: '100%', height: 200 }} />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Monthly Trends - Full Width */}
+      <div className="card" style={{ marginBottom: 24 }}>
+        <h2 className="card-title" style={{ marginBottom: 16 }}>Monthly Trends</h2>
+        <div style={{ height: 250 }}>
           {lineData ? (
-            <div style={{ overflowX: 'auto' }}>
-              <Line data={lineData} options={chartOptions} height={200} />
-            </div>
+            <Line data={lineData} options={chartOptions} />
           ) : (
-            <div className="skeleton" style={{ height: 200 }} />
+            <div className="skeleton" style={{ width: '100%', height: 250 }} />
           )}
         </div>
       </div>
