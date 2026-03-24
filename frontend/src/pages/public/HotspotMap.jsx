@@ -111,14 +111,14 @@ export default function HotspotMap() {
         const prioritySize = { critical: 14, high: 12, medium: 10, low: 8 };
         const size = prioritySize[h.priority] || 8;
 
-        const icon = L.divIcon({
-          className: '',
-          html: `<div style="width:${size}px;height:${size}px;background:${color};border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3)"></div>`,
-          iconSize: [size, size],
-          iconAnchor: [size / 2, size / 2]
-        });
-
-        const marker = L.marker([h.latitude, h.longitude], { icon })
+        const marker = L.circleMarker([h.latitude, h.longitude], {
+            radius: size, // larger radius for hotspot look
+            fillColor: color,
+            color: color,
+            weight: 1,
+            opacity: 1,
+            fillOpacity: 0.6
+        })
           .bindPopup(`
             <div style="min-width:200px;font-family:sans-serif">
               <strong style="font-size:0.9rem">${h.title || h.category}</strong><br>
@@ -130,6 +130,12 @@ export default function HotspotMap() {
         marker.addTo(map);
         markersRef.current.push(marker);
       });
+
+      // Fit map to bounds of all markers
+      if (markersRef.current.length > 0) {
+        const group = L.featureGroup(markersRef.current);
+        map.fitBounds(group.getBounds(), { padding: [50, 50] });
+      }
     } catch (error) {
       console.error('Failed to update map markers:', error);
     }
