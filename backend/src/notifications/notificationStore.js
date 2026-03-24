@@ -3,9 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const sqlite3 = require('sqlite3');
-
-sqlite3.verbose();
+const Database = require('better-sqlite3');
 
 const dbDir = __dirname;
 const dbPath = path.join(dbDir, 'notifications.sqlite');
@@ -16,27 +14,6 @@ if (!fs.existsSync(dbDir)) {
 
 let db = null;
 let initPromise = null;
-
-const run = (sql, params = []) => new Promise((resolve, reject) => {
-  db.run(sql, params, function onRun(err) {
-    if (err) return reject(err);
-    return resolve({ changes: this.changes, lastID: this.lastID });
-  });
-});
-
-const all = (sql, params = []) => new Promise((resolve, reject) => {
-  db.all(sql, params, (err, rows) => {
-    if (err) return reject(err);
-    return resolve(rows || []);
-  });
-});
-
-const get = (sql, params = []) => new Promise((resolve, reject) => {
-  db.get(sql, params, (err, row) => {
-    if (err) return reject(err);
-    return resolve(row || null);
-  });
-});
 
 const normalizeRow = (row) => {
   if (!row) return null;
@@ -56,30 +33,29 @@ const initialize = async () => {
   if (initPromise) return initPromise;
 
   initPromise = new Promise((resolve, reject) => {
-    db = new sqlite3.Database(dbPath, async (err) => {
-      if (err) return reject(err);
+    try {
+      db = new Database(dbPath);
+      
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS notifications (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          type TEXT NOT NULL,
+          title TEXT NOT NULL,
+          message TEXT NOT NULL,
+          complaint_id TEXT,
+          is_read INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL
+        )
+      `);
 
-      try {
-        await run(`
-          CREATE TABLE IF NOT EXISTS notifications (
-            id TEXT PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            type TEXT NOT NULL,
-            title TEXT NOT NULL,
-            message TEXT NOT NULL,
-            complaint_id TEXT,
-            is_read INTEGER NOT NULL DEFAULT 0,
-            created_at TEXT NOT NULL
-          )
-        `);
-
-        await run('CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC)');
-        await run('CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read)');
-        resolve();
-      } catch (error) {
-        reject(error);
-      }
-    });
+      db.exec('CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, is_read)');
+      
+      resolve();
+    } catch (error) {
+      reject(error);
+    }
   });
 
   return initPromise;
@@ -104,19 +80,20 @@ const createNotification = async ({ user_id, type, title, message, complaint_id 
     created_at: new Date().toISOString(),
   };
 
-  await run(
+  const stmt = db.prepare(
     `INSERT INTO notifications (id, user_id, type, title, message, complaint_id, is_read, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      notification.id,
-      notification.user_id,
-      notification.type,
-      notification.title,
-      notification.message,
-      notification.complaint_id,
-      0,
-      notification.created_at,
-    ]
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+  
+  stmt.run(
+    notification.id,
+    notification.user_id,
+    notification.type,
+    notification.title,
+    notification.message,
+    notification.complaint_id,
+    0,
+    notification.created_at
   );
 
   return notification;
@@ -128,6 +105,11 @@ const createNotificationsBulk = async (userIds, payload) => {
 
   const now = new Date().toISOString();
   const created = [];
+  
+  const stmt = db.prepare(
+    `INSERT INTO notifications (id, user_id, type, title, message, complaint_id, is_read, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  );
 
   for (const userId of userIds) {
     const notification = {
@@ -141,19 +123,15 @@ const createNotificationsBulk = async (userIds, payload) => {
       created_at: now,
     };
 
-    await run(
-      `INSERT INTO notifications (id, user_id, type, title, message, complaint_id, is_read, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        notification.id,
-        notification.user_id,
-        notification.type,
-        notification.title,
-        notification.message,
-        notification.complaint_id,
-        0,
-        notification.created_at,
-      ]
+    stmt.run(
+      notification.id,
+      notification.user_id,
+      notification.type,
+      notification.title,
+      notification.message,
+      notification.complaint_id,
+      0,
+      notification.created_at
     );
 
     created.push(notification);
@@ -164,7 +142,8 @@ const createNotificationsBulk = async (userIds, payload) => {
 
 const getUnreadCount = async (userId) => {
   await ensureReady();
-  const row = await get('SELECT COUNT(*) AS count FROM notifications WHERE user_id = ? AND is_read = 0', [userId]);
+  const stmt = db.prepare('SELECT COUNT(*) AS count FROM notifications WHERE user_id = ? AND is_read = 0');
+  const row = stmt.get(userId);
   return row?.count || 0;
 };
 
@@ -177,19 +156,18 @@ const getNotifications = async (userId, { page = 1, limit = 50, unreadOnly = fal
 
   const whereClause = unreadOnly ? 'WHERE user_id = ? AND is_read = 0' : 'WHERE user_id = ?';
 
-  const rows = await all(
+  const stmt = db.prepare(
     `SELECT id, user_id, type, title, message, complaint_id, is_read, created_at
      FROM notifications
      ${whereClause}
      ORDER BY created_at DESC
-     LIMIT ? OFFSET ?`,
-    [userId, safeLimit, offset]
+     LIMIT ? OFFSET ?`
   );
+  
+  const rows = stmt.all(userId, safeLimit, offset);
 
-  const totalRow = await get(
-    `SELECT COUNT(*) AS count FROM notifications ${whereClause}`,
-    [userId]
-  );
+  const totalStmt = db.prepare(`SELECT COUNT(*) AS count FROM notifications ${whereClause}`);
+  const totalRow = totalStmt.get(userId);
 
   const unreadCount = await getUnreadCount(userId);
 
@@ -204,27 +182,28 @@ const markNotificationsRead = async (userId, { all: markAll = false, ids = [] } 
   await ensureReady();
 
   if (markAll) {
-    await run('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0', [userId]);
+    const stmt = db.prepare('UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0');
+    stmt.run(userId);
     return;
   }
 
   if (Array.isArray(ids) && ids.length > 0) {
     const placeholders = ids.map(() => '?').join(', ');
-    await run(
-      `UPDATE notifications SET is_read = 1 WHERE user_id = ? AND id IN (${placeholders})`,
-      [userId, ...ids]
-    );
+    const stmt = db.prepare(`UPDATE notifications SET is_read = 1 WHERE user_id = ? AND id IN (${placeholders})`);
+    stmt.run(userId, ...ids);
   }
 };
 
 const deleteNotification = async (userId, notificationId) => {
   await ensureReady();
-  await run('DELETE FROM notifications WHERE user_id = ? AND id = ?', [userId, notificationId]);
+  const stmt = db.prepare('DELETE FROM notifications WHERE user_id = ? AND id = ?');
+  stmt.run(userId, notificationId);
 };
 
 const clearNotifications = async (userId) => {
   await ensureReady();
-  await run('DELETE FROM notifications WHERE user_id = ?', [userId]);
+  const stmt = db.prepare('DELETE FROM notifications WHERE user_id = ?');
+  stmt.run(userId);
 };
 
 module.exports = {

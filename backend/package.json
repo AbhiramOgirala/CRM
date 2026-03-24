@@ -29,7 +29,7 @@
     "natural": "^6.10.4",
     "node-cache": "^5.1.2",
     "resend": "^6.9.4",
-    "sqlite3": "^6.0.1",
+    "better-sqlite3": "^11.0.0",
     "twilio": "^5.13.0",
     "uuid": "^9.0.0",
     "wink-eng-lite-web-model": "^1.0.0",
