@@ -899,8 +899,8 @@ exports.getComplaints = async (req, res) => {
     const isMyComplaintsRoute = req.path?.includes('/my') || req.originalUrl?.includes('/my');
     if (isMyComplaintsRoute) {
       q = q.eq('citizen_id', req.user.id);
-      // PostgREST filter syntax for LIKE uses * wildcard in query strings.
-      q = q.or(`rejection_reason.is.null,rejection_reason.not.like.${CITIZEN_DELETE_REASON_PREFIX}*`);
+      // Exclude citizen-deleted complaints (rejection_reason starts with prefix), keep nulls
+      q = q.or(`rejection_reason.is.null,rejection_reason.not.like.${CITIZEN_DELETE_REASON_PREFIX}%`);
     } else if (!role || role === 'citizen') {
       q = q.eq('is_public', true);
       // Scope public feed to the citizen's registered area
