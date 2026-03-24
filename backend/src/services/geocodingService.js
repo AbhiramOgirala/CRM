@@ -100,6 +100,33 @@ class GeocodingService {
   }
 
   /**
+   * Reverse geocode GPS coordinates to state/district info
+   * @param {number} latitude
+   * @param {number} longitude
+   * @returns {Promise<{state: string, district: string, formatted_address: string} | null>}
+   */
+  async reverseGeocode(latitude, longitude) {
+    try {
+      const response = await axios.get(`${this.baseURL}/reverse`, {
+        params: { lat: latitude, lon: longitude, format: 'json', addressdetails: 1 },
+        headers: { 'User-Agent': this.userAgent },
+        timeout: 5000
+      });
+      if (!response.data?.address) return null;
+      const addr = response.data.address;
+      return {
+        state: addr.state || null,
+        district: addr.county || addr.state_district || addr.city_district || addr.suburb || null,
+        city: addr.city || addr.town || addr.village || null,
+        formatted_address: response.data.display_name || null
+      };
+    } catch (error) {
+      console.error('Reverse geocoding error:', error.message);
+      return null;
+    }
+  }
+
+  /**
    * Validate GPS coordinates
    * @param {number} latitude 
    * @param {number} longitude 
