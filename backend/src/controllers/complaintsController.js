@@ -923,7 +923,10 @@ exports.getComplaints = async (req, res) => {
 
     q = q.order(sortBy, { ascending: sortOrder === 'asc' }).range(offset, offset + parseInt(limit) - 1);
     const { data, error, count } = await q;
-    if (error) return res.status(500).json({ error: 'Failed to fetch complaints' });
+    if (error) {
+      console.error('getComplaints DB error:', error);
+      return res.status(500).json({ error: 'Failed to fetch complaints' });
+    }
 
     const masked = (data || []).map(c => ({
       ...c,

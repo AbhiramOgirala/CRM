@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { supabase } = require('../config/supabase');
-const { generateToken } = require('../middleware/auth');
+const { generateToken, invalidateUserCache } = require('../middleware/auth');
 
 exports.register = async (req, res) => {
   try {
@@ -115,6 +115,7 @@ exports.updateProfile = async (req, res) => {
     if (updated.state_id) { const { data } = await supabase.from('states').select('name').eq('id', updated.state_id).maybeSingle(); stateName = data?.name; }
     if (updated.district_id) { const { data } = await supabase.from('districts').select('name').eq('id', updated.district_id).maybeSingle(); districtName = data?.name; }
 
+    invalidateUserCache(req.user.id); // clear cache so next request gets fresh user data
     return res.json({ message: 'Profile updated', user: { ...updated, state_name: stateName, district_name: districtName } });
   } catch (err) {
     console.error('updateProfile error:', err);
