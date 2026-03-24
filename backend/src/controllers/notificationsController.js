@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { supabase } = require('../config/supabase');
 const notificationStore = require('../notifications/notificationStore');
 const sseHub = require('../notifications/sseHub');
+const pushNotificationService = require('../services/pushNotificationService');
 
 const resolveUserFromToken = async (token) => {
   if (!token) return null;
@@ -119,6 +120,52 @@ exports.streamNotifications = async (req, res) => {
     });
   } catch (err) {
     console.error('[Notifications] streamNotifications failed:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.getPushPublicKey = async (_req, res) => {
+  try {
+    const publicKey = pushNotificationService.getPublicKey();
+    if (!publicKey) {
+      return res.status(503).json({ error: 'Push notifications are not configured' });
+    }
+    return res.json({ publicKey });
+  } catch (err) {
+    console.error('[Notifications] getPushPublicKey failed:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.subscribePush = async (req, res) => {
+  try {
+    if (!pushNotificationService.isEnabled()) {
+      return res.status(503).json({ error: 'Push notifications are not configured' });
+    }
+
+    const subscription = req.body?.subscription;
+    if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
+      return res.status(400).json({ error: 'Invalid push subscription payload' });
+    }
+
+    await pushNotificationService.saveSubscription(req.user.id, subscription, req.headers['user-agent'] || null);
+    return res.json({ message: 'Push subscription saved' });
+  } catch (err) {
+    console.error('[Notifications] subscribePush failed:', err.message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+exports.unsubscribePush = async (req, res) => {
+  try {
+    const endpoint = req.body?.endpoint;
+    if (!endpoint) {
+      return res.status(400).json({ error: 'Endpoint is required' });
+    }
+    await pushNotificationService.removeSubscription(req.user.id, endpoint);
+    return res.json({ message: 'Push subscription removed' });
+  } catch (err) {
+    console.error('[Notifications] unsubscribePush failed:', err.message);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };

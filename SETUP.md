@@ -40,6 +40,33 @@ JWT_SECRET=any-long-random-string-at-least-32-characters
 FRONTEND_URL=http://localhost:3000
 ```
 
+### 3.1 Enable Mobile Push Notifications (Android + iOS PWA)
+Push on installed app requires VAPID keys.
+
+```bash
+cd backend
+npx web-push generate-vapid-keys
+```
+
+Add generated keys to `backend/.env`:
+
+```env
+VAPID_PUBLIC_KEY=your_generated_public_key
+VAPID_PRIVATE_KEY=your_generated_private_key
+VAPID_CONTACT_EMAIL=mailto:admin@jansamadhan.delhi.gov.in
+```
+
+Notes:
+- Android: Works in installed PWA via Chrome/Edge.
+- iOS: Works on iOS 16.4+ when app is added to Home Screen and user allows notifications.
+- Push requires HTTPS in production.
+
+Run this SQL migration once in Supabase SQL Editor to persist push subscriptions:
+
+```sql
+-- file: backend/src/migrations/20260324_push_subscriptions.sql
+```
+
 ```bash
 npm install
 npm run dev

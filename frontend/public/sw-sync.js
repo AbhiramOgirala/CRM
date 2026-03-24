@@ -10,6 +10,52 @@ self.addEventListener('sync', (event) => {
   }
 });
 
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { title: 'JanSamadhan', body: event.data?.text() || 'New update available' };
+  }
+
+  const title = payload.title || 'JanSamadhan';
+  const options = {
+    body: payload.body || 'You have a new notification',
+    icon: payload.icon || '/logo192.png',
+    badge: payload.badge || '/logo192.png',
+    data: {
+      url: payload.url || '/dashboard',
+      complaint_id: payload.complaint_id || null,
+      notificationId: payload.notificationId || null,
+    },
+    tag: payload.notificationId || `notif-${Date.now()}`,
+    renotify: false,
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = event.notification?.data?.url || '/dashboard';
+
+  event.waitUntil((async () => {
+    const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of allClients) {
+      if ('focus' in client) {
+        await client.focus();
+        if ('navigate' in client) {
+          await client.navigate(targetUrl);
+        }
+        return;
+      }
+    }
+    if (clients.openWindow) {
+      await clients.openWindow(targetUrl);
+    }
+  })());
+});
+
 async function syncComplaints() {
   const db = await idb.openDB(DB_NAME, 1);
   const tx = db.transaction(STORE_NAME, 'readonly');

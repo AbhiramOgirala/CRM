@@ -2,6 +2,7 @@
 const { supabase } = require('../config/supabase');
 const notificationStore = require('../notifications/notificationStore');
 const sseHub = require('../notifications/sseHub');
+const pushNotificationService = require('./pushNotificationService');
 
 // ── Lazy-init clients (only created if env vars present) ──────────────────────
 let _resend = null;
@@ -88,6 +89,18 @@ const sendInApp = async (userId, { type, title, message, complaint_id }) => {
     });
     const unreadCount = await notificationStore.getUnreadCount(userId);
     sseHub.emitToUser(userId, 'notification', { notification, unreadCount });
+
+    await pushNotificationService.sendToUser(userId, {
+      title,
+      body: message,
+      icon: '/logo192.png',
+      badge: '/logo192.png',
+      url: complaint_id ? `/complaint/${complaint_id}` : '/dashboard',
+      notificationId: notification.id,
+      type,
+      complaint_id: complaint_id || null,
+      ts: notification.created_at,
+    });
   } catch (err) {
     console.error('[Notification] In-app insert failed:', err.message);
   }
@@ -100,6 +113,18 @@ const sendInAppBulk = async (userIds, payload) => {
     for (const notification of notifications) {
       const unreadCount = await notificationStore.getUnreadCount(notification.user_id);
       sseHub.emitToUser(notification.user_id, 'notification', { notification, unreadCount });
+
+      await pushNotificationService.sendToUser(notification.user_id, {
+        title: notification.title,
+        body: notification.message,
+        icon: '/logo192.png',
+        badge: '/logo192.png',
+        url: notification.complaint_id ? `/complaint/${notification.complaint_id}` : '/dashboard',
+        notificationId: notification.id,
+        type: notification.type,
+        complaint_id: notification.complaint_id || null,
+        ts: notification.created_at,
+      });
     }
   } catch (err) {
     console.error('[Notification] Bulk in-app insert failed:', err.message);

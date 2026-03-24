@@ -103,7 +103,10 @@ export const notificationsAPI = {
   getAll:    (params) => api.get('/notifications', { params }),
   markRead:  (data)   => api.put('/notifications/read', data),
   clear:     ()       => api.delete('/notifications'),
-  delete:    (id)     => api.delete(`/notifications/${id}`)
+  delete:    (id)     => api.delete(`/notifications/${id}`),
+  getPushPublicKey: () => api.get('/notifications/push/public-key'),
+  subscribePush: (subscription) => api.post('/notifications/push/subscribe', { subscription }),
+  unsubscribePush: (endpoint) => api.post('/notifications/push/unsubscribe', { endpoint })
 };
 
 // ── Admin ─────────────────────────────────────────────────────────────

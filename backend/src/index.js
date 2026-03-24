@@ -73,10 +73,10 @@ const PORT = process.env.PORT || 5000;
 
 notificationStore.initialize()
   .then(() => {
-    console.log('[Notifications] SQLite store initialized');
+    console.log('[Notifications] Supabase store initialized');
   })
   .catch((err) => {
-    console.error('[Notifications] SQLite initialization failed:', err.message);
+    console.error('[Notifications] Supabase initialization failed:', err.message);
   })
   .finally(() => {
     app.listen(PORT, () => {

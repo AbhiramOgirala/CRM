@@ -69,6 +69,9 @@ router.get('/leaderboard/district', locationCtrl.getDistrictLeaderboard);
 
 // ── Notifications ─────────────────────────────────────────────────
 router.get('/notifications/stream',         notificationsCtrl.streamNotifications);
+router.get('/notifications/push/public-key', notificationsCtrl.getPushPublicKey);
+router.post('/notifications/push/subscribe', authenticate, notificationsCtrl.subscribePush);
+router.post('/notifications/push/unsubscribe', authenticate, notificationsCtrl.unsubscribePush);
 router.get('/notifications',                authenticate, notificationsCtrl.getNotifications);
 router.put('/notifications/read',           authenticate, notificationsCtrl.markNotificationsRead);
 router.put('/notifications/preferences',    authenticate, locationCtrl.updateNotificationPreferences);
