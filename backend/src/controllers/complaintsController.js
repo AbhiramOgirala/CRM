@@ -903,6 +903,11 @@ exports.getComplaints = async (req, res) => {
       q = q.or(`rejection_reason.is.null,rejection_reason.not.like.${CITIZEN_DELETE_REASON_PREFIX}*`);
     } else if (!role || role === 'citizen') {
       q = q.eq('is_public', true);
+      // Scope public feed to the citizen's registered area
+      if (req.user?.state_id) {
+        q = q.eq('state_id', req.user.state_id);
+        if (req.user.district_id) q = q.eq('district_id', req.user.district_id);
+      }
     }
     // officer / admin / super_admin see ALL complaints
 
@@ -912,7 +917,7 @@ exports.getComplaints = async (req, res) => {
     if (department_id) q = q.eq('department_id', department_id);
     if (district_id) q = q.eq('district_id', district_id);
     if (mandal_id) q = q.eq('mandal_id', mandal_id);
-    if (state_id) q = q.eq('state_id', state_id);
+    if (state_id && role !== 'citizen') q = q.eq('state_id', state_id); // citizens can't override their area filter
     if (is_public !== undefined) q = q.eq('is_public', is_public === 'true');
     if (search) q = q.or(`title.ilike.%${search}%,description.ilike.%${search}%,ticket_number.ilike.%${search}%`);
 

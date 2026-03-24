@@ -101,14 +101,24 @@ exports.updateProfile = async (req, res) => {
   try {
     const { full_name, phone, address, pincode, state_id, district_id, corporation_id, municipality_id, taluka_id, mandal_id, gram_panchayat_id, preferred_language } = req.body;
     const { data: updated, error } = await supabase.from('users')
-      .update({ full_name, phone, address, pincode, state_id, district_id, corporation_id, municipality_id, taluka_id, mandal_id, gram_panchayat_id, preferred_language })
+      .update({ full_name, phone, address, pincode, state_id: state_id || null, district_id: district_id || null, corporation_id, municipality_id, taluka_id, mandal_id, gram_panchayat_id, preferred_language })
       .eq('id', req.user.id)
-      .select('id, email, full_name, phone, role, points, badge_level, govt_points, govt_badge')
+      .select('id, email, full_name, phone, role, points, badge_level, govt_points, govt_badge, state_id, district_id, preferred_language')
       .single();
-    if (error) return res.status(500).json({ error: 'Update failed' });
-    return res.json({ message: 'Profile updated', user: updated });
+    if (error) {
+      console.error('updateProfile DB error:', error);
+      return res.status(500).json({ error: 'Update failed', detail: error.message });
+    }
+
+    // Fetch state/district names for the response
+    let stateName = null, districtName = null;
+    if (updated.state_id) { const { data } = await supabase.from('states').select('name').eq('id', updated.state_id).maybeSingle(); stateName = data?.name; }
+    if (updated.district_id) { const { data } = await supabase.from('districts').select('name').eq('id', updated.district_id).maybeSingle(); districtName = data?.name; }
+
+    return res.json({ message: 'Profile updated', user: { ...updated, state_name: stateName, district_name: districtName } });
   } catch (err) {
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('updateProfile error:', err);
+    return res.status(500).json({ error: 'Internal server error', detail: err.message });
   }
 };
 

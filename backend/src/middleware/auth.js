@@ -16,7 +16,7 @@ const authenticate = async (req, res, next) => {
     const decoded = jwt.verify(header.split(' ')[1], process.env.JWT_SECRET);
     const { data: user, error } = await supabase
       .from('users')
-      .select('id,email,full_name,role,department_id,is_active,points,badge_level,govt_points,govt_badge,complaints_resolved')
+      .select('id,email,full_name,role,department_id,is_active,points,badge_level,govt_points,govt_badge,complaints_resolved,state_id,district_id')
       .eq('id', decoded.userId)
       .single();
     if (error || !user) return res.status(401).json({ error: 'Invalid token' });
@@ -41,7 +41,7 @@ const optionalAuth = async (req, res, next) => {
       const decoded = jwt.verify(header.split(' ')[1], process.env.JWT_SECRET);
       const { data: user } = await supabase
         .from('users')
-        .select('id,email,full_name,role,department_id,is_active')
+        .select('id,email,full_name,role,department_id,is_active,state_id,district_id')
         .eq('id', decoded.userId)
         .single();
       if (user && user.is_active) req.user = user;

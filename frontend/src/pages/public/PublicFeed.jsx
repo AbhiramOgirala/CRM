@@ -1,6 +1,6 @@
 // Public Feed — 4-col grid on desktop, single-col list on mobile
 import React, { useState, useEffect, useCallback } from 'react';
-import { complaintsAPI, locationAPI } from '../../services/api';
+import { complaintsAPI } from '../../services/api';
 import { SkeletonCard, Pagination } from '../../components/common';
 import { FeedCard, FeedCardDesktop } from '../../components/common/FeedCard';
 import useAuthStore from '../../store/authStore';
@@ -14,15 +14,15 @@ export function PublicFeed() {
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
   const [filters, setFilters] = useState({
-    category: '', state_id: '', search: '',
+    category: '', search: '',
     sortBy: 'created_at', sortOrder: 'desc', page: 1,
   });
-  const [states, setStates] = useState([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  useEffect(() => {
-    locationAPI.getStates().then(r => setStates(r.states || []));
-  }, []);
+  const isCitizen = user?.role === 'citizen';
+  const areaLabel = user?.district_name
+    ? `${user.district_name}, ${user.state_name || ''}`
+    : user?.state_name || null;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,7 +64,7 @@ export function PublicFeed() {
     }
   };
 
-  const activeFilterCount = [filters.state_id, filters.category, filters.search].filter(Boolean).length;
+  const activeFilterCount = [filters.category, filters.search].filter(Boolean).length;
 
   const EmptyState = () => (
     <div className="card">
@@ -81,9 +81,23 @@ export function PublicFeed() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Public Grievance Feed</h1>
-          <p className="page-subtitle">Community-reported civic issues across India</p>
+          <p className="page-subtitle">
+            {isCitizen && areaLabel
+              ? `Showing issues in ${areaLabel}`
+              : 'Community-reported civic issues across India'}
+          </p>
         </div>
       </div>
+
+      {isCitizen && !areaLabel && (
+        <div style={{
+          background: 'var(--warning-bg)', border: '1px solid var(--warning)',
+          borderRadius: 'var(--radius)', padding: '10px 16px', marginBottom: 16,
+          fontSize: '0.85rem', color: 'var(--warning)',
+        }}>
+          Your profile doesn't have a location set. Update your profile to see local complaints.
+        </div>
+      )}
 
       {!user && (
         <div style={{
@@ -107,10 +121,6 @@ export function PublicFeed() {
           style={{ flex: 2 }}
           aria-label="Search complaints"
         />
-        <select className="form-control" value={filters.state_id} onChange={e => setFilters(p => ({ ...p, state_id: e.target.value, page: 1 }))} aria-label="Filter by state">
-          <option value="">All States</option>
-          {states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
         <select className="form-control" value={filters.category} onChange={e => setFilters(p => ({ ...p, category: e.target.value, page: 1 }))} aria-label="Filter by category">
           <option value="">All Categories</option>
           {CATEGORIES.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}</option>)}
@@ -166,15 +176,11 @@ export function PublicFeed() {
             background: 'var(--surface)', border: '1px solid var(--border)',
             borderRadius: 'var(--radius)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8,
           }}>
-            <select className="form-control" value={filters.state_id} onChange={e => setFilters(p => ({ ...p, state_id: e.target.value, page: 1 }))} style={{ fontSize: '0.82rem', padding: '7px 10px' }} aria-label="Filter by state">
-              <option value="">All States</option>
-              {states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
             <select className="form-control" value={filters.category} onChange={e => setFilters(p => ({ ...p, category: e.target.value, page: 1 }))} style={{ fontSize: '0.82rem', padding: '7px 10px' }} aria-label="Filter by category">
               <option value="">All Categories</option>
               {CATEGORIES.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase())}</option>)}
             </select>
-            <select className="form-control" value={filters.sortBy} onChange={e => setFilters(p => ({ ...p, sortBy: e.target.value, page: 1 }))} style={{ fontSize: '0.82rem', padding: '7px 10px', gridColumn: '1 / -1' }} aria-label="Sort by">
+            <select className="form-control" value={filters.sortBy} onChange={e => setFilters(p => ({ ...p, sortBy: e.target.value, page: 1 }))} style={{ fontSize: '0.82rem', padding: '7px 10px' }} aria-label="Sort by">
               <option value="created_at">Newest First</option>
               <option value="upvote_count">Most Upvoted</option>
               <option value="priority">Highest Priority</option>
