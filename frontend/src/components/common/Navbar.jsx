@@ -3,6 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import useAccessibilityStore from '../../store/accessibilityStore';
 import { getNotificationsStreamUrl, notificationsAPI } from '../../services/api';
+import {
+  subscribeToPushNotifications,
+  unsubscribeFromPushNotifications,
+  syncExistingPushSubscription,
+  getPushSubscriptionStatus,
+} from '../../services/pushNotifications';
 import { useLanguage } from '../../context/LanguageContext';
 import { useTranslation } from 'react-i18next';
 
@@ -51,6 +57,8 @@ export default function Navbar({ onMenuToggle }) {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showLangDropdown, setShowLangDropdown] = useState(false);
   const [showA11yBar, setShowA11yBar] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
   const notifRef = useRef();
   const userRef = useRef();
   const langRef = useRef();
@@ -63,6 +71,15 @@ export default function Navbar({ onMenuToggle }) {
     }
 
     fetchUnread();
+
+    syncExistingPushSubscription().catch(() => {
+      // non-blocking
+    });
+    getPushSubscriptionStatus().then((status) => {
+      setPushEnabled(Boolean(status.subscribed));
+    }).catch(() => {
+      setPushEnabled(false);
+    });
 
     const token = localStorage.getItem('token');
     if (!token) return undefined;
@@ -142,6 +159,34 @@ export default function Navbar({ onMenuToggle }) {
     await notificationsAPI.clear();
     setUnreadCount(0);
     setNotifications([]);
+  };
+
+  const enablePhoneNotifications = async () => {
+    try {
+      setPushBusy(true);
+      const result = await subscribeToPushNotifications();
+      setPushEnabled(Boolean(result.enabled));
+      if (!result.enabled) {
+        alert('Notification permission was not granted. Please enable notifications in browser settings.');
+      }
+    } catch {
+      alert('Unable to enable phone notifications right now. Please try again.');
+      setPushEnabled(false);
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const disablePhoneNotifications = async () => {
+    try {
+      setPushBusy(true);
+      await unsubscribeFromPushNotifications();
+      setPushEnabled(false);
+    } catch {
+      alert('Unable to disable phone notifications right now. Please try again.');
+    } finally {
+      setPushBusy(false);
+    }
   };
 
   const getDashboardLink = () => {
@@ -529,6 +574,26 @@ export default function Navbar({ onMenuToggle }) {
                         {item.label}
                       </Link>
                     ))}
+                    <button
+                      onClick={pushEnabled ? disablePhoneNotifications : enablePhoneNotifications}
+                      role="menuitem"
+                      disabled={pushBusy}
+                      style={{
+                        width: '100%',
+                        padding: '10px 16px',
+                        background: 'none',
+                        border: 'none',
+                        borderTop: '1px solid var(--border)',
+                        textAlign: 'left',
+                        cursor: pushBusy ? 'not-allowed' : 'pointer',
+                        color: pushEnabled ? 'var(--success)' : 'var(--text-primary)',
+                        fontSize: '0.875rem',
+                        fontWeight: 600,
+                        opacity: pushBusy ? 0.6 : 1,
+                      }}
+                    >
+                      {pushBusy ? 'Updating notifications...' : (pushEnabled ? 'Disable Phone Notifications' : 'Enable Phone Notifications')}
+                    </button>
                     <div style={{ borderTop: '1px solid var(--border)' }}>
                       <button onClick={logout} role="menuitem" style={{
                         width: '100%', padding: '10px 16px', background: 'none', border: 'none',
