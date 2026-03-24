@@ -247,6 +247,12 @@ body {
   [style*="width"] { max-width: 100% !important; }
   [style*="min-width"] { min-width: unset !important; }
 
+  /* Leaflet internals must keep intrinsic sizing on mobile */
+  .leaflet-container,
+  .leaflet-container * {
+    max-width: none !important;
+  }
+
   /* Accessibility bar — hidden on mobile */
   .accessibility-bar {
     display: none !important;
@@ -1167,7 +1173,7 @@ tr:hover td {
 
   /* Hide map on very small screens */
   @media (max-width: 480px) {
-    .leaflet-container {
+    .complaint-detail-grid .leaflet-container {
       display: none !important;
     }
   }
