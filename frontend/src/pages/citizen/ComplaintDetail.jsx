@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -33,7 +33,19 @@ export default function ComplaintDetail() {
   const [deletingComplaint, setDeletingComplaint] = useState(false);
   const [deleteReasons, setDeleteReasons] = useState([]);
   const [deleteForm, setDeleteForm] = useState({ reason_code: '', reason_text: '' });
-  const [updateForm, setUpdateForm] = useState({ status: '', notes: '', rejection_reason: '' });
+  const [updateForm, setUpdateForm] = useState({ status: '', notes: '', rejection_reason: '', proof_images: [] });
+  const proofInputRef = useRef();
+
+  const handleProofUpload = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length + updateForm.proof_images.length > 5) { toast.error('Max 5 proof images'); return; }
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = ev => setUpdateForm(p => ({ ...p, proof_images: [...p.proof_images, ev.target.result] }));
+      reader.readAsDataURL(file);
+    });
+    e.target.value = ''; // Allow selecting same image repeatedly or individually
+  };
   const [mapCoords, setMapCoords] = useState(null);
   const { activeLang } = useLanguage();
 
@@ -106,6 +118,14 @@ export default function ComplaintDetail() {
 
   const handleStatusUpdate = async (e) => {
     e.preventDefault();
+    if (!updateForm.status) { toast.error('Please select a new status'); return; }
+    if (updateForm.status === 'resolved' && !updateForm.notes.trim()) { toast.error('Please add resolution notes'); return; }
+    if (updateForm.status === 'resolved' && updateForm.proof_images.length === 0) {
+      toast.error('Please upload at least one proof-of-work photo');
+      return;
+    }
+    if (updateForm.status === 'rejected' && !updateForm.rejection_reason.trim()) { toast.error('Please add rejection reason'); return; }
+
     try {
       await complaintsAPI.updateStatus(id, updateForm);
       setShowUpdateModal(false);
@@ -735,11 +755,51 @@ export default function ComplaintDetail() {
             </select>
           </div>
           {updateForm.status === 'resolved' && (
-            <div className="form-group">
-              <label className="form-label">Resolution Notes <span className="required">*</span></label>
-              <textarea className="form-control" placeholder="Describe what was done to resolve this issue..."
-                value={updateForm.notes} onChange={e => setUpdateForm(prev => ({ ...prev, notes: e.target.value }))} rows={3} required />
-            </div>
+            <>
+              <div className="form-group">
+                <label className="form-label">Resolution Notes <span className="required">*</span></label>
+                <textarea className="form-control" placeholder="Describe what was done to resolve this issue..."
+                  value={updateForm.notes} onChange={e => setUpdateForm(prev => ({ ...prev, notes: e.target.value }))} rows={3} required />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">
+                  📷 Proof of Work Photos <span className="required">*</span>
+                </label>
+                <div style={{
+                  border: `2px dashed ${updateForm.proof_images.length > 0 ? 'var(--success)' : '#E65100'}`,
+                  borderRadius: 'var(--radius)', padding: 20, textAlign: 'center',
+                  cursor: 'pointer', background: updateForm.proof_images.length > 0 ? 'var(--success-bg)' : '#FFF8E1',
+                  transition: 'all 0.2s'
+                }} onClick={() => proofInputRef.current?.click()}>
+                  <div style={{ fontSize: '2rem', marginBottom: 8 }}>
+                    {updateForm.proof_images.length > 0 ? '✅' : '📸'}
+                  </div>
+                  <div style={{ fontWeight: 600, fontSize: '0.875rem', color: updateForm.proof_images.length > 0 ? 'var(--success)' : '#E65100' }}>
+                    {updateForm.proof_images.length > 0
+                      ? `${updateForm.proof_images.length} proof photo(s) uploaded`
+                      : 'Upload before-after or work completion photos'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                    Required to mark as resolved • Max 5 photos • JPG, PNG
+                  </div>
+                </div>
+                <input ref={proofInputRef} type="file" style={{ display: 'none' }} accept="image/*" multiple onChange={handleProofUpload} />
+
+                {updateForm.proof_images.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                    {updateForm.proof_images.map((img, i) => (
+                      <div key={i} style={{ position: 'relative' }}>
+                        <img src={img} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '2px solid var(--success)' }} />
+                        <button type="button"
+                          onClick={() => setUpdateForm(p => ({ ...p, proof_images: p.proof_images.filter((_, j) => j !== i) }))}
+                          style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%', background: 'var(--danger)', color: 'white', border: '2px solid white', cursor: 'pointer', fontSize: '0.6rem', fontWeight: 800 }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
           )}
           {updateForm.status === 'rejected' && (
             <div className="form-group">
