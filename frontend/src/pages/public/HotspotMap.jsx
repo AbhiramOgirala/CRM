@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { complaintsAPI, locationAPI } from '../../services/api';
+import useAuthStore from '../../store/authStore';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -11,6 +12,7 @@ const CATEGORY_COLORS = {
 };
 
 export default function HotspotMap() {
+  const { user } = useAuthStore();
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
@@ -18,7 +20,8 @@ export default function HotspotMap() {
   const nearbyCircleRef = useRef(null);
   const [hotspots, setHotspots] = useState([]);
   const [states, setStates] = useState([]);
-  const [filters, setFilters] = useState({ state_id: '', category: '', days: 30 });
+  const [districts, setDistricts] = useState([]);
+  const [filters, setFilters] = useState({ state_id: '', district_id: '', category: '', days: 30 });
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({ total: 0, byCategory: {} });
   const [error, setError] = useState(null);
@@ -113,6 +116,13 @@ export default function HotspotMap() {
     };
   }, []);
 
+  // Auto-load user's registered location when logged in
+  useEffect(() => {
+    if (user && mapReady && states.length > 0) {
+      loadUserRegisteredLocation();
+    }
+  }, [user, mapReady, states]);
+
   // Sync map markers whenever hotspots change or map becomes ready
   useEffect(() => {
     if (mapReady) {
@@ -150,6 +160,21 @@ export default function HotspotMap() {
   useEffect(() => {
     loadHotspots();
   }, [filters]);
+
+  // Load districts when state changes
+  useEffect(() => {
+    if (filters.state_id) {
+      locationAPI.getDistricts(filters.state_id)
+        .then(r => setDistricts(r.districts || []))
+        .catch(error => {
+          console.error('Failed to load districts:', error);
+          setDistricts([]);
+        });
+    } else {
+      setDistricts([]);
+      setFilters(prev => ({ ...prev, district_id: '' }));
+    }
+  }, [filters.state_id]);
 
   const initMap = () => {
     if (mapInstanceRef.current || !mapRef.current) return;
@@ -291,7 +316,7 @@ export default function HotspotMap() {
           weight: 2,
           fillColor: '#1A237E',
           fillOpacity: 1
-        }).bindPopup('📍 Your current location');
+        }).bindPopup(user ? '📍 Your registered location' : '📍 Your current location');
 
         userMarker.addTo(map);
         userMarkerRef.current = userMarker;
@@ -423,6 +448,89 @@ export default function HotspotMap() {
     );
   };
 
+  const loadUserRegisteredLocation = async () => {
+    if (!user) return;
+
+    // Set user's registered state as filter
+    if (user.state_id) {
+      setFilters(prev => ({ ...prev, state_id: String(user.state_id) }));
+    }
+
+    // Try to geocode user's registered address
+    if (user.address || user.pincode) {
+      try {
+        setLocationLoading(true);
+
+        // Build search query from user's registration data
+        const addressParts = [];
+        if (user.address) addressParts.push(user.address);
+        if (user.pincode) addressParts.push(user.pincode);
+
+        // Add district and state names if available
+        if (user.district_id) {
+          const district = await locationAPI.getDistricts(user.state_id);
+          const districtData = district.districts?.find(d => String(d.id) === String(user.district_id));
+          if (districtData?.name) addressParts.push(districtData.name);
+        }
+
+        if (user.state_id) {
+          const stateName = states.find(s => String(s.id) === String(user.state_id))?.name;
+          if (stateName) addressParts.push(stateName);
+        }
+
+        addressParts.push('India');
+
+        const searchQuery = addressParts.join(', ');
+
+        // Geocode the address
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1`
+        );
+        const results = await response.json();
+
+        if (results && results.length > 0) {
+          const latitude = parseFloat(results[0].lat);
+          const longitude = parseFloat(results[0].lon);
+
+          if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+            const location = { lat: latitude, lng: longitude };
+            setUserLocation(location);
+
+            // Center map on user's registered location
+            if (mapInstanceRef.current) {
+              mapInstanceRef.current.flyTo([latitude, longitude], 11, { duration: 0.8 });
+            }
+          }
+        }
+
+        setLocationLoading(false);
+      } catch (error) {
+        console.error('Failed to geocode user address:', error);
+        setLocationLoading(false);
+
+        // Fallback: try to center on state if geocoding fails
+        if (user.state_id && mapInstanceRef.current) {
+          const selectedState = states.find(s => String(s.id) === String(user.state_id));
+          const stateLat = Number(selectedState?.center_lat ?? selectedState?.latitude ?? selectedState?.lat);
+          const stateLng = Number(selectedState?.center_lng ?? selectedState?.longitude ?? selectedState?.lng);
+
+          if (Number.isFinite(stateLat) && Number.isFinite(stateLng)) {
+            mapInstanceRef.current.flyTo([stateLat, stateLng], 7, { duration: 0.8 });
+          }
+        }
+      }
+    } else if (user.state_id && mapInstanceRef.current) {
+      // No address, just center on state
+      const selectedState = states.find(s => String(s.id) === String(user.state_id));
+      const stateLat = Number(selectedState?.center_lat ?? selectedState?.latitude ?? selectedState?.lat);
+      const stateLng = Number(selectedState?.center_lng ?? selectedState?.longitude ?? selectedState?.lng);
+
+      if (Number.isFinite(stateLat) && Number.isFinite(stateLng)) {
+        mapInstanceRef.current.flyTo([stateLat, stateLng], 7, { duration: 0.8 });
+      }
+    }
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -467,9 +575,18 @@ export default function HotspotMap() {
 
       {/* Filters */}
       <div className="filter-bar">
-        <select className="form-control" value={filters.state_id} onChange={e => setFilters(p => ({ ...p, state_id: e.target.value }))}>
+        <select className="form-control" value={filters.state_id} onChange={e => setFilters(p => ({ ...p, state_id: e.target.value, district_id: '' }))}>
           <option value="">All States</option>
           {states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+        <select 
+          className="form-control" 
+          value={filters.district_id} 
+          onChange={e => setFilters(p => ({ ...p, district_id: e.target.value }))}
+          disabled={!filters.state_id}
+        >
+          <option value="">All Districts</option>
+          {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
         <select className="form-control" value={filters.category} onChange={e => setFilters(p => ({ ...p, category: e.target.value }))}>
           <option value="">All Categories</option>
@@ -497,8 +614,18 @@ export default function HotspotMap() {
           disabled={locationLoading}
           style={{ minWidth: '180px', border: '1px solid var(--border)' }}
         >
-          {locationLoading ? '📍 Locating...' : '📍 Use Current Location'}
+          {locationLoading ? '📍 Locating...' : '📍 Use GPS Location'}
         </button>
+        {user && (user.address || user.pincode || user.state_id) && (
+          <button
+            className="btn"
+            onClick={loadUserRegisteredLocation}
+            disabled={locationLoading}
+            style={{ minWidth: '180px', border: '1px solid var(--border)', background: 'var(--primary-light)', color: 'var(--primary)' }}
+          >
+            {locationLoading ? '📍 Loading...' : '🏠 My Registered Location'}
+          </button>
+        )}
         <button
           className="btn"
           onClick={focusDetectedStateCenter}
@@ -531,6 +658,14 @@ export default function HotspotMap() {
 
       {(detectedStateName || userLocation) && (
         <div style={{ marginBottom: 10, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+          {user && userLocation && !detectedStateName && (
+            <span style={{ background: 'var(--primary-light)', color: 'var(--primary)', padding: '4px 10px', borderRadius: 4, marginRight: 8 }}>
+              📍 Map centered on your registered location
+              {user.district_id && districts.length > 0 && (
+                <span> ({districts.find(d => String(d.id) === String(user.district_id))?.name || 'District'})</span>
+              )}
+            </span>
+          )}
           {detectedStateName && <span>Detected state: <strong>{detectedStateName}</strong>. </span>}
           {userLocation && <span>Current location mode is active{nearbyOnly ? ` (${nearbyRadiusKm} km radius).` : '.'}</span>}
         </div>
