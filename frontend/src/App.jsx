@@ -9,6 +9,7 @@ import './styles/main.css';
 // Layout
 import MainLayout from './components/common/MainLayout';
 import InstallBanner from './components/common/InstallBanner';
+import LanguageSelectionModal from './components/common/LanguageSelectionModal';
 
 // Lazy load pages
 const Landing = lazy(() => import('./pages/public/Landing'));
@@ -102,6 +103,7 @@ function App() {
 
   return (
     <LanguageProvider>
+    <LanguageSelectionModal />
     <Router>
       <Toaster
         position="top-right"

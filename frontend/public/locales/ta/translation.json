@@ -244,5 +244,10 @@
     "efficient_officer": "Efficient Officer",
     "star_officer": "Star Officer",
     "excellence_award": "Excellence Award"
+  },
+  "lang_modal": {
+    "title": "உங்கள் விருப்பமான மொழியைத் தேர்ந்தெடுக்கவும்",
+    "subtitle": "பயன்பாட்டைப் பயன்படுத்த உங்கள் மொழியைத் தேர்ந்தெடுக்கவும். நீங்கள் இதை மொழி மெனுவிலிருந்து எப்போது வேண்டுமானாலும் மாற்றலாம்.",
+    "btn_continue": "தொடரவும்"
   }
 }

@@ -269,5 +269,10 @@
     "efficient_officer": "Efficient Officer",
     "star_officer": "Star Officer",
     "excellence_award": "Excellence Award"
+  },
+  "lang_modal": {
+    "title": "Select Your Preferred Language",
+    "subtitle": "Choose your language to use the application. You can change this anytime from the language menu.",
+    "btn_continue": "Continue"
   }
 }

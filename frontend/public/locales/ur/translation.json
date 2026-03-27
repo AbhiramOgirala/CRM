@@ -244,5 +244,10 @@
     "efficient_officer": "Efficient Officer",
     "star_officer": "Star Officer",
     "excellence_award": "Excellence Award"
+  },
+  "lang_modal": {
+    "title": "اپنی پسندیدہ زبان منتخب کریں",
+    "subtitle": "ایپلیکیشن استعمال کرنے کے لیے اپنی زبان منتخب کریں۔ آپ اسے زبان مینو سے کبھی بھی تبدیل کر سکتے ہیں۔",
+    "btn_continue": "جاری رکھیں"
   }
 }
