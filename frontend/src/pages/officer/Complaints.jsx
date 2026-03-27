@@ -130,7 +130,7 @@ export default function OfficerComplaints() {
           <div>
             <div style={{ fontWeight: 700 }}>{user?.full_name} — {user?.departments?.name}</div>
             <div style={{ fontSize: '0.8rem', opacity: 0.85 }}>
-              Showing complaints assigned to your department. You can <strong>update status</strong> for your complaints.
+              Showing complaints in your department and area. You can <strong>update status</strong> for your complaints.
             </div>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 16 }}>

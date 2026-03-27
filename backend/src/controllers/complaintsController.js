@@ -909,10 +909,10 @@ exports.getComplaints = async (req, res) => {
         if (req.user.district_id) q = q.eq('district_id', req.user.district_id);
       }
     } else if (role === 'officer') {
-      // Officers only see complaints assigned to their department
-      if (req.user.department_id) {
-        q = q.eq('department_id', req.user.department_id);
-      }
+      // Officers only see complaints in their department AND their district
+      if (req.user.department_id) q = q.eq('department_id', req.user.department_id);
+      if (req.user.district_id) q = q.eq('district_id', req.user.district_id);
+      else if (req.user.state_id) q = q.eq('state_id', req.user.state_id);
     }
     // admin / super_admin see ALL complaints
 

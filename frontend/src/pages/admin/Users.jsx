@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { adminAPI } from '../../services/api';
+import { adminAPI, locationAPI } from '../../services/api';
 import { Modal } from '../../components/common';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [states, setStates] = useState([]);
+  const [districts, setDistricts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
   const [filters, setFilters] = useState({ role: '', search: '', page: 1 });
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [officerForm, setOfficerForm] = useState({ email: '', password: '', full_name: '', phone: '', department_id: '', employee_id: '' });
+  const [officerForm, setOfficerForm] = useState({ email: '', password: '', full_name: '', phone: '', department_id: '', employee_id: '', state_id: '', district_id: '' });
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
@@ -29,7 +31,16 @@ export default function AdminUsers() {
 
   useEffect(() => {
     adminAPI.getDepartments().then(res => setDepartments(res.departments || []));
+    locationAPI.getStates().then(res => setStates(res.states || []));
   }, []);
+
+  useEffect(() => {
+    if (officerForm.state_id) {
+      locationAPI.getDistricts(officerForm.state_id).then(res => setDistricts(res.districts || []));
+    } else {
+      setDistricts([]);
+    }
+  }, [officerForm.state_id]);
 
   const handleToggle = async (id, currentStatus) => {
     try {
@@ -46,7 +57,7 @@ export default function AdminUsers() {
       await adminAPI.createOfficer(officerForm);
       toast.success('Officer account created successfully');
       setShowCreateModal(false);
-      setOfficerForm({ email: '', password: '', full_name: '', phone: '', department_id: '', employee_id: '' });
+      setOfficerForm({ email: '', password: '', full_name: '', phone: '', department_id: '', employee_id: '', state_id: '', district_id: '' });
       load();
     } catch (err) { toast.error(err.message); }
     finally { setCreating(false); }
@@ -217,6 +228,25 @@ export default function AdminUsers() {
               <option value="">Select department</option>
               {departments.map(d => <option key={d.id} value={d.id}>{d.name} ({d.code})</option>)}
             </select>
+          </div>
+          <div className="grid-2" style={{ gap: 12 }}>
+            <div className="form-group">
+              <label className="form-label">State <span className="required">*</span></label>
+              <select className="form-control" value={officerForm.state_id}
+                onChange={e => setOfficerForm(p => ({ ...p, state_id: e.target.value, district_id: '' }))} required>
+                <option value="">Select state</option>
+                {states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">District <span className="required">*</span></label>
+              <select className="form-control" value={officerForm.district_id}
+                onChange={e => setOfficerForm(p => ({ ...p, district_id: e.target.value }))}
+                disabled={!officerForm.state_id} required>
+                <option value="">Select district</option>
+                {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
           </div>
         </form>
       </Modal>
