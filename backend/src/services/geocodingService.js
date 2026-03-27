@@ -118,8 +118,12 @@ class GeocodingService {
       if (!response.data?.address) return null;
       const addr = response.data.address;
       console.log('[ReverseGeocode] Raw address:', JSON.stringify(addr));
+
+      // For Union Territories like Delhi, Nominatim returns city instead of state
+      const stateName = addr.state || addr.city || addr.county || null;
+
       return {
-        state: addr.state || null,
+        state: stateName,
         district: addr.county || addr.state_district || addr.city_district || addr.city || addr.town || null,
         city: addr.city || addr.town || addr.village || null,
         formatted_address: response.data.display_name || null
