@@ -908,8 +908,13 @@ exports.getComplaints = async (req, res) => {
         q = q.eq('state_id', req.user.state_id);
         if (req.user.district_id) q = q.eq('district_id', req.user.district_id);
       }
+    } else if (role === 'officer') {
+      // Officers only see complaints assigned to their department
+      if (req.user.department_id) {
+        q = q.eq('department_id', req.user.department_id);
+      }
     }
-    // officer / admin / super_admin see ALL complaints
+    // admin / super_admin see ALL complaints
 
     if (status) q = q.eq('status', status);
     if (category) q = q.eq('category', category);
