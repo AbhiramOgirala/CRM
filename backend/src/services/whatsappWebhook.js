@@ -188,6 +188,7 @@ const handleGpsLocation = async (phone, user, session, latitude, longitude) => {
   await sendWhatsApp(phone, `📍 Got your location! Looking it up...`);
 
   const geo = await geocodingService.reverseGeocode(latitude, longitude);
+  console.log(`[WhatsApp GPS] lat=${latitude} lon=${longitude} geo=`, JSON.stringify(geo));
 
   if (!geo?.state) {
     await sendWhatsApp(phone,
@@ -199,10 +200,13 @@ const handleGpsLocation = async (phone, user, session, latitude, longitude) => {
     return;
   }
 
+  // Normalize state name — handle variations like "Telangana State", "State of Telangana" etc.
+  const rawState = geo.state.replace(/\s*(state|pradesh)\s*$/i, '').trim();
+
   // Try to match to a supported state
   const matchedState = SUPPORTED_STATES.find(s =>
-    geo.state.toLowerCase().includes(s.name.toLowerCase()) ||
-    s.name.toLowerCase().includes(geo.state.toLowerCase())
+    rawState.toLowerCase().includes(s.name.toLowerCase()) ||
+    s.name.toLowerCase().includes(rawState.toLowerCase())
   );
 
   if (!matchedState) {
