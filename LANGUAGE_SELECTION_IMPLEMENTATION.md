@@ -1,19 +1,21 @@
 # Language Selection Modal Implementation
 
 ## Overview
-This implementation adds a language selection modal that appears automatically when desktop/laptop users first visit the application. The modal prompts users to select their preferred language from all available languages in the system.
+This implementation adds a language selection modal that automatically prompts desktop/laptop users to choose their preferred language every time they open the application. The language preference is stored only for the current browser session and resets when the browser is closed.
 
 ## Features
 
-### 1. Automatic Language Prompt
-- Modal appears automatically on first visit for desktop/laptop users (screen width > 768px)
+### 1. Automatic Language Prompt Every Time
+- Modal appears automatically on every visit for desktop/laptop users (screen width > 768px)
 - Does not appear on mobile devices to avoid disrupting the mobile experience
-- Only shows once - preference is stored in localStorage
+- Shows every time the browser is opened (no permanent caching)
+- Language selection persists only during the current browser session
 
-### 2. Language Persistence
-- Selected language is stored in localStorage as `preferredLanguage`
-- A flag `languageSelected` is set to prevent the modal from showing again
-- Language preference persists across sessions
+### 2. Session-Based Language Persistence
+- Selected language is stored in sessionStorage (not localStorage)
+- Preference persists during the current browser session only
+- When browser is closed and reopened, user is prompted again
+- Language can be changed anytime from navbar during the session
 
 ### 3. Multi-language Support
 The modal supports all 11 languages available in the application:
@@ -48,8 +50,9 @@ The modal supports all 11 languages available in the application:
    - Added LanguageSelectionModal import and component
 
 2. `CRM/frontend/src/context/LanguageContext.jsx`
-   - Updated to check localStorage for saved language preference on initialization
-   - Automatically saves language preference when changed
+   - Updated to check sessionStorage for saved language preference on initialization
+   - Automatically saves language preference to sessionStorage when changed
+   - Language resets when browser is closed
 
 3. Translation files (all languages):
    - `CRM/frontend/public/locales/*/translation.json`
@@ -64,19 +67,24 @@ The modal supports all 11 languages available in the application:
 1. User opens the application on desktop/laptop
 2. LanguageSelectionModal checks:
    - Is screen width > 768px? (desktop check)
-   - Has `languageSelected` flag in localStorage?
-3. If both conditions are met, modal displays
+   - Has `languageSelectedThisSession` flag in sessionStorage?
+3. If desktop and no session flag, modal displays
 4. User selects preferred language
 5. On "Continue":
    - Language is applied via LanguageContext
-   - `languageSelected` flag is set in localStorage
-   - `preferredLanguage` is saved in localStorage
+   - `languageSelectedThisSession` flag is set in sessionStorage
+   - `preferredLanguage` is saved in sessionStorage
    - Modal closes
 
-### Subsequent Visits
-- LanguageContext reads `preferredLanguage` from localStorage
-- Application starts with user's preferred language
-- Modal does not appear again
+### Subsequent Visits (Same Session)
+- LanguageContext reads `preferredLanguage` from sessionStorage
+- Application continues with user's selected language
+- Modal does not appear again during the same browser session
+
+### New Browser Session
+- When browser is closed and reopened, sessionStorage is cleared
+- User is prompted to select language again
+- This ensures language selection happens every time on desktop/laptop
 
 ### Changing Language Later
 Users can change their language anytime using:
@@ -88,16 +96,16 @@ Users can change their language anytime using:
 ### Detection Logic
 ```javascript
 const isDesktop = window.matchMedia('(min-width: 769px)').matches;
-const hasSelectedLanguage = localStorage.getItem('languageSelected');
+const hasSelectedInSession = sessionStorage.getItem('languageSelectedThisSession');
 
-if (isDesktop && !hasSelectedLanguage) {
+if (isDesktop && !hasSelectedInSession) {
   // Show modal
 }
 ```
 
-### Storage Keys
-- `languageSelected`: Boolean flag (string 'true')
-- `preferredLanguage`: Language code (e.g., 'en-IN', 'hi-IN')
+### Storage Keys (sessionStorage)
+- `languageSelectedThisSession`: Boolean flag (string 'true') - cleared on browser close
+- `preferredLanguage`: Language code (e.g., 'en-IN', 'hi-IN') - cleared on browser close
 
 ### Accessibility
 - Modal uses proper ARIA attributes
@@ -110,17 +118,19 @@ if (isDesktop && !hasSelectedLanguage) {
 ## Testing
 
 ### To Test the Modal
-1. Clear localStorage: `localStorage.clear()`
-2. Refresh the page on desktop/laptop
-3. Modal should appear
-4. Select a language and click "Continue"
-5. Refresh - modal should not appear again
-6. Check that the entire application reflects the selected language
+1. Open the application in a desktop browser
+2. Language selection modal should appear automatically
+3. Select a language and click "Continue"
+4. Application should reflect the selected language
+5. Refresh the page - language persists, modal doesn't show
+6. Close the browser completely and reopen
+7. Modal should appear again, prompting for language selection
 
-### To Reset
+### To Test During Development
+If you want to see the modal again without closing the browser:
 ```javascript
-localStorage.removeItem('languageSelected');
-localStorage.removeItem('preferredLanguage');
+sessionStorage.clear();
+// Then refresh the page
 ```
 
 ## Future Enhancements

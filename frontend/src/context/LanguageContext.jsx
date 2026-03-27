@@ -5,8 +5,8 @@ const LanguageContext = createContext({ activeLang: 'en-IN', setActiveLang: () =
 
 export function LanguageProvider({ children }) {
   const [activeLang, setActiveLang] = useState(() => {
-    // Check for stored language preference
-    const storedLang = localStorage.getItem('preferredLanguage');
+    // Check for stored language preference in current session only
+    const storedLang = sessionStorage.getItem('preferredLanguage');
     return storedLang || 'en-IN';
   });
   const { i18n } = useTranslation();
@@ -15,8 +15,8 @@ export function LanguageProvider({ children }) {
     // E.g 'en-IN' -> 'en'
     const langCode = activeLang.split('-')[0];
     i18n.changeLanguage(langCode);
-    // Store the preference whenever it changes
-    localStorage.setItem('preferredLanguage', activeLang);
+    // Store the preference in session storage (resets on browser close)
+    sessionStorage.setItem('preferredLanguage', activeLang);
   }, [activeLang, i18n]);
 
   return (

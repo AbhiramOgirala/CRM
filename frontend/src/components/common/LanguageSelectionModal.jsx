@@ -26,19 +26,20 @@ export default function LanguageSelectionModal() {
     // Check if user is on desktop/laptop (screen width > 768px)
     const isDesktop = window.matchMedia('(min-width: 769px)').matches;
     
-    // Check if language preference has been set before
-    const hasSelectedLanguage = localStorage.getItem('languageSelected');
+    // Check if language has been selected in this session
+    const hasSelectedInSession = sessionStorage.getItem('languageSelectedThisSession');
     
-    // Show modal only on desktop and if language hasn't been selected before
-    if (isDesktop && !hasSelectedLanguage) {
+    // Show modal on desktop every time unless already selected in this session
+    if (isDesktop && !hasSelectedInSession) {
       setIsOpen(true);
     }
   }, []);
 
   const handleLanguageSelect = () => {
     setActiveLang(selectedLang);
-    localStorage.setItem('languageSelected', 'true');
-    localStorage.setItem('preferredLanguage', selectedLang);
+    // Use sessionStorage instead of localStorage - will reset on browser close
+    sessionStorage.setItem('languageSelectedThisSession', 'true');
+    sessionStorage.setItem('preferredLanguage', selectedLang);
     setIsOpen(false);
   };
 
