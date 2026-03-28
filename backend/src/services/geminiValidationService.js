@@ -8,18 +8,23 @@ const geminiCache = new NodeCache({ stdTTL: 43200 });
 /**
  * Gemini Validation Service (using official SDK)
  * Uses Google's Gemini API to validate and refine classifications
- * Gracefully falls back if API is unavailable
+ * Primary model: gemini-2.5-flash
+ * Fallback model: gemini-3.1-flash-lite-preview
  */
 class GeminiValidationService {
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
     this.client = apiKey ? new GoogleGenerativeAI(apiKey) : null;
-    this.model = 'gemini-3.1-flash-lite-preview';
+    this.primaryModel = 'gemini-2.5-flash';
+    this.fallbackModel = 'gemini-3.1-flash-lite-preview';
+    this.currentModel = this.primaryModel;
     this.isAvailable = !!this.client;
-    this.validationStats = { attempts: 0, successes: 0, failures: 0 };
+    this.validationStats = { attempts: 0, successes: 0, failures: 0, fallbackUsed: 0 };
 
     if (this.isAvailable) {
       console.log('[GeminiService] Initialized with official SDK');
+      console.log('[GeminiService] Primary model:', this.primaryModel);
+      console.log('[GeminiService] Fallback model:', this.fallbackModel);
     } else {
       console.warn('[GeminiService] No API key - Gemini validation disabled');
     }
@@ -27,11 +32,6 @@ class GeminiValidationService {
 
   /**
    * Validate complaint classification and priority
-   * @param {string} complaintText - Full complaint text
-   * @param {string} predictedCategory - Predicted category
-   * @param {string} priority - Predicted priority
-   * @param {Array} keywords - Keywords extracted
-   * @returns {Promise<Object>} Gemini validation result
    */
   async validateClassification(complaintText, predictedCategory, priority, keywords) {
     this.validationStats.attempts++;
@@ -63,7 +63,7 @@ class GeminiValidationService {
 
   /**
    * Generate a concise complaint title from complaint text.
-   * Returns null when Gemini is unavailable so caller can fall back safely.
+   * Automatically generates title in the same language as the input text.
    */
   async generateComplaintTitle(complaintText, category = 'other', priority = 'medium') {
     if (!this.isAvailable || !complaintText?.trim()) return null;
@@ -73,39 +73,67 @@ class GeminiValidationService {
     const cached = geminiCache.get(cacheKey);
     if (cached?.title) return cached;
 
-    const prompt = `You generate short civic complaint titles.
+    const prompt = `You generate short civic complaint titles in the SAME LANGUAGE as the input text.
 
 INPUT:
 - Category: ${category}
 - Priority: ${priority}
 - Complaint text: "${normalized}"
 
-RULES:
-- Title must be clear and specific.
-- 4 to 10 words only.
-- Plain sentence case, no emojis.
-- Avoid quotes and punctuation-heavy output.
+CRITICAL RULES:
+- Detect the language of the complaint text (English, Hindi, Telugu, Tamil, Kannada, Malayalam, Marathi, Gujarati, Punjabi, Bengali, Urdu, etc.)
+- Generate the title in THE EXACT SAME LANGUAGE as the complaint text
+- Title must be clear and specific
+- 4 to 10 words only
+- Plain sentence case, no emojis
+- Avoid quotes and punctuation-heavy output
+- If complaint is in Telugu, title must be in Telugu
+- If complaint is in Hindi, title must be in Hindi
+- If complaint is in English, title must be in English
 
 Respond ONLY valid JSON:
 {"title":"..."}`;
 
     try {
-      const model = this.client.getGenerativeModel({ model: this.model });
+      // Try primary model first
+      console.log('[GeminiTitleGeneration] Using primary model:', this.currentModel);
+      const model = this.client.getGenerativeModel({ model: this.currentModel });
       const result = await model.generateContent(prompt);
       const responseText = result?.response?.text?.() || '';
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return null;
+      if (!jsonMatch) throw new Error('No JSON in response');
 
       const parsed = JSON.parse(jsonMatch[0]);
       const title = this._sanitizeGeneratedTitle(parsed.title);
-      if (!title) return null;
+      if (!title) throw new Error('Empty title generated');
 
-      const payload = { title, source: 'gemini' };
+      const payload = { title, source: 'gemini', model: this.currentModel };
       geminiCache.set(cacheKey, payload);
       return payload;
-    } catch (err) {
-      console.warn('[GeminiTitleGeneration] Failed:', err.message);
-      return null;
+    } catch (primaryErr) {
+      console.warn('[GeminiTitleGeneration] Primary model failed:', primaryErr.message);
+      
+      // Try fallback model
+      try {
+        console.log('[GeminiTitleGeneration] Trying fallback model:', this.fallbackModel);
+        const fallbackModel = this.client.getGenerativeModel({ model: this.fallbackModel });
+        const result = await fallbackModel.generateContent(prompt);
+        const responseText = result?.response?.text?.() || '';
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) return null;
+
+        const parsed = JSON.parse(jsonMatch[0]);
+        const title = this._sanitizeGeneratedTitle(parsed.title);
+        if (!title) return null;
+
+        this.validationStats.fallbackUsed++;
+        const payload = { title, source: 'gemini-fallback', model: this.fallbackModel };
+        geminiCache.set(cacheKey, payload);
+        return payload;
+      } catch (fallbackErr) {
+        console.warn('[GeminiTitleGeneration] Fallback also failed:', fallbackErr.message);
+        return null;
+      }
     }
   }
 
@@ -122,10 +150,6 @@ Respond ONLY valid JSON:
 
   /**
    * Validate image against complaint category
-   * @param {string} imageBase64 - Image in base64
-   * @param {string} complaintCategory - Category to validate against
-   * @param {string} complaintText - Complaint description
-   * @returns {Promise<Object>} Image validation result
    */
   async validateImageMatch(imageBase64, complaintCategory, complaintText) {
     if (!this.isAvailable || !imageBase64) {
@@ -217,18 +241,19 @@ Respond ONLY with valid JSON.`;
   }
 
   /**
-   * Call Gemini API using official SDK
+   * Call Gemini API using official SDK with automatic fallback
    */
   async _callGeminiAPI(prompt) {
+    // Try primary model first
     try {
-      console.log('[GeminiAPI] Calling model:', this.model);
-      const model = this.client.getGenerativeModel({ model: this.model });
+      console.log('[GeminiAPI] Calling primary model:', this.currentModel);
+      const model = this.client.getGenerativeModel({ model: this.currentModel });
 
       const result = await model.generateContent(prompt);
       const response = result.response;
       const responseText = response.text();
 
-      console.log('[GeminiAPI] Success - received response');
+      console.log('[GeminiAPI] Success with', this.currentModel);
 
       // Extract JSON from response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -237,21 +262,55 @@ Respond ONLY with valid JSON.`;
         return {
           ...parsed,
           source: 'gemini',
+          model: this.currentModel,
           timestamp: new Date().toISOString(),
           adjusted: parsed.should_override || !parsed.category_correct
         };
       }
 
       throw new Error('No JSON found in response');
-    } catch (err) {
-      console.error('[GeminiAPI] Error:', err.message);
-      throw err;
+    } catch (primaryErr) {
+      console.warn('[GeminiAPI] Primary model failed:', primaryErr.message);
+      
+      // Try fallback model if primary fails
+      if (this.currentModel === this.primaryModel) {
+        try {
+          console.log('[GeminiAPI] Attempting fallback model:', this.fallbackModel);
+          const fallbackModel = this.client.getGenerativeModel({ model: this.fallbackModel });
+          
+          const result = await fallbackModel.generateContent(prompt);
+          const response = result.response;
+          const responseText = response.text();
+
+          console.log('[GeminiAPI] Success with fallback model');
+          this.validationStats.fallbackUsed++;
+
+          // Extract JSON from response
+          const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            return {
+              ...parsed,
+              source: 'gemini-fallback',
+              model: this.fallbackModel,
+              timestamp: new Date().toISOString(),
+              adjusted: parsed.should_override || !parsed.category_correct
+            };
+          }
+
+          throw new Error('No JSON found in fallback response');
+        } catch (fallbackErr) {
+          console.error('[GeminiAPI] Fallback model also failed:', fallbackErr.message);
+          throw new Error(`Both models failed - Primary: ${primaryErr.message}, Fallback: ${fallbackErr.message}`);
+        }
+      }
+      
+      throw primaryErr;
     }
   }
 
   /**
    * Parse data URL and extract mime type + base64
-   * Handles both "data:image/jpeg;base64,..." and pure base64 formats
    */
   _parseImageData(imageData) {
     if (!imageData) return { base64: null, mimeType: 'image/jpeg' };
@@ -275,26 +334,24 @@ Respond ONLY with valid JSON.`;
   }
 
   /**
-   * Call Gemini API with image using official SDK
+   * Call Gemini API with image using official SDK with automatic fallback
    */
   async _callGeminiAPIWithImage(prompt, imageBase64) {
+    // Parse image data once (handle both data URL and pure base64)
+    const { base64, mimeType } = this._parseImageData(imageBase64);
+
+    if (!base64) {
+      throw new Error('No valid base64 image data found');
+    }
+
+    console.log('[GeminiImageAPI] Image size: ~' + imageBase64.length + ' chars');
+    console.log('[GeminiImageAPI] Extracted mime type:', mimeType);
+    console.log('[GeminiImageAPI] Base64 length:', base64.length, 'chars');
+
+    // Try primary model first
     try {
-      console.log('[GeminiImageAPI] Calling model with image:', this.model);
-      console.log('[GeminiImageAPI] Image size: ~' + imageBase64.length + ' chars');
-
-      // Parse image data (handle both data URL and pure base64)
-      const { base64, mimeType } = this._parseImageData(imageBase64);
-
-      if (!base64) {
-        throw new Error('No valid base64 image data found');
-      }
-
-      console.log('[GeminiImageAPI] Extracted mime type:', mimeType);
-      console.log('[GeminiImageAPI] Base64 length:', base64.length, 'chars');
-
-      const model = this.client.getGenerativeModel({ model: this.model });
-
-      console.log('[GeminiImageAPI] Generating content...');
+      console.log('[GeminiImageAPI] Calling primary model with image:', this.currentModel);
+      const model = this.client.getGenerativeModel({ model: this.currentModel });
 
       // Add timeout protection
       const timeoutPromise = new Promise((_, reject) =>
@@ -314,30 +371,74 @@ Respond ONLY with valid JSON.`;
         timeoutPromise
       ]);
 
-      console.log('[GeminiImageAPI] Got result object, extracting text...');
-
       const response = result?.response;
       if (!response) {
         throw new Error('No response from model');
       }
 
       const responseText = response.text();
-      console.log('[GeminiImageAPI] Response text length:', responseText.length);
+      console.log('[GeminiImageAPI] Success with primary model');
 
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        console.log('[GeminiImageAPI] Success - parsed JSON');
         return {
           ...JSON.parse(jsonMatch[0]),
           source: 'gemini-vision',
+          model: this.currentModel,
           timestamp: new Date().toISOString()
         };
       }
 
       throw new Error('No JSON found in vision response');
-    } catch (err) {
-      console.error('[GeminiImageAPI] Error:', err.message, err.stack);
-      throw err;
+    } catch (primaryErr) {
+      console.warn('[GeminiImageAPI] Primary model failed:', primaryErr.message);
+      
+      // Try fallback model
+      try {
+        console.log('[GeminiImageAPI] Trying fallback model with image:', this.fallbackModel);
+        const fallbackModel = this.client.getGenerativeModel({ model: this.fallbackModel });
+
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Gemini API call timeout')), 30000)
+        );
+
+        const result = await Promise.race([
+          fallbackModel.generateContent([
+            prompt,
+            {
+              inlineData: {
+                data: base64,
+                mimeType: mimeType
+              }
+            }
+          ]),
+          timeoutPromise
+        ]);
+
+        const response = result?.response;
+        if (!response) {
+          throw new Error('No response from fallback model');
+        }
+
+        const responseText = response.text();
+        console.log('[GeminiImageAPI] Success with fallback model');
+        this.validationStats.fallbackUsed++;
+
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          return {
+            ...JSON.parse(jsonMatch[0]),
+            source: 'gemini-vision-fallback',
+            model: this.fallbackModel,
+            timestamp: new Date().toISOString()
+          };
+        }
+
+        throw new Error('No JSON found in fallback vision response');
+      } catch (fallbackErr) {
+        console.error('[GeminiImageAPI] Both models failed - Primary:', primaryErr.message, 'Fallback:', fallbackErr.message);
+        throw new Error(`Both vision models failed - Primary: ${primaryErr.message}, Fallback: ${fallbackErr.message}`);
+      }
     }
   }
 
@@ -360,12 +461,6 @@ Respond ONLY with valid JSON.`;
 
   /**
    * Validate complaint text + image together in single Gemini call
-   * Checks if image matches complaint description and category
-   * @param {string} complaintText - Full complaint text
-   * @param {string} complaintCategory - Complaint category
-   * @param {string} imageBase64 - Image in base64
-   * @param {Object} localAnalysisResult - Local image analysis result
-   * @returns {Promise<Object>} Unified validation result
    */
   async validateComplaintWithImage(complaintText, complaintCategory, imageBase64, localAnalysisResult) {
     this.validationStats.attempts++;
@@ -512,12 +607,6 @@ Respond ONLY with valid JSON:
 
   /**
    * Verify local image analysis with Gemini
-   * Sends local analysis + image to Gemini for verification and consolidation
-   * @param {Object} localResult - Local image analysis result
-   * @param {string} imageBase64 - Image in base64
-   * @param {string} complaintCategory - Complaint category
-   * @param {string} complaintText - Complaint description
-   * @returns {Promise<Object>} Consolidated verification result
    */
   async verifyImageAnalysisWithGemini(localResult, imageBase64, complaintCategory, complaintText) {
     this.validationStats.attempts++;
@@ -643,9 +732,9 @@ Respond ONLY with valid JSON:
    */
   _calculateFinalConfidence(localResult, geminiResult) {
     const weights = {
-      full: { local: 0.4, gemini: 0.6 },      // Trust Gemini more when in full agreement
-      partial: { local: 0.5, gemini: 0.5 },   // Equal weight for partial agreement
-      disagreement: { local: 0.3, gemini: 0.7 } // Trust Gemini more when disagreeing
+      full: { local: 0.4, gemini: 0.6 },
+      partial: { local: 0.5, gemini: 0.5 },
+      disagreement: { local: 0.3, gemini: 0.7 }
     };
 
     const weight = weights[geminiResult.agreement_level] || weights.partial;
@@ -687,18 +776,74 @@ Respond ONLY with valid JSON:
    */
   async healthCheck() {
     if (!this.isAvailable) {
-      return { available: false, reason: 'No API key configured' };
+      return { 
+        available: false, 
+        reason: 'No API key configured',
+        primaryModel: this.primaryModel,
+        fallbackModel: this.fallbackModel
+      };
     }
 
+    const results = {
+      primaryModel: this.primaryModel,
+      fallbackModel: this.fallbackModel,
+      primaryStatus: 'unknown',
+      fallbackStatus: 'unknown',
+      available: false,
+      reason: ''
+    };
+
+    // Test primary model
     try {
-      console.log('[GeminiHealthCheck] Testing with model:', this.model);
-      const response = await this._callGeminiAPI('Respond with just "ok" in JSON: {"status": "ok"}');
-      return { available: !!response, reason: response ? 'API is working' : 'API returned empty response' };
+      console.log('[GeminiHealthCheck] Testing primary model:', this.primaryModel);
+      const model = this.client.getGenerativeModel({ model: this.primaryModel });
+      const result = await model.generateContent('Respond with just "ok" in JSON: {"status": "ok"}');
+      const response = result?.response?.text?.();
+      
+      if (response && response.includes('ok')) {
+        results.primaryStatus = 'working';
+        results.available = true;
+        results.reason = 'Primary model is working';
+        console.log('[GeminiHealthCheck] Primary model is working');
+      } else {
+        results.primaryStatus = 'error';
+        console.warn('[GeminiHealthCheck] Primary model returned unexpected response');
+      }
     } catch (err) {
-      console.error('[GeminiHealthCheck] Failed:', err.message);
-      console.error('[GeminiHealthCheck] This is expected if API key is invalid or quota exceeded');
-      return { available: false, reason: err.message };
+      results.primaryStatus = 'error';
+      results.primaryError = err.message;
+      console.error('[GeminiHealthCheck] Primary model failed:', err.message);
     }
+
+    // Test fallback model
+    try {
+      console.log('[GeminiHealthCheck] Testing fallback model:', this.fallbackModel);
+      const model = this.client.getGenerativeModel({ model: this.fallbackModel });
+      const result = await model.generateContent('Respond with just "ok" in JSON: {"status": "ok"}');
+      const response = result?.response?.text?.();
+      
+      if (response && response.includes('ok')) {
+        results.fallbackStatus = 'working';
+        if (!results.available) {
+          results.available = true;
+          results.reason = 'Fallback model is working (primary failed)';
+        }
+        console.log('[GeminiHealthCheck] Fallback model is working');
+      } else {
+        results.fallbackStatus = 'error';
+        console.warn('[GeminiHealthCheck] Fallback model returned unexpected response');
+      }
+    } catch (err) {
+      results.fallbackStatus = 'error';
+      results.fallbackError = err.message;
+      console.error('[GeminiHealthCheck] Fallback model failed:', err.message);
+    }
+
+    if (!results.available) {
+      results.reason = 'Both models failed - check API key and quota';
+    }
+
+    return results;
   }
 
   /**
@@ -709,10 +854,18 @@ Respond ONLY with valid JSON:
       ? ((this.validationStats.successes / this.validationStats.attempts) * 100).toFixed(2)
       : 0;
 
+    const fallbackRate = this.validationStats.attempts > 0
+      ? ((this.validationStats.fallbackUsed / this.validationStats.attempts) * 100).toFixed(2)
+      : 0;
+
     return {
       ...this.validationStats,
       successRate: `${successRate}%`,
-      available: this.isAvailable
+      fallbackRate: `${fallbackRate}%`,
+      available: this.isAvailable,
+      primaryModel: this.primaryModel,
+      fallbackModel: this.fallbackModel,
+      currentModel: this.currentModel
     };
   }
 }

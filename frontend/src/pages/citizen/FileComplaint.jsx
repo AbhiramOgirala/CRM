@@ -12,11 +12,13 @@ import { openDB } from 'idb';
 
 const LANG_CODES = {
   en: 'en-IN', hi: 'hi-IN', te: 'te-IN', ta: 'ta-IN',
-  mr: 'mr-IN', kn: 'kn-IN', gu: 'gu-IN', bn: 'bn-IN', pa: 'pa-IN'
+  mr: 'mr-IN', kn: 'kn-IN', gu: 'gu-IN', bn: 'bn-IN', pa: 'pa-IN',
+  ml: 'ml-IN', ur: 'ur-IN'
 };
 const LANG_LABELS = {
   en: 'English', hi: 'हिंदी', te: 'తెలుగు', ta: 'தமிழ்',
-  mr: 'मराठी', kn: 'ಕನ್ನಡ', gu: 'ગુજરાતી', bn: 'বাংলা', pa: 'ਪੰਜਾਬੀ'
+  mr: 'मराठी', kn: 'ಕನ್ನಡ', gu: 'ગુજરાતી', bn: 'বাংলা', pa: 'ਪੰਜਾਬੀ',
+  ml: 'മലയാളം', ur: 'اردو'
 };
 
 const DEPT_COLORS = {
@@ -41,12 +43,13 @@ export default function FileComplaint() {
   const [imageAnalysisLoading, setImageAnalysisLoading] = useState(false);
   const [generatingTitle, setGeneratingTitle] = useState(false);
   const nlpTimer = useRef(null);
-  const [selectedLang, setSelectedLangLocal] = useState('en');
-  const { setActiveLang } = useLanguage();
+  const { activeLang, setActiveLang } = useLanguage();
   const { t } = useTranslation();
 
+  // Convert activeLang (e.g., 'te-IN') to short code (e.g., 'te')
+  const selectedLang = activeLang.split('-')[0];
+
   const setSelectedLang = (code) => {
-    setSelectedLangLocal(code);
     setActiveLang(LANG_CODES[code] || 'en-IN');
   };
 
@@ -197,6 +200,7 @@ export default function FileComplaint() {
 
     setGeneratingTitle(true);
     try {
+      // Pass the text to backend - it will detect language and generate title in that language
       const res = await nlpAPI.generateTitle(text, nlpResult?.category, nlpResult?.priority);
       if (res?.title) {
         setForm(prev => ({ ...prev, title: res.title }));
@@ -532,32 +536,24 @@ export default function FileComplaint() {
         {/* ══ STEP 1: Describe Issue ══════════════════════════════════ */}
         {step === 1 && (
           <div>
-            <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 700, marginBottom: 4 }}>
-              {t('file_complaint.step1', 'Step 1: Describe Your Issue')}
-            </h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 20 }}>
-              {t('file_complaint.step1_desc', 'Type or speak your complaint in any language. Our system will automatically identify the department.')}
-            </p>
-
-            {/* Language selector */}
-            <div className="form-group">
-              <label className="form-label">{t('file_complaint.lang_select', 'Select Your Language')}</label>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {Object.entries(LANG_LABELS).map(([code, label]) => (
-                  <button key={code} type="button"
-                    onClick={() => setSelectedLang(code)}
-                    style={{
-                      padding: '6px 14px', borderRadius: 20, border: '2px solid',
-                      borderColor: selectedLang === code ? 'var(--primary)' : 'var(--border)',
-                      background: selectedLang === code ? 'var(--primary-light)' : 'white',
-                      color: selectedLang === code ? 'var(--primary)' : 'var(--text-secondary)',
-                      fontWeight: selectedLang === code ? 700 : 400,
-                      fontSize: '0.82rem', cursor: 'pointer', transition: 'all 0.15s'
-                    }}>
-                    {label}
-                  </button>
-                ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+              <div>
+                <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 700, marginBottom: 4 }}>
+                  {t('file_complaint.step1', 'Step 1: Describe Your Issue')}
+                </h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 0 }}>
+                  {t('file_complaint.step1_desc', 'Type or speak your complaint in any language. Our system will automatically identify the department.')}
+                </p>
               </div>
+              <button
+                type="button"
+                onClick={resetDraftAndStartNew}
+                className="btn btn-ghost btn-sm"
+                style={{ flexShrink: 0, marginLeft: 16 }}
+                title="Clear draft and start fresh"
+              >
+                🗑️ Clear Draft
+              </button>
             </div>
 
             <div className="form-group">
@@ -581,7 +577,7 @@ export default function FileComplaint() {
                     {isRecording ? 'REC' : 'MIC'}
                   </div>
                   <div>
-                    <div>{isRecording ? 'Recording... Tap to stop' : `Speak in ${LANG_LABELS[selectedLang]}`}</div>
+                    <div>{isRecording ? 'Recording... Tap to stop' : 'Speak in your language'}</div>
                     {isRecording && <div style={{ fontSize: '0.75rem', opacity: 0.7, fontWeight: 400 }}>Listening for your complaint...</div>}
                   </div>
                   {isRecording && (

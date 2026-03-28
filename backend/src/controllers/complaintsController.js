@@ -908,8 +908,16 @@ exports.getComplaints = async (req, res) => {
         q = q.eq('state_id', req.user.state_id);
         if (req.user.district_id) q = q.eq('district_id', req.user.district_id);
       }
+    } else if (role === 'officer') {
+      // Officers can only see complaints from their department in their state
+      if (req.user.department_id) {
+        q = q.eq('department_id', req.user.department_id);
+      }
+      if (req.user.state_id) {
+        q = q.eq('state_id', req.user.state_id);
+      }
     }
-    // officer / admin / super_admin see ALL complaints
+    // admin / super_admin see ALL complaints
 
     if (status) q = q.eq('status', status);
     if (category) q = q.eq('category', category);
@@ -963,6 +971,21 @@ exports.getComplaintById = async (req, res) => {
     }
     if (!complaint.is_public && req.user?.id !== complaint.citizen_id && !['officer', 'admin', 'super_admin'].includes(req.user?.role)) {
       return res.status(403).json({ error: 'This complaint is private' });
+    }
+
+    // Officers can only view complaints from their department in their state
+    if (req.user?.role === 'officer') {
+      const officerDept = req.user.department_id ? String(req.user.department_id) : null;
+      const complaintDept = complaint.department_id ? String(complaint.department_id) : null;
+      const officerState = req.user.state_id ? String(req.user.state_id) : null;
+      const complaintState = complaint.state_id ? String(complaint.state_id) : null;
+
+      if (officerDept && complaintDept && officerDept !== complaintDept) {
+        return res.status(403).json({ error: 'You can only view complaints assigned to your department' });
+      }
+      if (officerState && complaintState && officerState !== complaintState) {
+        return res.status(403).json({ error: 'You can only view complaints in your state' });
+      }
     }
 
     await supabase.from('complaints').update({ view_count: (complaint.view_count || 0) + 1 }).eq('id', id);
@@ -1136,20 +1159,34 @@ exports.geocodeExistingComplaints = async (req, res) => {
 };
 exports.getDashboardStats = async (req, res) => {
   try {
+    // Build base query with officer filtering
+    const buildQuery = () => {
+      let q = supabase.from('complaints');
+      if (req.user?.role === 'officer') {
+        if (req.user.department_id) {
+          q = q.eq('department_id', req.user.department_id);
+        }
+        if (req.user.state_id) {
+          q = q.eq('state_id', req.user.state_id);
+        }
+      }
+      return q;
+    };
+
     const [total, pending, inProgress, resolved, escalated] = await Promise.all([
-      supabase.from('complaints').select('*', { count: 'exact', head: true }),
-      supabase.from('complaints').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabase.from('complaints').select('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
-      supabase.from('complaints').select('*', { count: 'exact', head: true }).eq('status', 'resolved'),
-      supabase.from('complaints').select('*', { count: 'exact', head: true }).eq('status', 'escalated')
+      buildQuery().select('*', { count: 'exact', head: true }),
+      buildQuery().select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      buildQuery().select('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
+      buildQuery().select('*', { count: 'exact', head: true }).eq('status', 'resolved'),
+      buildQuery().select('*', { count: 'exact', head: true }).eq('status', 'escalated')
     ]);
 
-    const { data: catRaw } = await supabase.from('complaints').select('category');
+    const { data: catRaw } = await buildQuery().select('category');
     const catCounts = {};
     (catRaw || []).forEach(c => (catCounts[c.category] = (catCounts[c.category] || 0) + 1));
     const byCategory = Object.entries(catCounts).map(([cat, count]) => ({ category: cat, count })).sort((a, b) => b.count - a.count);
 
-    const { data: mRaw } = await supabase.from('complaints').select('created_at').gte('created_at', new Date(Date.now() - 180 * 24 * 3600000).toISOString());
+    const { data: mRaw } = await buildQuery().select('created_at').gte('created_at', new Date(Date.now() - 180 * 24 * 3600000).toISOString());
     const monthly = {};
     (mRaw || []).forEach(c => { const m = new Date(c.created_at).toISOString().substring(0, 7); monthly[m] = (monthly[m] || 0) + 1; });
 

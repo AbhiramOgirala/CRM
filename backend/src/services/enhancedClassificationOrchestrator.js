@@ -162,7 +162,7 @@ class EnhancedClassificationOrchestrator {
         
         // 🔴 PRIORITY: Gemini verdict takes precedence
         if (geminiResult.suggested_category) {
-          const geminiSuggestion = geminiResult.suggested_category;
+          const geminiSuggestion = this._normalizeCategory(geminiResult.suggested_category);
           const hasGoodConfidence = geminiResult.category_confidence >= 0.5;
           
           if (geminiSuggestion && (geminiResult.should_override || hasGoodConfidence || !geminiResult.category_correct)) {
@@ -351,6 +351,82 @@ class EnhancedClassificationOrchestrator {
     }
 
     return Math.min(Math.max(confidence, 0), 1);
+  }
+
+  /**
+   * Normalize Gemini category suggestions to match system categories
+   */
+  _normalizeCategory(geminiCategory) {
+    if (!geminiCategory) return null;
+    
+    const normalized = geminiCategory.toLowerCase().trim();
+    
+    // Category mapping for common Gemini variations
+    const categoryMap = {
+      'roads and infrastructure': 'roads',
+      'road and infrastructure': 'roads',
+      'roads & infrastructure': 'roads',
+      'road infrastructure': 'roads',
+      'road': 'roads',
+      'water': 'water_supply',
+      'water supply': 'water_supply',
+      'power': 'electricity',
+      'electric': 'electricity',
+      'electricity supply': 'electricity',
+      'garbage': 'waste_management',
+      'waste': 'waste_management',
+      'trash': 'waste_management',
+      'sanitation': 'waste_management',
+      'drain': 'drainage',
+      'sewage': 'drainage',
+      'sewer': 'drainage',
+      'building': 'infrastructure',
+      'structure': 'infrastructure',
+      'park': 'parks',
+      'garden': 'parks',
+      'medical': 'health',
+      'hospital': 'health',
+      'school': 'education',
+      'police': 'law_enforcement',
+      'crime': 'law_enforcement',
+      'safety': 'law_enforcement',
+      'street light': 'street_lights',
+      'streetlight': 'street_lights',
+      'lamp': 'street_lights',
+      'noise': 'noise_pollution',
+      'sound': 'noise_pollution',
+      'government service': 'public_services',
+      'govt service': 'public_services',
+      'public service': 'public_services'
+    };
+    
+    // Check direct mapping
+    if (categoryMap[normalized]) {
+      return categoryMap[normalized];
+    }
+    
+    // Check if it's already a valid category
+    const validCategories = [
+      'roads', 'water_supply', 'electricity', 'waste_management', 
+      'drainage', 'infrastructure', 'parks', 'health', 'education',
+      'public_services', 'law_enforcement', 'street_lights', 
+      'noise_pollution', 'other'
+    ];
+    
+    if (validCategories.includes(normalized)) {
+      return normalized;
+    }
+    
+    // Partial matching for compound categories
+    for (const [key, value] of Object.entries(categoryMap)) {
+      if (normalized.includes(key) || key.includes(normalized)) {
+        return value;
+      }
+    }
+    
+    // Default to original if no match found
+    console.log(`[CategoryNormalization] No mapping found for: "${geminiCategory}", using as-is`);
+    return normalized;
   }
 
   /**
