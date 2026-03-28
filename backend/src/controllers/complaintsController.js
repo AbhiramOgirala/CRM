@@ -881,8 +881,9 @@ const _checkDuplicates = async (newC) => {
 exports.getComplaints = async (req, res) => {
   try {
     const { status, category, priority, district_id, mandal_id, state_id, department_id, search,
-      page = 1, limit = 20, sortBy = 'created_at', sortOrder = 'desc', is_public } = req.query;
+      page = 1, limit = 20, sortBy = 'created_at', sortOrder = 'desc', is_public, scope } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
+    const showAllPublic = scope === 'all';
 
     let q = supabase.from('complaints').select(`
       id,ticket_number,title,description,category,sub_category,status,priority,
@@ -903,10 +904,12 @@ exports.getComplaints = async (req, res) => {
       q = q.or(`rejection_reason.is.null,rejection_reason.not.like.${CITIZEN_DELETE_REASON_PREFIX}%`);
     } else if (!role || role === 'citizen') {
       q = q.eq('is_public', true);
-      // Scope public feed to the citizen's registered area
-      if (req.user?.state_id) {
+      // By default citizen feed is area-scoped, unless explicitly requesting all public complaints.
+      if (!showAllPublic && req.user?.state_id) {
         q = q.eq('state_id', req.user.state_id);
-        if (req.user.district_id) q = q.eq('district_id', req.user.district_id);
+        if (req.user.district_id) {
+          q = q.eq('district_id', req.user.district_id);
+        }
       }
     } else if (role === 'officer') {
       // Officers can only see complaints from their department in their state
