@@ -4,18 +4,18 @@ import useAuthStore from '../../store/authStore';
 
 const PRIORITY_COLORS = {
   critical: { bg: '#FFCDD2', color: '#B71C1C', label: 'Critical' },
-  high:     { bg: '#FFE0B2', color: '#E65100', label: 'High' },
-  medium:   { bg: '#FFF9C4', color: '#F57F17', label: 'Medium' },
-  low:      { bg: '#DCEDC8', color: '#33691E', label: 'Low' },
+  high: { bg: '#FFE0B2', color: '#E65100', label: 'High' },
+  medium: { bg: '#FFF9C4', color: '#F57F17', label: 'Medium' },
+  low: { bg: '#DCEDC8', color: '#33691E', label: 'Low' },
 };
 
 const STATUS_COLORS = {
-  pending:     { bg: '#FFF8E1', color: '#E65100', label: 'Pending' },
-  assigned:    { bg: '#E3F2FD', color: '#0277BD', label: 'Assigned' },
+  pending: { bg: '#FFF8E1', color: '#E65100', label: 'Pending' },
+  assigned: { bg: '#E3F2FD', color: '#0277BD', label: 'Assigned' },
   in_progress: { bg: '#E8EAF6', color: '#3949AB', label: 'In Progress' },
-  escalated:   { bg: '#FCE4EC', color: '#C2185B', label: 'Escalated' },
-  resolved:    { bg: '#E8F5E9', color: '#2E7D32', label: 'Resolved' },
-  rejected:    { bg: '#FFEBEE', color: '#C62828', label: 'Rejected' },
+  escalated: { bg: '#FCE4EC', color: '#C2185B', label: 'Escalated' },
+  resolved: { bg: '#E8F5E9', color: '#2E7D32', label: 'Resolved' },
+  rejected: { bg: '#FFEBEE', color: '#C62828', label: 'Rejected' },
 };
 
 const timeAgo = (dateStr) => {
@@ -83,8 +83,8 @@ export function FeedCardDesktop({ complaint, onUpvote }) {
         ) : (
           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--secondary-light)' }}>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--secondary)" strokeWidth="1.5" opacity="0.4">
-              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
             </svg>
           </div>
         )}
@@ -112,7 +112,7 @@ export function FeedCardDesktop({ complaint, onUpvote }) {
           </div>
         </div>
 
-        {/* Badges row: ticket + status + priority */}
+        {/* Badges row: ticket + status + priority + duplicates */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
           <span style={{ fontFamily: 'monospace', fontSize: '0.68rem', fontWeight: 700, color: 'var(--secondary)', background: 'var(--secondary-light)', padding: '2px 6px', borderRadius: 4 }}>
             #{complaint.ticket_number}
@@ -123,6 +123,16 @@ export function FeedCardDesktop({ complaint, onUpvote }) {
           <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: pri.bg, color: pri.color }}>
             {pri.label}
           </span>
+          {complaint.is_duplicate && (
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: '#F3E5F5', color: '#7B1FA2' }}>
+              Duplicate
+            </span>
+          )}
+          {complaint.duplicate_count > 0 && (
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: 'var(--danger-bg, #FFEBEE)', color: 'var(--danger, #C62828)' }}>
+              🔗 {complaint.duplicate_count} reports
+            </span>
+          )}
         </div>
 
         {/* Title */}
@@ -183,7 +193,7 @@ export function FeedCardDesktop({ complaint, onUpvote }) {
                 borderRadius: 4, padding: '2px 6px',
               }}>
                 <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
                 </svg>
                 {tag}
               </span>
@@ -200,7 +210,7 @@ export function FeedCardDesktop({ complaint, onUpvote }) {
               borderRadius: 4, padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: 3,
             }}>
               <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/>
+                <rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
               </svg>
               {complaint.departments.name}
             </span>
@@ -234,8 +244,8 @@ export function FeedCardDesktop({ complaint, onUpvote }) {
             }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill={complaint._upvoted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/>
-              <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/>
+              <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" />
+              <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" />
             </svg>
             <span>{complaint.upvote_count || 0}</span>
           </button>
@@ -255,7 +265,7 @@ export function FeedCardDesktop({ complaint, onUpvote }) {
             onMouseOut={e => e.currentTarget.style.color = 'var(--text-muted)'}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
             </svg>
             <span>{complaint.comment_count || 0}</span>
           </button>
@@ -268,7 +278,7 @@ export function FeedCardDesktop({ complaint, onUpvote }) {
             }}>
               {slaBreach && (
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M12 2L1 21h22L12 2zm0 3.5L20.5 19h-17L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
+                  <path d="M12 2L1 21h22L12 2zm0 3.5L20.5 19h-17L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z" />
                 </svg>
               )}
               SLA: {slaDate}
@@ -337,7 +347,9 @@ export function FeedCard({ complaint, onUpvote }) {
               {timeAgo(complaint.created_at)}
             </span>
           </div>
-          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 4, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '50%' }}>
+            {complaint.is_duplicate && <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 10, background: '#F3E5F5', color: '#7B1FA2' }}>Duplicate</span>}
+            {complaint.duplicate_count > 0 && <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 10, background: 'var(--danger-bg, #FFEBEE)', color: 'var(--danger, #C62828)' }}>🔗 {complaint.duplicate_count}</span>}
             <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 10, background: sta.bg, color: sta.color }}>{sta.label}</span>
             <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: 10, background: pri.bg, color: pri.color }}>{pri.label}</span>
           </div>
@@ -396,7 +408,7 @@ export function FeedCard({ complaint, onUpvote }) {
           {locationLabel && (
             <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
               </svg>
               {locationLabel}
             </span>
@@ -426,8 +438,8 @@ export function FeedCard({ complaint, onUpvote }) {
             }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill={complaint._upvoted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/>
-              <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/>
+              <path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z" />
+              <path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3" />
             </svg>
             {complaint.upvote_count || 0}
           </button>
@@ -442,7 +454,7 @@ export function FeedCard({ complaint, onUpvote }) {
             }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
             </svg>
             {complaint.comment_count || 0}
           </button>

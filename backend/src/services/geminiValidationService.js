@@ -214,6 +214,8 @@ Does the provided image match this complaint? Respond with JSON:
       noise_pollution: '(noise, loud speakers, disturbances)',
       other: '(miscellaneous civic issues)'
     };
+    
+    const validCategories = Object.keys(categoryDescriptions).join(', ');
 
     return `You are an expert civic complaint classifier.
 
@@ -228,7 +230,7 @@ Analyze the complaint and provide validation in JSON format:
 {
   "category_correct": true/false,
   "category_confidence": 0.0-1.0,
-  "suggested_category": "alternative category if needed",
+  "suggested_category": "alternative category if needed (MUST be exactly one of: ${validCategories})",
   "priority_correct": true/false,
   "priority_confidence": 0.0-1.0,
   "suggested_priority": "critical|high|medium|low if needed",
@@ -617,6 +619,8 @@ Respond ONLY with valid JSON:
     }
 
     try {
+      const validCategories = 'roads, water_supply, electricity, waste_management, drainage, infrastructure, parks, health, education, public_services, law_enforcement, street_lights, noise_pollution, other';
+
       const prompt = `You are an expert civic infrastructure analyst reviewing a complaint image.
 
 LOCAL ANALYSIS FINDINGS:
@@ -642,7 +646,7 @@ Respond ONLY with valid JSON:
   "gemini_category_match": "match"|"mismatch"|"uncertain",
   "gemini_confidence": 0.0-1.0,
   "additional_detected_objects": ["list"],
-  "alternative_category_suggestion": "category or null",
+  "alternative_category_suggestion": "valid category (${validCategories}) or null",
   "agreement_level": "full|partial|disagreement",
   "explanation": "brief explanation of findings"
 }`;
