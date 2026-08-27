@@ -266,7 +266,7 @@ class ImageProcessingService {
     };
 
     // Determine match status
-    if (geminiResult && geminiResult.source === 'gemini-3.1-flash-lite-preview') {
+    if (geminiResult && geminiResult.source === 'gemini-2.5-flash-lite') {
       combined.match = geminiResult.match;
       combined.confidence = geminiResult.confidence;
       

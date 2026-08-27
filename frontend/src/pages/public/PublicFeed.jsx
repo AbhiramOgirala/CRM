@@ -5,6 +5,7 @@ import { SkeletonCard, Pagination } from '../../components/common';
 import { FeedCard, FeedCardDesktop } from '../../components/common/FeedCard';
 import useAuthStore from '../../store/authStore';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 const CATEGORIES = ['roads','water_supply','electricity','waste_management','drainage','health','education','other'];
 
@@ -19,18 +20,20 @@ export function PublicFeed() {
   });
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const isCitizen = user?.role === 'citizen';
-  const areaLabel = user?.district_name
-    ? `${user.district_name}, ${user.state_name || ''}`
-    : user?.state_name || null;
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await complaintsAPI.getAll({ ...filters, is_public: true, limit: 12 });
-      setComplaints(res.complaints || []);
+      const res = await complaintsAPI.getAll({ ...filters, is_public: true, scope: 'all', limit: 12 });
+      const normalized = (res.complaints || []).map((c) => ({
+        ...c,
+        reporter_name: c.reporter_name || c.users?.full_name || (c.is_anonymous ? 'Anonymous' : 'Citizen')
+      }));
+      setComplaints(normalized);
       setPagination(res.pagination);
-    } catch {} finally { setLoading(false); }
+    } catch (err) {
+      toast.error(err?.message || 'Failed to load public complaints');
+      setComplaints([]);
+    } finally { setLoading(false); }
   }, [filters]);
 
   useEffect(() => { load(); }, [load]);
@@ -82,22 +85,10 @@ export function PublicFeed() {
         <div>
           <h1 className="page-title">Public Grievance Feed</h1>
           <p className="page-subtitle">
-            {isCitizen && areaLabel
-              ? `Showing issues in ${areaLabel}`
-              : 'Community-reported civic issues across India'}
+            Community-reported civic issues across India
           </p>
         </div>
       </div>
-
-      {isCitizen && !areaLabel && (
-        <div style={{
-          background: 'var(--warning-bg)', border: '1px solid var(--warning)',
-          borderRadius: 'var(--radius)', padding: '10px 16px', marginBottom: 16,
-          fontSize: '0.85rem', color: 'var(--warning)',
-        }}>
-          Your profile doesn't have a location set. Update your profile to see local complaints.
-        </div>
-      )}
 
       {!user && (
         <div style={{

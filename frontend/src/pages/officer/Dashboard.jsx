@@ -22,19 +22,37 @@ export default function OfficerDashboard() {
   const [stats, setStats] = useState(null);
   const [myQueue, setMyQueue] = useState([]);
   const [escalated, setEscalated] = useState([]);
+  const [breached, setBreached] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [statsRes, pendingRes, escRes] = await Promise.all([
+        const [statsRes, pendingRes, escRes, allRes] = await Promise.all([
           complaintsAPI.getDashboard(),
           complaintsAPI.getAll({ limit: 6, status: 'pending', sortBy: 'created_at', sortOrder: 'asc' }),
-          complaintsAPI.getAll({ limit: 5, status: 'escalated', sortBy: 'created_at', sortOrder: 'asc' })
+          complaintsAPI.getAll({ limit: 5, status: 'escalated', sortBy: 'created_at', sortOrder: 'asc' }),
+          complaintsAPI.getAll({ limit: 50, sortBy: 'created_at', sortOrder: 'asc' })
         ]);
         setStats(statsRes.stats);
-        setMyQueue(pendingRes.complaints || []);
+        
+        // Combine pending and escalated complaints for the queue
+        const combinedQueue = [
+          ...(escRes.complaints || []),
+          ...(pendingRes.complaints || [])
+        ];
+        setMyQueue(combinedQueue);
         setEscalated(escRes.complaints || []);
+        
+        // Filter breached complaints (SLA deadline passed and not resolved)
+        const now = new Date();
+        const breachedComplaints = (allRes.complaints || []).filter(c => 
+          c.sla_deadline && 
+          new Date(c.sla_deadline) < now && 
+          c.status !== 'resolved' && 
+          c.status !== 'rejected'
+        );
+        setBreached(breachedComplaints);
       } catch (err) {
         console.error('Dashboard load error:', err);
       } finally {
@@ -52,6 +70,7 @@ export default function OfficerDashboard() {
   const statItems = [
     { label: 'Total', value: stats?.total || 0, bg: 'var(--secondary-light)', color: 'var(--secondary)' },
     { label: 'Pending', value: stats?.pending || 0, bg: 'var(--warning-bg)', color: 'var(--warning)' },
+    { label: 'Breached', value: breached.length, bg: '#FFEBEE', color: '#C62828' },
     { label: 'Escalated', value: stats?.escalated || 0, bg: '#FCE4EC', color: '#C2185B' },
     { label: 'Resolved', value: stats?.resolved || 0, bg: 'var(--success-bg)', color: 'var(--success)' },
   ];
@@ -157,29 +176,58 @@ export default function OfficerDashboard() {
 
         <div className="card">
           <div className="card-header">
-            <h2 className="card-title" style={{ fontSize: '0.95rem' }}>Pending Queue</h2>
+            <h2 className="card-title" style={{ fontSize: '0.95rem' }}>Pending Queue {breached.length > 0 && <span style={{ color: '#C62828', fontSize: '0.8rem' }}>({breached.length} breached)</span>}</h2>
             <Link to="/officer/complaints" style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>View All</Link>
           </div>
           {loading ? (
             <div style={{ textAlign: 'center', padding: 24 }}><div className="loading-spinner" style={{ margin: '0 auto' }} /></div>
-          ) : myQueue.length === 0 ? (
+          ) : myQueue.length === 0 && breached.length === 0 ? (
             <div className="empty-state" style={{ padding: '24px 12px' }}>
               <h3 className="empty-state-title" style={{ fontSize: '0.95rem' }}>Queue is clear</h3>
             </div>
           ) : (
             <div style={{ display: 'grid', gap: 8 }}>
-              {myQueue.slice(0, 4).map(c => (
+              {/* Show breached complaints first */}
+              {breached.slice(0, 2).map(c => (
                 <Link key={c.id} to={`/complaint/${c.id}`} style={{ textDecoration: 'none' }}>
-                  <div style={{ padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)' }}>
+                  <div style={{ padding: '10px 12px', border: '2px solid #C62828', borderRadius: 8, background: '#FFEBEE' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', fontWeight: 700, color: 'var(--secondary)', background: 'var(--secondary-light)', padding: '1px 6px', borderRadius: 4 }}>#{c.ticket_number}</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', fontWeight: 700, color: '#C62828', background: 'white', padding: '1px 6px', borderRadius: 4 }}>#{c.ticket_number}</span>
                       <PriorityBadge priority={c.priority} />
                     </div>
                     <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>{c.departments?.name}</div>
+                    <div style={{ fontSize: '0.72rem', color: '#C62828', marginTop: 2, fontWeight: 700 }}>⚠️ SLA BREACHED</div>
                   </div>
                 </Link>
               ))}
+              {/* Then show all complaints (pending + escalated) */}
+              {myQueue.slice(0, 6).map(c => {
+                const isBreached = c.sla_deadline && new Date(c.sla_deadline) < new Date();
+                const isEscalated = c.status === 'escalated';
+                if (isBreached) return null; // Skip if already shown in breached section
+                return (
+                  <Link key={c.id} to={`/complaint/${c.id}`} style={{ textDecoration: 'none' }}>
+                    <div style={{ 
+                      padding: '10px 12px', 
+                      border: isEscalated ? '2px solid #FFCC02' : '1px solid var(--border)', 
+                      borderRadius: 8, 
+                      background: isEscalated ? '#FFFDE7' : 'var(--surface)' 
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', fontWeight: 700, color: 'var(--secondary)', background: 'var(--secondary-light)', padding: '1px 6px', borderRadius: 4 }}>#{c.ticket_number}</span>
+                          {isEscalated && <span style={{ background: '#FCE4EC', color: '#C62828', borderRadius: 4, padding: '2px 6px', fontWeight: 800, fontSize: '0.65rem' }}>L{c.escalation_level}</span>}
+                        </div>
+                        <PriorityBadge priority={c.priority} />
+                      </div>
+                      <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</div>
+                      <div style={{ fontSize: '0.72rem', color: isEscalated ? '#E65100' : 'var(--text-muted)', marginTop: 2, fontWeight: isEscalated ? 700 : 400 }}>
+                        {isEscalated ? '⚠️ ESCALATED' : c.departments?.name}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
@@ -253,7 +301,7 @@ export default function OfficerDashboard() {
         </div>
 
         {/* Stats */}
-        <div className="grid-4" style={{ marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px', marginBottom: 24 }}>
           {statItems.map(s => (
             <div key={s.label} className="stat-card">
               <div className="stat-info">
@@ -309,14 +357,14 @@ export default function OfficerDashboard() {
         {/* Pending queue table */}
         <div className="card">
           <div className="card-header">
-            <h2 className="card-title">Pending — All Departments</h2>
+            <h2 className="card-title">Pending — My Department {breached.length > 0 && <span style={{ color: '#C62828', fontSize: '0.9rem', marginLeft: 8 }}>({breached.length} breached)</span>}</h2>
             <Link to="/officer/complaints" style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 600, textDecoration: 'none' }}>View All</Link>
           </div>
           {loading ? (
             <div style={{ textAlign: 'center', padding: 40 }}>
               <div className="loading-spinner" style={{ margin: '0 auto 12px' }} />
             </div>
-          ) : myQueue.length === 0 ? (
+          ) : myQueue.length === 0 && breached.length === 0 ? (
             <div className="empty-state">
               <h3 className="empty-state-title">No pending complaints</h3>
               <p className="empty-state-desc">The system queue is clear.</p>
@@ -332,17 +380,17 @@ export default function OfficerDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {myQueue.map(c => {
-                    const isMyDept = c.department_id === user?.department_id;
+                  {/* Show breached complaints first with red highlighting */}
+                  {breached.map(c => {
                     const slaBreach = c.sla_deadline && new Date(c.sla_deadline) < new Date();
                     return (
-                      <tr key={c.id} style={{ cursor: 'pointer', background: isMyDept ? '#F1F8E9' : 'white' }}
+                      <tr key={c.id} style={{ cursor: 'pointer', background: '#FFEBEE', borderLeft: '4px solid #C62828' }}
                         onClick={() => window.location.href = `/complaint/${c.id}`}>
                         <td>
-                          <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', fontWeight: 700, color: 'var(--secondary)', background: 'var(--secondary-light)', padding: '2px 8px', borderRadius: 4 }}>
+                          <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', fontWeight: 700, color: '#C62828', background: 'white', padding: '2px 8px', borderRadius: 4 }}>
                             #{c.ticket_number}
                           </span>
-                          {isMyDept && <div style={{ fontSize: '0.65rem', color: '#2E7D32', fontWeight: 700, marginTop: 2 }}>Your Dept</div>}
+                          <div style={{ fontSize: '0.65rem', color: '#C62828', fontWeight: 700, marginTop: 2 }}>⚠️ BREACHED</div>
                         </td>
                         <td style={{ maxWidth: 200 }}>
                           <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</div>
@@ -350,9 +398,42 @@ export default function OfficerDashboard() {
                         <td style={{ fontSize: '0.8rem' }}>{c.category?.replace(/_/g, ' ')}</td>
                         <td><PriorityBadge priority={c.priority} /></td>
                         <td style={{ fontSize: '0.8rem' }}>{c.departments?.name || '—'}</td>
-                        <td style={{ fontSize: '0.8rem', color: slaBreach ? '#C62828' : 'var(--text-muted)', fontWeight: slaBreach ? 700 : 400 }}>
+                        <td style={{ fontSize: '0.8rem', color: '#C62828', fontWeight: 700 }}>
                           {c.sla_deadline ? new Date(c.sla_deadline).toLocaleDateString('en-IN') : '—'}
                           {slaBreach && ' (Overdue)'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {/* Then show all complaints (pending + escalated) */}
+                  {myQueue.map(c => {
+                    const slaBreach = c.sla_deadline && new Date(c.sla_deadline) < new Date();
+                    const isEscalated = c.status === 'escalated';
+                    if (slaBreach) return null; // Skip if already shown in breached section
+                    return (
+                      <tr key={c.id} style={{ 
+                        cursor: 'pointer',
+                        background: isEscalated ? '#FFFDE7' : 'white',
+                        borderLeft: isEscalated ? '4px solid #FFCC02' : 'none'
+                      }}
+                        onClick={() => window.location.href = `/complaint/${c.id}`}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', fontWeight: 700, color: 'var(--secondary)', background: 'var(--secondary-light)', padding: '2px 8px', borderRadius: 4 }}>
+                              #{c.ticket_number}
+                            </span>
+                            {isEscalated && <span style={{ background: '#FCE4EC', color: '#C62828', borderRadius: 4, padding: '2px 6px', fontWeight: 800, fontSize: '0.68rem' }}>L{c.escalation_level}</span>}
+                          </div>
+                          {isEscalated && <div style={{ fontSize: '0.65rem', color: '#E65100', fontWeight: 700, marginTop: 2 }}>⚠️ ESCALATED</div>}
+                        </td>
+                        <td style={{ maxWidth: 200 }}>
+                          <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</div>
+                        </td>
+                        <td style={{ fontSize: '0.8rem' }}>{c.category?.replace(/_/g, ' ')}</td>
+                        <td><PriorityBadge priority={c.priority} /></td>
+                        <td style={{ fontSize: '0.8rem' }}>{c.departments?.name || '—'}</td>
+                        <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          {c.sla_deadline ? new Date(c.sla_deadline).toLocaleDateString('en-IN') : '—'}
                         </td>
                       </tr>
                     );
