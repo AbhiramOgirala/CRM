@@ -332,8 +332,15 @@ export function buildFieldPrompt(fieldKey, _unused, langCode) {
 }
 
 export function buildComplaintReadout(complaint, langCode) {
+  if (!complaint) return '';
   const lang = langCode || 'en-IN';
-  return getPhrases(lang).complaint(complaint, lang);
+  try {
+    const handler = getPhrases(lang);
+    if (!handler || typeof handler.complaint !== 'function') return complaint.title || '';
+    return handler.complaint(complaint, lang);
+  } catch (e) {
+    return complaint.title || '';
+  }
 }
 
 // ── Free translation via MyMemory API (no key required) ──────────────────────

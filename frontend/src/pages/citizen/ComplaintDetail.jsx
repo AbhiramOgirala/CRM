@@ -1,22 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import toast from 'react-hot-toast';
 import { complaintsAPI } from '../../services/api';
 import { StatusBadge, PriorityBadge, CategoryChip, Modal } from '../../components/common';
 import useAuthStore from '../../store/authStore';
 import SpeakButton from '../../components/ui/SpeakButton';
-import { buildComplaintReadout, buildDescriptionReadout } from '../../hooks/useTextToSpeech';
+import { buildComplaintReadout } from '../../hooks/useTextToSpeech';
 import { useLanguage } from '../../context/LanguageContext';
 
-// Fix Leaflet default marker icon broken by webpack
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+// Mini Map Component using Vanilla Leaflet with proper cleanup and error handling
+function ComplaintMiniMap({ coords, title }) {
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+
+  useEffect(() => {
+    if (!mapContainerRef.current || !coords || isNaN(coords[0]) || isNaN(coords[1])) return;
+
+    if (mapInstanceRef.current) {
+      try {
+        mapInstanceRef.current.remove();
+      } catch (e) {}
+      mapInstanceRef.current = null;
+    }
+
+    try {
+      const map = L.map(mapContainerRef.current, { scrollWheelZoom: false }).setView(coords, 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+
+      L.marker(coords).addTo(map).bindPopup(title || 'Complaint Location');
+      mapInstanceRef.current = map;
+    } catch (err) {
+      console.warn('[MiniMap init error]', err);
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        try {
+          mapInstanceRef.current.remove();
+        } catch (e) {}
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [coords, title]);
+
+  return <div ref={mapContainerRef} style={{ height: 200, width: '100%', borderRadius: 8, zIndex: 0 }} />;
+}
 
 export default function ComplaintDetail() {
   const { id } = useParams();
@@ -24,6 +56,7 @@ export default function ComplaintDetail() {
   const { user } = useAuthStore();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState(null);
   const [comment, setComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [upvoting, setUpvoting] = useState(false);
@@ -52,24 +85,37 @@ export default function ComplaintDetail() {
 
   const loadDetail = async () => {
     setLoading(true);
+    setErrorMsg(null);
     try {
       const res = await complaintsAPI.getById(id);
+      if (!res?.complaint) {
+        throw new Error('Complaint data not found');
+      }
       setData(res);
       const c = res.complaint;
-      if (c.latitude && c.longitude) {
-        setMapCoords([parseFloat(c.latitude), parseFloat(c.longitude)]);
+      const lat = parseFloat(c.latitude);
+      const lon = parseFloat(c.longitude);
+      if (!isNaN(lat) && !isNaN(lon) && (lat !== 0 || lon !== 0)) {
+        setMapCoords([lat, lon]);
       } else if (c.address || c.pincode) {
         // Geocode address on the fly
         const query = [c.address, c.pincode, c.districts?.name, c.states?.name].filter(Boolean).join(', ');
         try {
           const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`);
           const d = await r.json();
-          if (d?.[0]) setMapCoords([parseFloat(d[0].lat), parseFloat(d[0].lon)]);
+          if (d?.[0]) {
+            const nLat = parseFloat(d[0].lat);
+            const nLon = parseFloat(d[0].lon);
+            if (!isNaN(nLat) && !isNaN(nLon)) {
+              setMapCoords([nLat, nLon]);
+            }
+          }
         } catch { }
       }
     } catch (err) {
+      console.error('[ComplaintDetail load error]', err);
+      setErrorMsg(err.message || 'Complaint not found');
       toast.error('Complaint not found');
-      navigate(-1);
     } finally {
       setLoading(false);
     }
@@ -155,7 +201,25 @@ export default function ComplaintDetail() {
     );
   }
 
-  if (!data) return null;
+  if (!data) {
+    return (
+      <div className="card" style={{ maxWidth: 540, margin: '40px auto', textAlign: 'center', padding: '36px 24px' }}>
+        <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>📋</div>
+        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: 700, marginBottom: 8 }}>
+          Complaint Not Found
+        </h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 24, lineHeight: 1.5 }}>
+          {errorMsg || 'The complaint details could not be loaded or you may not have permission to view it.'}
+        </p>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+          <button className="btn btn-ghost" onClick={() => navigate(-1)}>← Go Back</button>
+          <button className="btn btn-primary" onClick={() => navigate(user?.role === 'officer' ? '/officer/dashboard' : '/dashboard')}>
+            Go to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const { complaint, timeline, comments, linkedComplaints, userUpvoted } = data;
   const isOwner = user?.id === complaint.citizen_id;
@@ -604,22 +668,9 @@ export default function ComplaintDetail() {
                   <div style={{ fontWeight: 600 }}>{complaint.pincode}</div>
                 </div>
               )}
-              {mapCoords ? (
+              {mapCoords && !isNaN(mapCoords[0]) && !isNaN(mapCoords[1]) ? (
                 <div style={{ marginTop: 8 }}>
-                  <MapContainer
-                    center={mapCoords}
-                    zoom={15}
-                    style={{ height: 200, width: '100%', borderRadius: 8, zIndex: 0 }}
-                    scrollWheelZoom={false}
-                  >
-                    <TileLayer
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                      attribution='&copy; OpenStreetMap contributors'
-                    />
-                    <Marker position={mapCoords}>
-                      <Popup>{complaint.title}</Popup>
-                    </Marker>
-                  </MapContainer>
+                  <ComplaintMiniMap coords={mapCoords} title={complaint?.title} />
                   <a
                     href={`https://maps.google.com/?q=${mapCoords[0]},${mapCoords[1]}`}
                     target="_blank" rel="noopener noreferrer"

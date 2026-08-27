@@ -23,6 +23,43 @@ const USE_ENHANCED_CLASSIFICATION = process.env.USE_ENHANCED_CLASSIFICATION === 
 const enhancedOrchestrator = USE_ENHANCED_CLASSIFICATION ? require('../services/enhancedClassificationOrchestrator') : null;
 const MAX_COMPLAINT_IMAGES = 5;
 
+// Map complaint category → department code per state
+// Falls back to Delhi codes if state not matched
+const CITY_DEPT_MAP = {
+  'Telangana': {
+    roads: 'GHMC', infrastructure: 'GHMC', waste_management: 'GHMC',
+    parks: 'GHMC', public_services: 'GHMC', street_lights: 'GHMC',
+    water_supply: 'HMWSSB', drainage: 'HMWSSB',
+    electricity: 'TSSPDCL',
+    law_enforcement: 'HYDPOL', noise_pollution: 'HYDPOL',
+    health: 'TSHFW', education: 'TSEDU', other: 'GHMC'
+  },
+  'Maharashtra': {
+    roads: 'BMC', infrastructure: 'BMC', waste_management: 'BMC',
+    parks: 'BMC', public_services: 'BMC', street_lights: 'BMC',
+    water_supply: 'MWRRA', drainage: 'MWRRA',
+    electricity: 'MSEDCL',
+    law_enforcement: 'MUMPOL', noise_pollution: 'MUMPOL',
+    health: 'MHFW', education: 'MHEDU', other: 'BMC'
+  },
+  'West Bengal': {
+    roads: 'KMC', infrastructure: 'KMC', waste_management: 'KMC',
+    parks: 'KMC', public_services: 'KMC', street_lights: 'KMC',
+    water_supply: 'WBPHED', drainage: 'WBPHED',
+    electricity: 'CESC',
+    law_enforcement: 'KOLPOL', noise_pollution: 'KOLPOL',
+    health: 'WBHFW', education: 'WBEDU', other: 'KMC'
+  },
+  'Karnataka': {
+    roads: 'BBMP', infrastructure: 'BBMP', waste_management: 'BBMP',
+    parks: 'BBMP', public_services: 'BBMP', street_lights: 'BBMP',
+    water_supply: 'BWSSB', drainage: 'BWSSB',
+    electricity: 'BESCOM',
+    law_enforcement: 'BLRPOL', noise_pollution: 'BLRPOL',
+    health: 'KARHFW', education: 'KAREDU', other: 'BBMP'
+  }
+};
+
 const isImageDataUrl = (value) => typeof value === 'string' && /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(value);
 
 const parseImageToBuffer = (imageInput) => {
@@ -165,13 +202,21 @@ exports.generateTitle = async (req, res) => {
 
 exports.previewClassification = async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, state_id, state_name } = req.body;
     if (!text || text.trim().length < 5) {
       console.log(`⚠️  [PREVIEW] Text too short (${text?.length || 0} chars)`);
       return res.json({ category: 'other', confidence: 0, priority: 'low', department: 'Municipal Corporation', departmentCode: 'GHMC', routing_reason: 'General civic issues handled by Municipal Corporation', slaHours: 72, keywords: [], subCategory: null });
     }
 
     console.log(`📥 [PREVIEW] Input text: "${text}"`);
+
+    // Resolve state name for city-aware department routing
+    let resolvedStateName = state_name || null;
+    const effectiveStateId = state_id || req.user?.state_id || null;
+    if (!resolvedStateName && effectiveStateId) {
+      const { data: stateRow } = await supabase.from('states').select('name').eq('id', effectiveStateId).maybeSingle();
+      resolvedStateName = stateRow?.name || null;
+    }
 
     // Use enhanced classification if enabled
     if (USE_ENHANCED_CLASSIFICATION && enhancedOrchestrator) {
@@ -183,8 +228,14 @@ exports.previewClassification = async (req, res) => {
           images: []
         });
 
+        // City-aware routing
+        const cityMap = resolvedStateName ? CITY_DEPT_MAP[resolvedStateName] : null;
+        const resolvedDeptCode = cityMap
+          ? (cityMap[enhanced.final_category] || cityMap.other)
+          : enhanced.department_code;
+
         // Map enhanced result to legacy format for backward compatibility
-        const { data: dept } = await supabase.from('departments').select('name').eq('code', enhanced.department_code).single();
+        const { data: dept } = await supabase.from('departments').select('name').eq('code', resolvedDeptCode).maybeSingle();
 
         // Calculate department confidence (weighted average, max 100%)
         const categoryConfScore = enhanced.confidence * 100;
@@ -193,9 +244,9 @@ exports.previewClassification = async (req, res) => {
 
         // Log preview classification with enhanced confidence
         if (enhanced.priority === 'critical') {
-          console.log(`🚨 [PREVIEW-ENHANCED-CRITICAL] Category: ${enhanced.final_category.toUpperCase()} | Department: ${dept?.name || enhanced.department} | Category Confidence: ${(enhanced.confidence * 100).toFixed(2)}% | Dept Confidence: ${deptConf.toFixed(2)}% | Labels: [${enhanced.all_labels.join(', ')}] | URGENT`);
+          console.log(`🚨 [PREVIEW-ENHANCED-CRITICAL] Category: ${enhanced.final_category.toUpperCase()} | Department: ${dept?.name || enhanced.department} | State: ${resolvedStateName || 'Delhi'} | URGENT`);
         } else {
-          console.log(`🔍 [PREVIEW-ENHANCED] Category: ${enhanced.final_category} | Priority: ${enhanced.priority} | Department: ${dept?.name || enhanced.department} | Category Confidence: ${(enhanced.confidence * 100).toFixed(2)}% | Dept Confidence: ${deptConf.toFixed(2)}% | Labels: [${enhanced.all_labels.join(', ')}]`);
+          console.log(`🔍 [PREVIEW-ENHANCED] Category: ${enhanced.final_category} | Priority: ${enhanced.priority} | Department: ${dept?.name || enhanced.department} | State: ${resolvedStateName || 'Delhi'}`);
         }
 
         return res.json({
@@ -203,13 +254,12 @@ exports.previewClassification = async (req, res) => {
           confidence: enhanced.confidence,
           priority: enhanced.priority,
           department: dept?.name || enhanced.department,
-          departmentCode: enhanced.department_code,
+          departmentCode: resolvedDeptCode,
           departmentConfidence: parseFloat(deptConf.toFixed(2)),
           routing_reason: enhanced.internal?.rule_based?.deptExplanation || 'Classified by enhanced pipeline',
           slaHours: enhanced.sla_hours,
           subCategory: enhanced.sub_category,
           keywords: enhanced.keywords,
-          // Enhanced metadata
           all_labels: enhanced.all_labels,
           requires_review: enhanced.requires_review,
           gemini_adjusted: enhanced.gemini_adjusted,
@@ -218,33 +268,31 @@ exports.previewClassification = async (req, res) => {
         });
       } catch (enhancedErr) {
         console.warn('[PreviewClassification] Enhanced pipeline failed, falling back:', enhancedErr.message);
-        // Fall through to rule-based
       }
     }
 
-    // Fallback to original rule-based pipeline
+    // Fallback to rule-based pipeline
     const r = nlp.classify(text);
-    const { data: dept } = await supabase.from('departments').select('name').eq('code', r.deptCode).single();
+
+    // City-aware routing
+    const cityMap = resolvedStateName ? CITY_DEPT_MAP[resolvedStateName] : null;
+    const resolvedDeptCode = cityMap
+      ? (cityMap[r.category] || cityMap.other)
+      : r.deptCode;
+
+    const { data: dept } = await supabase.from('departments').select('name').eq('code', resolvedDeptCode).maybeSingle();
 
     // Calculate department confidence (weighted average, max 100%)
     const categoryConfScore = r.confidence * 100;
     const slaScore = (1 - Math.min(r.slaHours / 120, 1)) * 100;
     const deptConf = Math.min((categoryConfScore * 0.6 + slaScore * 0.4), 100);
 
-    // Log preview classification with emphasis on critical
-    if (r.priority === 'critical') {
-      console.log(`🚨 [PREVIEW-CRITICAL] Category: ${r.category.toUpperCase()} | Department: ${dept?.name || r.deptName} | Category Confidence: ${(r.confidence * 100).toFixed(2)}% | Dept Confidence: ${deptConf.toFixed(2)}% | URGENT`);
-    } else {
-      console.log(`🔍 [PREVIEW] Category: ${r.category} | Priority: ${r.priority} | Department: ${dept?.name || r.deptName} | Category Confidence: ${(r.confidence * 100).toFixed(2)}% | Dept Confidence: ${deptConf.toFixed(2)}%`);
-    }
-
     return res.json({
       category: r.category, confidence: r.confidence, priority: r.priority,
-      department: dept?.name || r.deptName, departmentCode: r.deptCode,
+      department: dept?.name || r.deptName, departmentCode: resolvedDeptCode,
       routing_reason: r.deptExplanation, slaHours: r.slaHours,
       subCategory: r.subCategory, keywords: r.keywords,
       departmentConfidence: parseFloat(deptConf.toFixed(2))
-
     });
   } catch (err) {
     console.error('previewClassification:', err);
@@ -408,10 +456,13 @@ exports.fileComplaint = async (req, res) => {
     const {
       title, description, audio_transcript,
       latitude, longitude, address, landmark, pincode,
-      state_id, district_id, corporation_id, municipality_id,
+      state_id: reqStateId, district_id: reqDistrictId, corporation_id, municipality_id,
       taluka_id, mandal_id, gram_panchayat_id,
       is_public=true, is_anonymous=false, images: rawImages=[]
     } = req.body;
+
+    const state_id = reqStateId || req.user?.state_id || null;
+    const district_id = reqDistrictId || req.user?.district_id || null;
 
     const incomingImages = Array.isArray(rawImages)
       ? rawImages.filter(Boolean)
@@ -1167,10 +1218,13 @@ exports.geocodeExistingComplaints = async (req, res) => {
 };
 exports.getDashboardStats = async (req, res) => {
   try {
-    // Build base query with officer filtering
+    // Build base query with citizen/officer filtering
     const buildQuery = () => {
       let q = supabase.from('complaints');
-      if (req.user?.role === 'officer') {
+      if (req.user?.role === 'citizen') {
+        q = q.eq('citizen_id', req.user.id);
+        q = q.or(`rejection_reason.is.null,rejection_reason.not.like.${CITIZEN_DELETE_REASON_PREFIX}%`);
+      } else if (req.user?.role === 'officer') {
         if (req.user.department_id) {
           q = q.eq('department_id', req.user.department_id);
         }
@@ -1282,18 +1336,4 @@ exports.deleteComplaintByCitizen = async (req, res) => {
 
 
 
-exports.upvoteComplaint = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { data: existing } = await supabase.from('upvotes').select('id').eq('complaint_id', id).eq('user_id', req.user.id).single();
-    if (existing) {
-      await supabase.from('upvotes').delete().eq('id', existing.id);
-      return res.json({ upvoted: false });
-    }
-    await supabase.from('upvotes').insert({ complaint_id: id, user_id: req.user.id });
-    const { data: c } = await supabase.from('complaints').select('citizen_id').eq('id', id).single();
-    if (c?.citizen_id && c.citizen_id !== req.user.id) await addCitizenPoints(c.citizen_id, POINTS.UPVOTE_RECEIVED);
-    return res.json({ upvoted: true });
-  } catch (err) { return res.status(500).json({ error: 'Internal server error' }); }
-};
 

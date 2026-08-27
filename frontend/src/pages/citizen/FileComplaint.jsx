@@ -6,6 +6,7 @@ import { LocationSelector } from '../../components/common';
 import SpeakButton from '../../components/ui/SpeakButton';
 import { buildFieldPrompt, buildDescriptionReadout, buildClassificationReadout } from '../../hooks/useTextToSpeech';
 import { useLanguage } from '../../context/LanguageContext';
+import useAuthStore from '../../store/authStore';
 
 const LANG_CODES = {
   en: 'en-IN', hi: 'hi-IN', te: 'te-IN', ta: 'ta-IN',
@@ -38,6 +39,7 @@ export default function FileComplaint() {
   const nlpTimer = useRef(null);
   const [selectedLang, setSelectedLangLocal] = useState('en');
   const { setActiveLang } = useLanguage();
+  const { user } = useAuthStore();
 
   const setSelectedLang = (code) => {
     setSelectedLangLocal(code);
@@ -46,9 +48,9 @@ export default function FileComplaint() {
 
   const DEFAULT_FORM = {
     title: '', description: '', audio_transcript: '',
-    latitude: '', longitude: '', address: '', landmark: '', pincode: '',
-    state_id: '', district_id: '', corporation_id: '', municipality_id: '',
-    taluka_id: '', mandal_id: '', gram_panchayat_id: '',
+    latitude: '', longitude: '', address: user?.address || '', landmark: '', pincode: user?.pincode || '',
+    state_id: user?.state_id || '', district_id: user?.district_id || '', corporation_id: '', municipality_id: '',
+    taluka_id: user?.taluka_id || '', mandal_id: user?.mandal_id || '', gram_panchayat_id: '',
     is_public: true, is_anonymous: false, images: []
   };
 
@@ -63,6 +65,21 @@ export default function FileComplaint() {
     } catch {}
     return DEFAULT_FORM;
   });
+
+  // Sync profile location if loaded after mount
+  useEffect(() => {
+    if (user && !form.state_id && user.state_id) {
+      setForm(prev => ({
+        ...prev,
+        state_id: user.state_id || prev.state_id,
+        district_id: user.district_id || prev.district_id,
+        taluka_id: user.taluka_id || prev.taluka_id,
+        mandal_id: user.mandal_id || prev.mandal_id,
+        address: prev.address || user.address || '',
+        pincode: prev.pincode || user.pincode || ''
+      }));
+    }
+  }, [user]);
 
   // Voice recognition support check
   const voiceSupported = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -142,16 +159,16 @@ export default function FileComplaint() {
     nlpTimer.current = setTimeout(async () => {
       setNlpLoading(true);
       try {
-        const result = await nlpAPI.preview(`${form.title} ${text}`);
+        const result = await nlpAPI.preview(`${form.title} ${text}`, form.state_id || user?.state_id);
         setNlpResult(result);
       } catch { /* silent fail */ }
       finally { setNlpLoading(false); }
     }, 600);
-  }, [form.title]);
+  }, [form.title, form.state_id, user?.state_id]);
 
   useEffect(() => {
     triggerNLPPreview(form.description);
-  }, [form.description, form.title]);
+  }, [form.description, form.title, form.state_id, triggerNLPPreview]);
 
   // ── GPS Location ─────────────────────────────────────────────────
   const getGPS = () => {
@@ -165,9 +182,6 @@ export default function FileComplaint() {
           const d = await r.json();
           const addr = [d.address?.road, d.address?.suburb, d.address?.city || d.address?.town].filter(Boolean).join(', ');
           setForm(p => ({ ...p, address: addr || d.display_name, pincode: d.address?.postcode || '' }));
-<<<<<<< HEAD
-        } catch {}
-=======
 
           // Auto-match state from GPS to set state_id for correct dept routing
           const gpsStateName = d.address?.state || null;
@@ -198,7 +212,6 @@ export default function FileComplaint() {
             } catch { /* silent — user can select manually */ }
           }
         } catch { }
->>>>>>> b373212 (Revert "autofill_location")
         setGettingGPS(false);
         toast.success('GPS location captured!');
       },
@@ -229,8 +242,12 @@ export default function FileComplaint() {
       formData.append('category', nlpResult.category);
       formData.append('description', form.description);
 
-      const res = await fetch('http://localhost:5001/api/image/analyze', {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/image/analyze', {
         method: 'POST',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: formData
       });
 

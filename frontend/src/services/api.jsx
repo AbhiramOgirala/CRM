@@ -58,7 +58,7 @@ export const authAPI = {
 
 // ── NLP ─────────────────────────────────────────────────────────────
 export const nlpAPI = {
-  preview: (text) => api.post('/nlp/preview', { text }),
+  preview: (text, state_id) => api.post('/nlp/preview', { text, state_id }),
   generateTitle: (text, category, priority) => api.post('/nlp/generate-title', { text, category, priority })
 };
 

@@ -3,15 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
 import { locationAPI } from '../../services/api';
-<<<<<<< HEAD
-
-export default function Register() {
-=======
 import { useTranslation } from 'react-i18next';
 
 export default function Register() {
   const { t } = useTranslation();
->>>>>>> b373212 (Revert "autofill_location")
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [states, setStates] = useState([]);
@@ -49,6 +44,10 @@ export default function Register() {
     if (id) {
       const res = await locationAPI.getDistricts(id);
       setDistricts(res.districts || []);
+    } else {
+      setDistricts([]);
+      setTalukas([]);
+      setMandals([]);
     }
   };
 
@@ -58,6 +57,9 @@ export default function Register() {
     if (id) {
       const res = await locationAPI.getTalukas(id);
       setTalukas(res.talukas || []);
+    } else {
+      setTalukas([]);
+      setMandals([]);
     }
   };
 
@@ -67,6 +69,8 @@ export default function Register() {
     if (id) {
       const res = await locationAPI.getMandals(id);
       setMandals(res.mandals || []);
+    } else {
+      setMandals([]);
     }
   };
 
@@ -78,71 +82,99 @@ export default function Register() {
         try {
           const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`);
           const d = await r.json();
-          const addr = d.address;
+          const addr = d.address || {};
 
           // Build address string
-          const addressStr = [addr?.road, addr?.suburb, addr?.neighbourhood, addr?.city || addr?.town || addr?.village].filter(Boolean).join(', ');
-          const pincode = addr?.postcode || '';
+          const addressStr = [addr.road, addr.suburb, addr.neighbourhood, addr.city || addr.town || addr.village].filter(Boolean).join(', ');
+          const pincode = addr.postcode || '';
 
-          // Try to match district from DB
-          const cityName = addr?.city || addr?.town || addr?.county || addr?.state_district || '';
-          const suburb = addr?.suburb || addr?.neighbourhood || addr?.quarter || '';
+          // 1. Detect State
+          const stateRes = await locationAPI.getStates();
+          const allStates = stateRes.states || states || [];
+          const rawStateName = (addr.state || addr.state_district || '').toLowerCase();
 
+          let matchedState = allStates.find(s => {
+            const sName = s.name.toLowerCase();
+            return rawStateName.includes(sName) || sName.includes(rawStateName);
+          });
+
+          // Special case checks (e.g. Hyderabad -> Telangana)
+          const cityName = (addr.city || addr.town || addr.county || addr.state_district || '').toLowerCase();
+          if (!matchedState && (cityName.includes('hyderabad') || rawStateName.includes('telangana'))) {
+            matchedState = allStates.find(s => s.name.toLowerCase().includes('telangana'));
+          }
+
+          let matchedStateId = matchedState ? matchedState.id : form.state_id;
           let matchedDistrictId = '';
           let matchedTalukaId = '';
           let matchedMandalId = '';
 
-          // Find matching district by name similarity
-          const districtMatch = districts.find(dist =>
-            cityName.toLowerCase().includes(dist.name.toLowerCase()) ||
-            dist.name.toLowerCase().includes(cityName.toLowerCase().split(' ')[0])
-          );
+          if (matchedStateId) {
+            // 2. Fetch and match District
+            const distRes = await locationAPI.getDistricts(matchedStateId);
+            const districtList = distRes.districts || [];
+            setDistricts(districtList);
 
-          if (districtMatch) {
-            matchedDistrictId = districtMatch.id;
-            // Load talukas for matched district
-            const tRes = await locationAPI.getTalukas(districtMatch.id);
-            const talukaList = tRes.talukas || [];
-            setTalukas(talukaList);
+            const districtMatch = districtList.find(dist => {
+              const dName = dist.name.toLowerCase();
+              return cityName.includes(dName) || dName.includes(cityName.split(' ')[0]) ||
+                     (addr.county && addr.county.toLowerCase().includes(dName));
+            });
 
-            // Try to match taluka/sub-division
-            const talukaMatch = talukaList.find(t =>
-              suburb.toLowerCase().includes(t.name.toLowerCase()) ||
-              t.name.toLowerCase().includes(suburb.toLowerCase().split(' ')[0])
-            );
+            if (districtMatch) {
+              matchedDistrictId = districtMatch.id;
 
-            if (talukaMatch) {
-              matchedTalukaId = talukaMatch.id;
-              // Load mandals
-              const mRes = await locationAPI.getMandals(talukaMatch.id);
-              const mandalList = mRes.mandals || [];
-              setMandals(mandalList);
+              // 3. Fetch and match Taluka
+              const tRes = await locationAPI.getTalukas(districtMatch.id);
+              const talukaList = tRes.talukas || [];
+              setTalukas(talukaList);
 
-              // Try to match mandal/area
-              const mandalMatch = mandalList.find(m =>
-                suburb.toLowerCase().includes(m.name.toLowerCase()) ||
-                m.name.toLowerCase().includes(suburb.toLowerCase().split(' ')[0])
-              );
-              if (mandalMatch) matchedMandalId = mandalMatch.id;
+              const suburb = (addr.suburb || addr.neighbourhood || addr.quarter || '').toLowerCase();
+              const talukaMatch = talukaList.find(t => {
+                const tName = t.name.toLowerCase();
+                return suburb.includes(tName) || tName.includes(suburb.split(' ')[0]);
+              });
+
+              if (talukaMatch) {
+                matchedTalukaId = talukaMatch.id;
+
+                // 4. Fetch and match Mandal
+                const mRes = await locationAPI.getMandals(talukaMatch.id);
+                const mandalList = mRes.mandals || [];
+                setMandals(mandalList);
+
+                const mandalMatch = mandalList.find(m => {
+                  const mName = m.name.toLowerCase();
+                  return suburb.includes(mName) || mName.includes(suburb.split(' ')[0]);
+                });
+
+                if (mandalMatch) matchedMandalId = mandalMatch.id;
+              }
             }
           }
 
           setForm(prev => ({
             ...prev,
             address: addressStr || d.display_name || '',
-            pincode,
+            pincode: pincode || prev.pincode,
+            ...(matchedStateId && { state_id: matchedStateId }),
             ...(matchedDistrictId && { district_id: matchedDistrictId }),
             ...(matchedTalukaId && { taluka_id: matchedTalukaId }),
             ...(matchedMandalId && { mandal_id: matchedMandalId }),
           }));
 
           toast.success('📍 Location detected and fields auto-filled!');
-        } catch {
-          toast('📍 GPS captured. Please fill in the location dropdowns manually.');
+        } catch (err) {
+          console.error('[GPS Error]', err);
+          toast('📍 GPS captured. Please verify location dropdowns.');
         }
         setGettingGPS(false);
       },
-      () => { setGettingGPS(false); toast.error('Could not get location. Please fill in manually.'); },
+      (err) => {
+        console.warn('[Geolocation error]', err);
+        setGettingGPS(false);
+        toast.error('Could not get location. Please fill in manually.');
+      },
       { timeout: 10000, enableHighAccuracy: true }
     );
   };
@@ -319,11 +351,7 @@ export default function Register() {
           {step === 3 && (
             <div>
               <div className="form-group">
-<<<<<<< HEAD
-                <label className="form-label">Preferred Language</label>
-=======
                 <label className="form-label">{t('register.pref_lang', 'Preferred Language')}</label>
->>>>>>> b373212 (Revert "autofill_location")
                 <select className="form-control" value={form.preferred_language} onChange={e => set('preferred_language', e.target.value)}>
                   <option value="en">English</option>
                   <option value="hi">हिंदी (Hindi)</option>
