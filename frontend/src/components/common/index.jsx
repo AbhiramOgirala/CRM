@@ -212,6 +212,7 @@ export function LocationSelector({ value, onChange, required = false }) {
   const [corporations, setCorporations] = React.useState([]);
   const [municipalities, setMunicipalities] = React.useState([]);
 
+  // Load states on mount
   React.useEffect(() => {
     import('../../services/api').then(({ locationAPI }) => {
       locationAPI.getStates().then(res => {
@@ -220,60 +221,129 @@ export function LocationSelector({ value, onChange, required = false }) {
         const supported = ['Delhi', 'Telangana', 'Maharashtra', 'West Bengal', 'Karnataka'];
         const filtered = all.filter(s => supported.includes(s.name));
         setStates(filtered);
-        // Auto-select Delhi by default only if nothing chosen yet
-        if (!value.state_id) {
-          const delhi = filtered.find(s => s.name === 'Delhi');
-          if (delhi) handleStateChange(delhi.id, filtered);
-        } else {
-          // Already has a state selected — load its districts
-          locationAPI.getDistricts(value.state_id).then(r => setDistricts(r.districts || []));
-        }
+        // Don't auto-select any state - let user choose
       });
     });
   }, []);
 
-  const handleStateChange = async (stateId, stateList) => {
+  // When state_id changes (including from GPS), load districts
+  React.useEffect(() => {
+    if (value.state_id) {
+      import('../../services/api').then(({ locationAPI }) => {
+        locationAPI.getDistricts(value.state_id)
+          .then(r => {
+            const districtList = r.districts || [];
+            setDistricts(districtList);
+            // If there's only one district and none selected, auto-select it
+            if (districtList.length === 1 && !value.district_id) {
+              onChange({ ...value, district_id: districtList[0].id });
+            }
+          })
+          .catch(err => console.warn('Failed to load districts for state', value.state_id, err));
+      });
+    } else {
+      setDistricts([]);
+    }
+  }, [value.state_id]);
+
+  // When district_id changes (including from GPS), load talukas, corporations, municipalities
+  React.useEffect(() => {
+    if (!value.district_id) {
+      setTalukas([]);
+      setCorporations([]);
+      setMunicipalities([]);
+      return;
+    }
+
+    const loadLocationData = async () => {
+      try {
+        const { locationAPI } = await import('../../services/api');
+        const [tRes, cRes, mRes] = await Promise.all([
+          locationAPI.getTalukas(value.district_id),
+          locationAPI.getCorporations(value.district_id),
+          locationAPI.getMunicipalities(value.district_id)
+        ]);
+        
+        console.log('[LocationSelector] Loaded talukas:', tRes.talukas?.length || 0);
+        console.log('[LocationSelector] Loaded corporations:', cRes.corporations?.length || 0);
+        console.log('[LocationSelector] Loaded municipalities:', mRes.municipalities?.length || 0);
+        
+        setTalukas(tRes.talukas || []);
+        setCorporations(cRes.corporations || []);
+        setMunicipalities(mRes.municipalities || []);
+      } catch (err) {
+        console.error('[LocationSelector] Failed to load location data for district', value.district_id, err);
+        setTalukas([]);
+        setCorporations([]);
+        setMunicipalities([]);
+      }
+    };
+
+    loadLocationData();
+  }, [value.district_id]);
+
+  // When taluka_id changes (including from GPS), load mandals
+  React.useEffect(() => {
+    if (!value.taluka_id) {
+      setMandals([]);
+      return;
+    }
+
+    const loadMandals = async () => {
+      try {
+        const { locationAPI } = await import('../../services/api');
+        const res = await locationAPI.getMandals(value.taluka_id);
+        console.log('[LocationSelector] Loaded mandals:', res.mandals?.length || 0);
+        setMandals(res.mandals || []);
+      } catch (err) {
+        console.error('[LocationSelector] Failed to load mandals for taluka', value.taluka_id, err);
+        setMandals([]);
+      }
+    };
+
+    loadMandals();
+  }, [value.taluka_id]);
+
+  // When mandal_id changes, load gram panchayats
+  React.useEffect(() => {
+    if (!value.mandal_id) {
+      setGramPanchayats([]);
+      return;
+    }
+
+    const loadGramPanchayats = async () => {
+      try {
+        const { locationAPI } = await import('../../services/api');
+        const res = await locationAPI.getGramPanchayats(value.mandal_id);
+        console.log('[LocationSelector] Loaded gram panchayats:', res.gram_panchayats?.length || 0);
+        setGramPanchayats(res.gram_panchayats || []);
+      } catch (err) {
+        console.error('[LocationSelector] Failed to load gram panchayats for mandal', value.mandal_id, err);
+        setGramPanchayats([]);
+      }
+    };
+
+    loadGramPanchayats();
+  }, [value.mandal_id]);
+
+  const handleStateChange = (stateId, stateList) => {
     const list = stateList || states;
     const stateName = list.find(s => s.id === stateId)?.name || '';
     onChange({ ...value, state_id: stateId, state_name: stateName, district_id: '', taluka_id: '', mandal_id: '', gram_panchayat_id: '' });
-    if (stateId) {
-      const { locationAPI } = await import('../../services/api');
-      const res = await locationAPI.getDistricts(stateId);
-      setDistricts(res.districts || []);
-    }
   };
 
-  const handleDistrictChange = async (districtId) => {
+  const handleDistrictChange = (districtId) => {
     onChange({ ...value, district_id: districtId, taluka_id: '', mandal_id: '', gram_panchayat_id: '' });
-    if (districtId) {
-      const { locationAPI } = await import('../../services/api');
-      const [tRes, cRes, mRes] = await Promise.all([
-        locationAPI.getTalukas(districtId),
-        locationAPI.getCorporations(districtId),
-        locationAPI.getMunicipalities(districtId)
-      ]);
-      setTalukas(tRes.talukas || []);
-      setCorporations(cRes.corporations || []);
-      setMunicipalities(mRes.municipalities || []);
-    }
   };
 
-  const handleTalukaChange = async (talukaId) => {
+  const handleTalukaChange = (talukaId) => {
     onChange({ ...value, taluka_id: talukaId, mandal_id: '', gram_panchayat_id: '' });
-    if (talukaId) {
-      const { locationAPI } = await import('../../services/api');
-      const res = await locationAPI.getMandals(talukaId);
-      setMandals(res.mandals || []);
-    }
+    // Mandals will be loaded by the useEffect when taluka_id changes
   };
 
-  const handleMandalChange = async (mandalId) => {
+  const handleMandalChange = (mandalId) => {
     onChange({ ...value, mandal_id: mandalId, gram_panchayat_id: '' });
-    if (mandalId) {
-      const { locationAPI } = await import('../../services/api');
-      const res = await locationAPI.getGramPanchayats(mandalId);
-      setGramPanchayats(res.gram_panchayats || []);
-    }
+    // Gram panchayats will be loaded by the useEffect when mandal_id changes
   };
 
   return (

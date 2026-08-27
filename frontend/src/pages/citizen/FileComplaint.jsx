@@ -96,7 +96,9 @@ export default function FileComplaint() {
       const saved = localStorage.getItem('complaint_draft');
       if (saved) {
         // Defer toast to after first render
-        return JSON.parse(saved);
+        const restored = JSON.parse(saved);
+        // Don't restore state_id - let user select fresh
+        return { ...restored, state_id: '', state_name: '', district_id: '', taluka_id: '', mandal_id: '', gram_panchayat_id: '', corporation_id: '', municipality_id: '' };
       }
     } catch { }
     return DEFAULT_FORM;
@@ -228,7 +230,7 @@ export default function FileComplaint() {
           const addr = [d.address?.road, d.address?.suburb, d.address?.city || d.address?.town].filter(Boolean).join(', ');
           setForm(p => ({ ...p, address: addr || d.display_name, pincode: d.address?.postcode || '' }));
 
-          // Auto-match state from GPS to set state_id for correct dept routing
+          // Auto-match state, district, taluka, and mandal from GPS
           const gpsStateName = d.address?.state || null;
           if (gpsStateName) {
             try {
@@ -238,23 +240,115 @@ export default function FileComplaint() {
                 s.name.toLowerCase().includes(gpsStateName.toLowerCase())
               );
               if (matched) {
-                // Also fetch districts and try to match
                 const distRes = await locationAPI.getDistricts(matched.id);
-                const gpsDistrict = d.address?.county || d.address?.state_district || d.address?.city_district || null;
-                const matchedDistrict = gpsDistrict
-                  ? (distRes.districts || []).find(dist =>
-                      dist.name.toLowerCase().includes(gpsDistrict.toLowerCase()) ||
-                      gpsDistrict.toLowerCase().includes(dist.name.toLowerCase())
-                    )
-                  : null;
+                const allDistricts = distRes.districts || [];
+                
+                const districtCandidates = [
+                  d.address?.district,
+                  d.address?.county,
+                  d.address?.state_district,
+                  d.address?.city_district,
+                  d.address?.city,
+                  d.address?.municipality,
+                  d.address?.suburb
+                ].filter(Boolean);
+                
+                let matchedDistrict = null;
+                let matchedTaluka = null;
+                let matchedMandal = null;
+                
+                // Try to match district
+                for (const candidate of districtCandidates) {
+                  matchedDistrict = allDistricts.find(dist => {
+                    const candLower = candidate.toLowerCase().trim();
+                    const distLower = dist.name.toLowerCase().trim();
+                    return candLower === distLower || 
+                           candLower.includes(distLower) || 
+                           distLower.includes(candLower);
+                  });
+                  if (matchedDistrict) break;
+                }
+                
+                // If no district match, try to find it via mandal
+                if (!matchedDistrict && allDistricts.length > 0) {
+                  const mandalCandidates = [d.address?.suburb, d.address?.village, d.address?.hamlet].filter(Boolean);
+                  
+                  if (mandalCandidates.length > 0) {
+                    for (const dist of allDistricts) {
+                      try {
+                        const talukaRes = await locationAPI.getTalukas(dist.id);
+                        const talukas = talukaRes.talukas || [];
+                        
+                        for (const taluka of talukas) {
+                          const mandalRes = await locationAPI.getMandals(taluka.id);
+                          const mandals = mandalRes.mandals || [];
+                          
+                          const foundMandal = mandals.find(m => 
+                            mandalCandidates.some(mc => 
+                              m.name.toLowerCase().includes(mc.toLowerCase()) ||
+                              mc.toLowerCase().includes(m.name.toLowerCase())
+                            )
+                          );
+                          
+                          if (foundMandal) {
+                            matchedDistrict = dist;
+                            matchedTaluka = taluka;
+                            matchedMandal = foundMandal;
+                            break;
+                          }
+                        }
+                        if (matchedDistrict) break;
+                      } catch {
+                        // Skip if this district fails
+                      }
+                    }
+                  }
+                } else if (matchedDistrict) {
+                  // If district is matched, try to match taluka and mandal
+                  const mandalCandidates = [d.address?.suburb, d.address?.village, d.address?.hamlet].filter(Boolean);
+                  
+                  if (mandalCandidates.length > 0) {
+                    try {
+                      const talukaRes = await locationAPI.getTalukas(matchedDistrict.id);
+                      const talukas = talukaRes.talukas || [];
+                      
+                      for (const taluka of talukas) {
+                        const mandalRes = await locationAPI.getMandals(taluka.id);
+                        const mandals = mandalRes.mandals || [];
+                        
+                        const foundMandal = mandals.find(m => 
+                          mandalCandidates.some(mc => 
+                            m.name.toLowerCase().includes(mc.toLowerCase()) ||
+                            mc.toLowerCase().includes(m.name.toLowerCase())
+                          )
+                        );
+                        
+                        if (foundMandal) {
+                          matchedTaluka = taluka;
+                          matchedMandal = foundMandal;
+                          break;
+                        }
+                      }
+                    } catch {
+                      // Silent fail - user can select manually
+                    }
+                  }
+                }
+
                 setForm(p => ({
                   ...p,
                   state_id: matched.id,
                   state_name: matched.name,
                   district_id: matchedDistrict?.id || '',
+                  taluka_id: matchedTaluka?.id || '',
+                  mandal_id: matchedMandal?.id || '',
                 }));
+                
+                console.log('[GPS] Matched - District:', matchedDistrict?.name, 'Taluka:', matchedTaluka?.name, 'Mandal:', matchedMandal?.name);
               }
-            } catch { /* silent — user can select manually */ }
+            } catch (err) { 
+              console.warn('GPS location matching failed:', err);
+            }
           }
         } catch { }
         setGettingGPS(false);
@@ -887,11 +981,20 @@ export default function FileComplaint() {
               </div>
             )}
 
-            <div style={{ textAlign: 'center', margin: '8px 0 16px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              — {form.latitude ? 'optionally refine with dropdowns below' : 'or select your location manually below'} —
-            </div>
+            {form.latitude ? (
+              <div style={{ background: '#F3E5F5', border: '2px dashed #9C27B0', borderRadius: 'var(--radius)', padding: '12px 14px', marginBottom: 16, fontSize: '0.85rem', color: '#6A1B9A' }}>
+                <strong>✓ GPS Location Detected</strong>
+                <div style={{ marginTop: 4, fontSize: '0.8rem', opacity: 0.8 }}>
+                  State and district have been automatically filled based on your coordinates. You can modify them if needed.
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', margin: '8px 0 16px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                — or select your location manually below —
+              </div>
+            )}
 
-            {/* Location hierarchy */}
+            {/* Location hierarchy - enabled for editing */}
             <LocationSelector value={form} onChange={vals => setForm(p => ({ ...p, ...vals }))} required />
 
             <div className="form-group">

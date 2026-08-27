@@ -4,9 +4,11 @@ import toast from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
 import { locationAPI } from '../../services/api';
 import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function Register() {
   const { t } = useTranslation();
+  const { setActiveLang } = useLanguage();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [states, setStates] = useState([]);
@@ -314,8 +316,17 @@ export default function Register() {
           {step === 3 && (
             <div>
               <div className="form-group">
-                <label className="form-label">{t('register.pref_lang', 'Preferred Language')}</label>
-                <select className="form-control" value={form.preferred_language} onChange={e => set('preferred_language', e.target.value)}>
+                <label className="form-label">{t('register.preferred_language', 'Preferred Language')}</label>
+                <select className="form-control" value={form.preferred_language} onChange={e => {
+                  const lang = e.target.value;
+                  set('preferred_language', lang);
+                  // Change app language immediately - map language code to i18n format
+                  const langMap = {
+                    'en': 'en-IN', 'hi': 'hi-IN', 'te': 'te-IN', 'ta': 'ta-IN',
+                    'mr': 'mr-IN', 'kn': 'kn-IN', 'gu': 'gu-IN', 'bn': 'bn-IN', 'pa': 'pa-IN', 'ml': 'ml-IN', 'ur': 'ur-IN'
+                  };
+                  setActiveLang(langMap[lang] || 'en-IN');
+                }}>
                   <option value="en">English</option>
                   <option value="hi">हिंदी (Hindi)</option>
                   <option value="te">తెలుగు (Telugu)</option>
