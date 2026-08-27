@@ -87,18 +87,6 @@ export function ComplaintCard({ complaint, showCitizenInfo = false, actions }) {
         )}
       </div>
 
-      {/* Render image if available */}
-      {complaint.images?.length > 0 && (
-        <div style={{ padding: '0 16px', marginBottom: 12 }}>
-          <img
-            src={complaint.images[0]}
-            alt={`Photo for complaint ${complaint.ticket_number}`}
-            loading="lazy"
-            style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 'var(--radius-sm)' }}
-          />
-        </div>
-      )}
-
       <div className="complaint-meta">
         <CategoryChip category={complaint.category} />
 
@@ -223,7 +211,11 @@ export function LocationSelector({ value, onChange, required = false }) {
         // Auto-select Delhi by default only if nothing chosen yet
         if (!value.state_id) {
           const delhi = filtered.find(s => s.name === 'Delhi');
+<<<<<<< HEAD
+          if (delhi) handleStateChange(delhi.id);
+=======
           if (delhi) handleStateChange(delhi.id, filtered);
+>>>>>>> b373212 (Revert "autofill_location")
         } else {
           // Already has a state selected — load its districts
           locationAPI.getDistricts(value.state_id).then(r => setDistricts(r.districts || []));
@@ -232,10 +224,15 @@ export function LocationSelector({ value, onChange, required = false }) {
     });
   }, []);
 
+<<<<<<< HEAD
+  const handleStateChange = async (stateId) => {
+    onChange({ ...value, state_id: stateId, district_id: '', taluka_id: '', mandal_id: '', gram_panchayat_id: '' });
+=======
   const handleStateChange = async (stateId, stateList) => {
     const list = stateList || states;
     const stateName = list.find(s => s.id === stateId)?.name || '';
     onChange({ ...value, state_id: stateId, state_name: stateName, district_id: '', taluka_id: '', mandal_id: '', gram_panchayat_id: '' });
+>>>>>>> b373212 (Revert "autofill_location")
     if (stateId) {
       const { locationAPI } = await import('../../services/api');
       const res = await locationAPI.getDistricts(stateId);

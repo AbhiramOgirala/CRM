@@ -6,19 +6,14 @@ import { LocationSelector } from '../../components/common';
 import SpeakButton from '../../components/ui/SpeakButton';
 import { buildFieldPrompt, buildDescriptionReadout, buildClassificationReadout } from '../../hooks/useTextToSpeech';
 import { useLanguage } from '../../context/LanguageContext';
-import { useTranslation } from 'react-i18next';
-
-import { openDB } from 'idb';
 
 const LANG_CODES = {
   en: 'en-IN', hi: 'hi-IN', te: 'te-IN', ta: 'ta-IN',
-  mr: 'mr-IN', kn: 'kn-IN', gu: 'gu-IN', bn: 'bn-IN', pa: 'pa-IN',
-  ml: 'ml-IN', ur: 'ur-IN'
+  mr: 'mr-IN', kn: 'kn-IN', gu: 'gu-IN', bn: 'bn-IN', pa: 'pa-IN'
 };
 const LANG_LABELS = {
   en: 'English', hi: 'हिंदी', te: 'తెలుగు', ta: 'தமிழ்',
-  mr: 'मराठी', kn: 'ಕನ್ನಡ', gu: 'ગુજરાતી', bn: 'বাংলা', pa: 'ਪੰਜਾਬੀ',
-  ml: 'മലയാളം', ur: 'اردو'
+  mr: 'मराठी', kn: 'ಕನ್ನಡ', gu: 'ગુજરાતી', bn: 'বাংলা', pa: 'ਪੰਜਾਬੀ'
 };
 
 const DEPT_COLORS = {
@@ -38,18 +33,14 @@ export default function FileComplaint() {
   const [recognition, setRecognition] = useState(null);
   const [nlpResult, setNlpResult] = useState(null);
   const [nlpLoading, setNlpLoading] = useState(false);
-  const [resolvedDept, setResolvedDept] = useState(null); // city-aware dept for Step 3 preview
   const [imageAnalysisResult, setImageAnalysisResult] = useState(null);
   const [imageAnalysisLoading, setImageAnalysisLoading] = useState(false);
-  const [generatingTitle, setGeneratingTitle] = useState(false);
   const nlpTimer = useRef(null);
-  const { activeLang, setActiveLang } = useLanguage();
-  const { t } = useTranslation();
-
-  // Convert activeLang (e.g., 'te-IN') to short code (e.g., 'te')
-  const selectedLang = activeLang.split('-')[0];
+  const [selectedLang, setSelectedLangLocal] = useState('en');
+  const { setActiveLang } = useLanguage();
 
   const setSelectedLang = (code) => {
+    setSelectedLangLocal(code);
     setActiveLang(LANG_CODES[code] || 'en-IN');
   };
 
@@ -61,35 +52,6 @@ export default function FileComplaint() {
     is_public: true, is_anonymous: false, images: []
   };
 
-  const resetDraftAndStartNew = () => {
-    const hasAnyData = !!(
-      form.title || form.description || form.audio_transcript ||
-      form.images?.length || form.address || form.latitude || form.longitude
-    );
-
-    if (hasAnyData) {
-      const ok = window.confirm('Trash current draft and start a new complaint?');
-      if (!ok) return;
-    }
-
-    localStorage.removeItem('complaint_draft');
-    // Cleanup legacy key if present from older builds.
-    localStorage.removeItem('complaintDraft');
-
-    setForm(DEFAULT_FORM);
-    setStep(1);
-    setNlpResult(null);
-    setImageAnalysisResult(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-
-    if (isRecording && recognition) {
-      recognition.stop();
-      setIsRecording(false);
-    }
-
-    toast.success('Draft trashed. You can file a new complaint now.');
-  };
-
   // Restore draft or start fresh
   const [form, setForm] = useState(() => {
     try {
@@ -98,7 +60,7 @@ export default function FileComplaint() {
         // Defer toast to after first render
         return JSON.parse(saved);
       }
-    } catch { }
+    } catch {}
     return DEFAULT_FORM;
   });
 
@@ -124,7 +86,7 @@ export default function FileComplaint() {
           toast('Draft restored. Your previous progress has been saved.', { icon: 'restore' });
         }
       }
-    } catch { }
+    } catch {}
   }, []); // Only on mount
 
   // ── Voice Recognition Setup ──────────────────────────────────────
@@ -191,30 +153,6 @@ export default function FileComplaint() {
     triggerNLPPreview(form.description);
   }, [form.description, form.title]);
 
-  const autoGenerateTitle = async () => {
-    const text = [form.description, form.audio_transcript].filter(Boolean).join(' ').trim();
-    if (!text || text.length < 10) {
-      toast.error('Please describe the issue first');
-      return;
-    }
-
-    setGeneratingTitle(true);
-    try {
-      // Pass the text to backend - it will detect language and generate title in that language
-      const res = await nlpAPI.generateTitle(text, nlpResult?.category, nlpResult?.priority);
-      if (res?.title) {
-        setForm(prev => ({ ...prev, title: res.title }));
-        toast.success('Title generated');
-      } else {
-        toast.error('Could not generate title');
-      }
-    } catch (err) {
-      toast.error(err.message || 'Failed to generate title');
-    } finally {
-      setGeneratingTitle(false);
-    }
-  };
-
   // ── GPS Location ─────────────────────────────────────────────────
   const getGPS = () => {
     if (!navigator.geolocation) { toast.error('GPS not available on this device'); return; }
@@ -227,6 +165,9 @@ export default function FileComplaint() {
           const d = await r.json();
           const addr = [d.address?.road, d.address?.suburb, d.address?.city || d.address?.town].filter(Boolean).join(', ');
           setForm(p => ({ ...p, address: addr || d.display_name, pincode: d.address?.postcode || '' }));
+<<<<<<< HEAD
+        } catch {}
+=======
 
           // Auto-match state from GPS to set state_id for correct dept routing
           const gpsStateName = d.address?.state || null;
@@ -257,6 +198,7 @@ export default function FileComplaint() {
             } catch { /* silent — user can select manually */ }
           }
         } catch { }
+>>>>>>> b373212 (Revert "autofill_location")
         setGettingGPS(false);
         toast.success('GPS location captured!');
       },
@@ -287,22 +229,22 @@ export default function FileComplaint() {
       formData.append('category', nlpResult.category);
       formData.append('description', form.description);
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/image/analyze`, {
+      const res = await fetch('http://localhost:5001/api/image/analyze', {
         method: 'POST',
         body: formData
       });
 
       console.log('[AutoAnalyzeImage] Response status:', res.status);
-
+      
       if (!res.ok) {
         const errorText = await res.text();
         console.error('[AutoAnalyzeImage] Error response:', errorText);
         throw new Error(`Server error: ${res.status} - ${errorText}`);
       }
-
+      
       const data = await res.json();
       console.log('[AutoAnalyzeImage] Success:', data);
-
+      
       setImageAnalysisResult(data);
       toast.success('Image analysis complete!');
     } catch (err) {
@@ -313,80 +255,27 @@ export default function FileComplaint() {
     }
   };
 
-  const fileToDataURL = (file) => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = ev => resolve(ev.target.result);
-    reader.onerror = () => reject(new Error('Failed to read image file'));
-    reader.readAsDataURL(file);
-  });
-
-  // ── Image Upload with Compression + Auto-Analysis ───────────────
-  const handleImages = async (e) => {
-    const selectedFiles = Array.from(e.target.files || []);
-    if (!selectedFiles.length) return;
-
-    const imageFiles = selectedFiles.filter(file => file.type?.startsWith('image/'));
-    if (imageFiles.length !== selectedFiles.length) {
-      toast.error('Only image files are allowed');
-    }
-
-    const remainingSlots = Math.max(0, 5 - form.images.length);
-    if (remainingSlots === 0) {
-      toast.error('Maximum 5 photos already added');
-      e.target.value = '';
-      return;
-    }
-
-    const files = imageFiles.slice(0, remainingSlots);
-    if (imageFiles.length > remainingSlots) {
-      toast(`Only ${remainingSlots} more photo(s) can be added (max 5)`);
-    }
-
-    setLoading(true);
-    try {
-      let imageCompression;
-      try {
-        imageCompression = (await import('browser-image-compression')).default;
-      } catch (err) {
-        console.error('Failed to load image compression library', err);
-      }
-
-      const compressedFiles = [];
-      const options = {
-        maxSizeMB: 0.5,
-        maxWidthOrHeight: 1280,
-        useWebWorker: true
-      };
-
-      for (const file of files) {
-        if (imageCompression) {
-          try {
-            const compressed = await imageCompression(file, options);
-            compressedFiles.push(compressed);
-          } catch (err) {
-            console.warn('Compression failed, using original', err);
-            compressedFiles.push(file);
+  // ── Image Upload with Auto-Analysis ─────────────────────────────
+  const handleImages = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length + form.images.length > 5) { toast.error('Max 5 photos allowed'); return; }
+    
+    let filesProcessed = 0;
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        filesProcessed++;
+        setForm(p => {
+          const updatedForm = { ...p, images: [...p.images, ev.target.result] };
+          // Trigger auto-analysis when first image is loaded
+          if (filesProcessed === 1 && nlpResult && nlpResult.category) {
+            analyzeImageContent(updatedForm.images);
           }
-        } else {
-          compressedFiles.push(file);
-        }
-      }
-
-      const imageDataUrls = await Promise.all(compressedFiles.map(fileToDataURL));
-      setForm(prev => {
-        const updatedImages = [...prev.images, ...imageDataUrls];
-        if (imageDataUrls.length > 0 && nlpResult && nlpResult.category) {
-          analyzeImageContent(updatedImages);
-        }
-        return { ...prev, images: updatedImages };
-      });
-    } catch (err) {
-      console.error('Failed to process selected images', err);
-      toast.error('Could not process selected images. Please try again.');
-    } finally {
-      setLoading(false);
-      e.target.value = '';
-    }
+          return updatedForm;
+        });
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   // ── Validation ───────────────────────────────────────────────────
@@ -416,34 +305,12 @@ export default function FileComplaint() {
       const { complaint, auto_detection } = res;
       // Clear draft on success
       localStorage.removeItem('complaint_draft');
+      toast.success(
+        `Complaint filed!\nTicket: ${complaint.ticket_number}\nRouted to: ${auto_detection?.department}`,
+        { duration: 5000 }
+      );
       navigate(`/complaint/${complaint.id}`);
     } catch (err) {
-      // Check if it's a network error (offline)
-      if (!window.navigator.onLine || err.message.includes('Cannot connect to server')) {
-        if ('serviceWorker' in navigator && 'SyncManager' in window) {
-          try {
-            const db = await openDB('jansamadhan-db', 1, {
-              upgrade(db) {
-                if (!db.objectStoreNames.contains('complaints-sync')) {
-                  db.createObjectStore('complaints-sync', { keyPath: 'id', autoIncrement: true });
-                }
-              },
-            });
-            const token = localStorage.getItem('token');
-            await db.add('complaints-sync', { data: form, token, timestamp: Date.now() });
-
-            const reg = await navigator.serviceWorker.ready;
-            await reg.sync.register('sync-complaints');
-
-            localStorage.removeItem('complaint_draft');
-            toast.success('No connection. Your complaint has been queued and will be submitted automatically when you are back online.');
-            navigate('/my-complaints');
-            return;
-          } catch (syncErr) {
-            console.error('Failed to queue for sync:', syncErr);
-          }
-        }
-      }
       toast.error(err.message || 'Failed to file complaint. Please try again.');
     } finally {
       setLoading(false);
@@ -453,52 +320,13 @@ export default function FileComplaint() {
   const priorityColor = { critical: '#B71C1C', high: '#E65100', medium: '#F57F17', low: '#33691E' };
   const deptColor = nlpResult?.departmentCode ? (DEPT_COLORS[nlpResult.departmentCode] || '#1A237E') : '#1A237E';
 
-  // City-aware dept resolution for Step 3 preview
-  const CITY_DEPT_NAMES = {
-    'Telangana':    { roads:'GHMC', infrastructure:'GHMC', waste_management:'GHMC', parks:'GHMC', public_services:'GHMC', street_lights:'GHMC', water_supply:'HMWSSB', drainage:'HMWSSB', electricity:'TSSPDCL', law_enforcement:'HYDPOL', noise_pollution:'HYDPOL', health:'TSHFW', education:'TSEDU', other:'GHMC' },
-    'Maharashtra':  { roads:'BMC',  infrastructure:'BMC',  waste_management:'BMC',  parks:'BMC',  public_services:'BMC',  street_lights:'BMC',  water_supply:'MWRRA',  drainage:'MWRRA',  electricity:'MSEDCL', law_enforcement:'MUMPOL', noise_pollution:'MUMPOL', health:'MHFW', education:'MHEDU', other:'BMC' },
-    'West Bengal':  { roads:'KMC',  infrastructure:'KMC',  waste_management:'KMC',  parks:'KMC',  public_services:'KMC',  street_lights:'KMC',  water_supply:'WBPHED', drainage:'WBPHED', electricity:'CESC',   law_enforcement:'KOLPOL', noise_pollution:'KOLPOL', health:'WBHFW', education:'WBEDU', other:'KMC' },
-    'Karnataka':    { roads:'BBMP', infrastructure:'BBMP', waste_management:'BBMP', parks:'BBMP', public_services:'BBMP', street_lights:'BBMP', water_supply:'BWSSB',  drainage:'BWSSB',  electricity:'BESCOM', law_enforcement:'BLRPOL', noise_pollution:'BLRPOL', health:'KARHFW', education:'KAREDU', other:'BBMP' },
-  };
-  const DEPT_DISPLAY_NAMES = {
-    GHMC:'GHMC (Hyderabad)', HMWSSB:'HMWSSB (Water)', TSSPDCL:'TSSPDCL (Electricity)',
-    BMC:'BMC (Mumbai)', MWRRA:'MWRRA (Water)', MSEDCL:'MSEDCL (Electricity)',
-    KMC:'KMC (Kolkata)', WBPHED:'WBPHED (Water)', CESC:'CESC (Electricity)',
-    BBMP:'BBMP (Bengaluru)', BWSSB:'BWSSB (Water)', BESCOM:'BESCOM (Electricity)',
-    MCD:'MCD (Delhi)', DJB:'DJB (Water)', BSES:'BSES (Electricity)',
-  };
-
-  // Resolve dept display for Step 3 — uses state name from locationAPI if available
-  const getStep3Dept = () => {
-    if (!nlpResult) return null;
-    if (!form.state_id) return nlpResult.department;
-    // Find state name from the selected state_id via the location selector's stored name
-    // We store it in form as state_name when LocationSelector fires onChange
-    const stateName = form.state_name;
-    if (!stateName) return nlpResult.department;
-    const cityMap = CITY_DEPT_NAMES[stateName];
-    if (!cityMap) return nlpResult.department;
-    const code = cityMap[nlpResult.category] || cityMap.other;
-    return DEPT_DISPLAY_NAMES[code] || code;
-  };
-
-  const step3Dept = getStep3Dept();
-
   return (
     <div style={{ maxWidth: 720, margin: '0 auto' }}>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+      <div className="page-header">
         <div>
-          <h1 className="page-title">{t('file_complaint.title', 'File a Complaint')}</h1>
-          <p className="page-subtitle">{t('file_complaint.subtitle', 'Describe your issue — we\'ll automatically detect the right department')}</p>
+          <h1 className="page-title">File a Complaint</h1>
+          <p className="page-subtitle">Describe your issue — we'll automatically detect the right department</p>
         </div>
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm"
-          onClick={resetDraftAndStartNew}
-          title="Trash draft and start a new complaint"
-        >
-          Trash Draft
-        </button>
       </div>
 
       {/* Step indicator */}
@@ -507,7 +335,7 @@ export default function FileComplaint() {
         borderRadius: 'var(--radius)', padding: '16px 24px', marginBottom: 20,
         display: 'flex', alignItems: 'center', gap: 0
       }}>
-        {[{ n: 1, label: t('file_complaint.step1_short', 'Describe Issue') }, { n: 2, label: t('file_complaint.step2_short', 'Location') }, { n: 3, label: t('file_complaint.step3_short', 'Submit') }]
+        {[{ n: 1, label: 'Describe Issue' }, { n: 2, label: 'Location' }, { n: 3, label: 'Submit' }]
           .map((s, i, arr) => (
             <React.Fragment key={s.n}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -536,28 +364,36 @@ export default function FileComplaint() {
         {/* ══ STEP 1: Describe Issue ══════════════════════════════════ */}
         {step === 1 && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-              <div>
-                <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 700, marginBottom: 4 }}>
-                  {t('file_complaint.step1', 'Step 1: Describe Your Issue')}
-                </h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 0 }}>
-                  {t('file_complaint.step1_desc', 'Type or speak your complaint in any language. Our system will automatically identify the department.')}
-                </p>
+            <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 700, marginBottom: 4 }}>
+              Step 1: Describe Your Issue
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 20 }}>
+              Type or speak your complaint in any language. Our system will automatically identify the department.
+            </p>
+
+            {/* Language selector */}
+            <div className="form-group">
+              <label className="form-label">Select Your Language</label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {Object.entries(LANG_LABELS).map(([code, label]) => (
+                  <button key={code} type="button"
+                    onClick={() => setSelectedLang(code)}
+                    style={{
+                      padding: '6px 14px', borderRadius: 20, border: '2px solid',
+                      borderColor: selectedLang === code ? 'var(--primary)' : 'var(--border)',
+                      background: selectedLang === code ? 'var(--primary-light)' : 'white',
+                      color: selectedLang === code ? 'var(--primary)' : 'var(--text-secondary)',
+                      fontWeight: selectedLang === code ? 700 : 400,
+                      fontSize: '0.82rem', cursor: 'pointer', transition: 'all 0.15s'
+                    }}>
+                    {label}
+                  </button>
+                ))}
               </div>
-              <button
-                type="button"
-                onClick={resetDraftAndStartNew}
-                className="btn btn-ghost btn-sm"
-                style={{ flexShrink: 0, marginLeft: 16 }}
-                title="Clear draft and start fresh"
-              >
-                🗑️ Clear Draft
-              </button>
             </div>
 
             <div className="form-group">
-              <label className="form-label">{t('file_complaint.voice_input', 'Voice Input (Speak your complaint)')}</label>
+              <label className="form-label">Voice Input (Speak your complaint)</label>
               {voiceSupported ? (
                 <button
                   type="button"
@@ -577,15 +413,15 @@ export default function FileComplaint() {
                     {isRecording ? 'REC' : 'MIC'}
                   </div>
                   <div>
-                    <div>{isRecording ? 'Recording... Tap to stop' : 'Speak in your language'}</div>
+                    <div>{isRecording ? 'Recording... Tap to stop' : `Speak in ${LANG_LABELS[selectedLang]}`}</div>
                     {isRecording && <div style={{ fontSize: '0.75rem', opacity: 0.7, fontWeight: 400 }}>Listening for your complaint...</div>}
                   </div>
                   {isRecording && (
                     <div style={{ display: 'flex', gap: 3, alignItems: 'center' }}>
-                      {[1, 2, 3, 4].map(i => (
+                      {[1,2,3,4].map(i => (
                         <div key={i} style={{
                           width: 4, background: '#C62828', borderRadius: 2,
-                          animation: `wave ${0.4 + i * 0.1}s ease-in-out infinite alternate`,
+                          animation: `wave ${0.4 + i*0.1}s ease-in-out infinite alternate`,
                           height: `${8 + i * 4}px`
                         }} />
                       ))}
@@ -600,11 +436,11 @@ export default function FileComplaint() {
                   display: 'flex', alignItems: 'center', gap: 10
                 }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="1" y1="1" x2="23" y2="23" />
-                    <path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6" />
-                    <path d="M17 16.95A7 7 0 015 12v-2m14 0v2a7 7 0 01-.11 1.23" />
-                    <line x1="12" y1="19" x2="12" y2="23" />
-                    <line x1="8" y1="23" x2="16" y2="23" />
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                    <path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6"/>
+                    <path d="M17 16.95A7 7 0 015 12v-2m14 0v2a7 7 0 01-.11 1.23"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
                   </svg>
                   Voice input is not supported in your browser. Please use Chrome or Edge, or type your complaint below.
                 </div>
@@ -615,27 +451,17 @@ export default function FileComplaint() {
             {/* Title */}
             <div className="form-group">
               <div className="form-label-row">
-                <label className="form-label">{t('file_complaint.comp_title', 'Complaint Title')} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional — auto-generated if blank)</span></label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={autoGenerateTitle}
-                    disabled={generatingTitle}
-                  >
-                    {generatingTitle ? 'Generating...' : 'Auto Generate'}
-                  </button>
-                  <SpeakButton
-                    text={buildFieldPrompt('complaintTitle', '', LANG_CODES[selectedLang] || 'en-IN')}
-                    lang={LANG_CODES[selectedLang] || 'en-IN'}
-                    size="sm"
-                    translate={false}
-                  />
-                </div>
+                <label className="form-label">Complaint Title <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional — auto-generated if blank)</span></label>
+                <SpeakButton
+                  text={buildFieldPrompt('complaintTitle', '', LANG_CODES[selectedLang] || 'en-IN')}
+                  lang={LANG_CODES[selectedLang] || 'en-IN'}
+                  size="sm"
+                  translate={false}
+                />
               </div>
               <input
                 className="form-control"
-                placeholder={t('file_complaint.comp_title_ph', 'e.g., Road pothole near market, No water supply in colony...')}
+                placeholder="e.g., Road pothole near market, No water supply in colony..."
                 value={form.title}
                 onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
                 maxLength={200}
@@ -646,7 +472,7 @@ export default function FileComplaint() {
             <div className="form-group">
               <div className="form-label-row">
                 <label className="form-label">
-                  {t('file_complaint.desc_prob', 'Describe the Problem')} <span className="required">*</span>
+                  Describe the Problem <span className="required">*</span>
                 </label>
                 <SpeakButton
                   text={buildFieldPrompt('describeIssue', '', LANG_CODES[selectedLang] || 'en-IN')}
@@ -657,7 +483,7 @@ export default function FileComplaint() {
               </div>
               <textarea
                 className="form-control"
-                placeholder={t('file_complaint.desc_prob_ph', 'Please provide as much detail as possible')}
+                placeholder={`Type your complaint here in ${LANG_LABELS[selectedLang]}...\n\nExample: There is a large pothole on the main road near the railway station. It has been there for 2 weeks and caused 3 accidents already. Please repair urgently.`}
                 value={form.description}
                 onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
                 rows={6}
@@ -687,7 +513,7 @@ export default function FileComplaint() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                   <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#1A1A2E' }}>
-                    {t('file_complaint.ai_det', 'AI Auto-Detection')}
+                    AI Auto-Detection
                   </span>
                   {nlpLoading && <div className="loading-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />}
                 </div>
@@ -766,15 +592,15 @@ export default function FileComplaint() {
               <label className="form-label">Add Photos <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional, max 5)</span></label>
               <div
                 className="image-upload-area"
-                onClick={() => form.images.length < 5 && fileInputRef.current?.click()}
+                onClick={() => fileInputRef.current?.click()}
                 style={{ padding: 20 }}
               >
                 <div style={{ fontSize: '1.2rem', marginBottom: 6, fontWeight: 700, color: 'var(--text-secondary)' }}>UPLOAD</div>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>
-                  {form.images.length >= 5 ? 'Maximum photos reached' : 'Click to upload photos of the issue'}
+                  Click to upload photos of the issue
                 </p>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '4px 0 0' }}>
-                  {form.images.length}/5 selected • Photos help resolve issues 2x faster
+                  Photos help resolve issues 2x faster
                 </p>
               </div>
               <input ref={fileInputRef} type="file" style={{ display: 'none' }} accept="image/*" multiple onChange={handleImages} />
@@ -843,7 +669,7 @@ export default function FileComplaint() {
             </div>
 
             <button type="button" className="btn btn-primary w-full btn-lg" onClick={() => validateStep() && setStep(2)}>
-              {t('file_complaint.next_loc', 'Next: Add Location')}
+              Next: Add Location
             </button>
           </div>
         )}
@@ -852,10 +678,10 @@ export default function FileComplaint() {
         {step === 2 && (
           <div>
             <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 700, marginBottom: 4 }}>
-              {t('file_complaint.step2', 'Step 2: Where is the Problem?')}
+              Step 2: Where is the Problem?
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 20 }}>
-              {t('file_complaint.step2_desc', 'Precise location ensures your complaint reaches the correct local authority')}
+              Precise location ensures your complaint reaches the correct local authority
             </p>
 
             {/* GPS Button */}
@@ -869,10 +695,10 @@ export default function FileComplaint() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10
               }}>
               {gettingGPS
-                ? <><div className="loading-spinner" style={{ width: 18, height: 18, borderWidth: 2, borderTopColor: 'white' }} /> {t('file_complaint.btn_gps_load', 'Getting your location...')}</>
+                ? <><div className="loading-spinner" style={{ width: 18, height: 18, borderWidth: 2, borderTopColor: 'white' }} /> Getting your location...</>
                 : form.latitude
                   ? `GPS Captured: ${parseFloat(form.latitude).toFixed(4)}, ${parseFloat(form.longitude).toFixed(4)}`
-                  : t('file_complaint.btn_gps', 'Use My Current GPS Location (Recommended)')
+                  : 'Use My Current GPS Location (Recommended)'
               }
             </button>
 
@@ -895,29 +721,29 @@ export default function FileComplaint() {
             <LocationSelector value={form} onChange={vals => setForm(p => ({ ...p, ...vals }))} required />
 
             <div className="form-group">
-              <label className="form-label">{t('file_complaint.landmark', 'Full Address')}</label>
+              <label className="form-label">Full Address</label>
               <textarea className="form-control" rows={2}
-                placeholder={t('file_complaint.landmark_ph', 'House No, Street Name, Area, Colony...')}
+                placeholder="House No, Street Name, Area, Colony..."
                 value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="form-group">
-                <label className="form-label">{t('file_complaint.landmark', 'Nearby Landmark')}</label>
-                <input className="form-control" placeholder={t('file_complaint.landmark_ph', 'Near school, temple, market...')}
+                <label className="form-label">Nearby Landmark</label>
+                <input className="form-control" placeholder="Near school, temple, market..."
                   value={form.landmark} onChange={e => setForm(p => ({ ...p, landmark: e.target.value }))} />
               </div>
               <div className="form-group">
-                <label className="form-label">{t('file_complaint.pincode', 'Pincode')}</label>
+                <label className="form-label">Pincode</label>
                 <input className="form-control" placeholder="6-digit pincode" maxLength="6"
                   value={form.pincode} onChange={e => setForm(p => ({ ...p, pincode: e.target.value }))} />
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>
-              <button type="button" className="btn btn-ghost w-full back-button" onClick={() => setStep(1)}>{t('file_complaint.btn_back', 'Back')}</button>
+              <button type="button" className="btn btn-ghost w-full" onClick={() => setStep(1)}>Back</button>
               <button type="button" className="btn btn-primary w-full btn-lg" onClick={() => validateStep() && setStep(3)}>
-                {t('file_complaint.btn_next', 'Next: Review & Submit')}
+                Next: Review & Submit
               </button>
             </div>
           </div>
@@ -927,21 +753,21 @@ export default function FileComplaint() {
         {step === 3 && (
           <form onSubmit={handleSubmit}>
             <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 700, marginBottom: 20 }}>
-              {t('file_complaint.step3', 'Step 3: Review & Submit')}
+              Step 3: Review & Submit
             </h2>
 
             {/* Summary */}
             <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16, marginBottom: 20 }}>
-              <h3 style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 12, color: 'var(--text-secondary)' }}>{t('file_complaint.sum', 'Complaint Summary')}</h3>
+              <h3 style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 12, color: 'var(--text-secondary)' }}>Complaint Summary</h3>
               <div style={{ display: 'grid', gap: 8, fontSize: '0.875rem' }}>
-                {form.title && <div><strong>{t('file_complaint.iss', 'Title')}:</strong> {form.title}</div>}
-                <div><strong>{t('file_complaint.desc_prob', 'Description')}:</strong> {(form.description || form.audio_transcript || '').substring(0, 120)}...</div>
-                {form.address && <div><strong>{t('file_complaint.loc', 'Address')}:</strong> {form.address}</div>}
+                {form.title && <div><strong>Title:</strong> {form.title}</div>}
+                <div><strong>Description:</strong> {(form.description || form.audio_transcript || '').substring(0, 120)}...</div>
+                {form.address && <div><strong>Address:</strong> {form.address}</div>}
                 {nlpResult && (
                   <>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
                       <span style={{ background: deptColor + '15', color: deptColor, borderRadius: 6, padding: '3px 10px', fontSize: '0.78rem', fontWeight: 700 }}>
-                        {step3Dept || nlpResult.department}
+                        {nlpResult.department}
                       </span>
                       <span style={{ background: priorityColor[nlpResult.priority] + '15', color: priorityColor[nlpResult.priority], borderRadius: 6, padding: '3px 10px', fontSize: '0.78rem', fontWeight: 700 }}>
                         {nlpResult.priority?.toUpperCase()} PRIORITY
@@ -1018,11 +844,11 @@ export default function FileComplaint() {
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>
-              <button type="button" className="btn btn-ghost w-full back-button" onClick={() => setStep(2)}>{t('file_complaint.btn_back', 'Back')}</button>
+              <button type="button" className="btn btn-ghost w-full" onClick={() => setStep(2)}>Back</button>
               <button type="submit" className="btn btn-primary w-full btn-lg" disabled={loading}>
                 {loading
-                  ? <><div className="loading-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> {t('file_complaint.btn_sub_load', 'Submitting...')}</>
-                  : t('file_complaint.btn_sub', 'Submit Complaint')
+                  ? <><div className="loading-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> Submitting...</>
+                  : 'Submit Complaint'
                 }
               </button>
             </div>
