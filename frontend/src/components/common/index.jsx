@@ -211,58 +211,128 @@ export function LocationSelector({ value, onChange, required = false }) {
         // Auto-select Delhi by default only if nothing chosen yet
         if (!value.state_id) {
           const delhi = filtered.find(s => s.name === 'Delhi');
-          if (delhi) handleStateChange(delhi.id, filtered);
-        } else {
-          // Already has a state selected — load its districts
-          locationAPI.getDistricts(value.state_id).then(r => setDistricts(r.districts || []));
+          if (delhi) {
+            onChange({
+              ...value,
+              state_id: delhi.id,
+              state_name: delhi.name,
+              district_id: '',
+              taluka_id: '',
+              mandal_id: '',
+              gram_panchayat_id: '',
+              corporation_id: '',
+              municipality_id: ''
+            });
+          }
         }
       });
     });
   }, []);
 
-  const handleStateChange = async (stateId, stateList) => {
-    const list = stateList || states;
-    const stateName = list.find(s => s.id === stateId)?.name || '';
-    onChange({ ...value, state_id: stateId, state_name: stateName, district_id: '', taluka_id: '', mandal_id: '', gram_panchayat_id: '' });
-    if (stateId) {
-      const { locationAPI } = await import('../../services/api');
-      const res = await locationAPI.getDistricts(stateId);
-      setDistricts(res.districts || []);
+  // Reactively fetch districts when state_id changes
+  React.useEffect(() => {
+    if (value.state_id) {
+      import('../../services/api').then(({ locationAPI }) => {
+        locationAPI.getDistricts(value.state_id).then(res => {
+          setDistricts(res.districts || []);
+        });
+      });
+    } else {
+      setDistricts([]);
     }
+  }, [value.state_id]);
+
+  // Reactively fetch talukas, corporations, and municipalities when district_id changes
+  React.useEffect(() => {
+    if (value.district_id) {
+      import('../../services/api').then(({ locationAPI }) => {
+        Promise.all([
+          locationAPI.getTalukas(value.district_id),
+          locationAPI.getCorporations(value.district_id),
+          locationAPI.getMunicipalities(value.district_id)
+        ]).then(([tRes, cRes, mRes]) => {
+          setTalukas(tRes.talukas || []);
+          setCorporations(cRes.corporations || []);
+          setMunicipalities(mRes.municipalities || []);
+        });
+      });
+    } else {
+      setTalukas([]);
+      setCorporations([]);
+      setMunicipalities([]);
+    }
+  }, [value.district_id]);
+
+  // Reactively fetch mandals when taluka_id changes
+  React.useEffect(() => {
+    if (value.taluka_id) {
+      import('../../services/api').then(({ locationAPI }) => {
+        locationAPI.getMandals(value.taluka_id).then(res => {
+          setMandals(res.mandals || []);
+        });
+      });
+    } else {
+      setMandals([]);
+    }
+  }, [value.taluka_id]);
+
+  // Reactively fetch gram panchayats when mandal_id changes
+  React.useEffect(() => {
+    if (value.mandal_id) {
+      import('../../services/api').then(({ locationAPI }) => {
+        locationAPI.getGramPanchayats(value.mandal_id).then(res => {
+          setGramPanchayats(res.gram_panchayats || []);
+        });
+      });
+    } else {
+      setGramPanchayats([]);
+    }
+  }, [value.mandal_id]);
+
+  const handleStateChange = (stateId) => {
+    const stateName = states.find(s => s.id === stateId)?.name || '';
+    onChange({
+      ...value,
+      state_id: stateId,
+      state_name: stateName,
+      district_id: '',
+      taluka_id: '',
+      mandal_id: '',
+      gram_panchayat_id: '',
+      corporation_id: '',
+      municipality_id: ''
+    });
   };
 
-  const handleDistrictChange = async (districtId) => {
-    onChange({ ...value, district_id: districtId, taluka_id: '', mandal_id: '', gram_panchayat_id: '' });
-    if (districtId) {
-      const { locationAPI } = await import('../../services/api');
-      const [tRes, cRes, mRes] = await Promise.all([
-        locationAPI.getTalukas(districtId),
-        locationAPI.getCorporations(districtId),
-        locationAPI.getMunicipalities(districtId)
-      ]);
-      setTalukas(tRes.talukas || []);
-      setCorporations(cRes.corporations || []);
-      setMunicipalities(mRes.municipalities || []);
-    }
+  const handleDistrictChange = (districtId) => {
+    onChange({
+      ...value,
+      district_id: districtId,
+      taluka_id: '',
+      mandal_id: '',
+      gram_panchayat_id: '',
+      corporation_id: '',
+      municipality_id: ''
+    });
   };
 
-  const handleTalukaChange = async (talukaId) => {
-    onChange({ ...value, taluka_id: talukaId, mandal_id: '', gram_panchayat_id: '' });
-    if (talukaId) {
-      const { locationAPI } = await import('../../services/api');
-      const res = await locationAPI.getMandals(talukaId);
-      setMandals(res.mandals || []);
-    }
+  const handleTalukaChange = (talukaId) => {
+    onChange({
+      ...value,
+      taluka_id: talukaId,
+      mandal_id: '',
+      gram_panchayat_id: ''
+    });
   };
 
-  const handleMandalChange = async (mandalId) => {
-    onChange({ ...value, mandal_id: mandalId, gram_panchayat_id: '' });
-    if (mandalId) {
-      const { locationAPI } = await import('../../services/api');
-      const res = await locationAPI.getGramPanchayats(mandalId);
-      setGramPanchayats(res.gram_panchayats || []);
-    }
+  const handleMandalChange = (mandalId) => {
+    onChange({
+      ...value,
+      mandal_id: mandalId,
+      gram_panchayat_id: ''
+    });
   };
+
 
   return (
     <div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { complaintsAPI } from '../../services/api';
 import { StatusBadge, PriorityBadge } from '../../components/common';
 import useAuthStore from '../../store/authStore';
@@ -19,6 +19,7 @@ const BADGE_COLORS = {
 
 export default function OfficerDashboard() {
   const { user, refreshProfile } = useAuthStore();
+  const location = useLocation();
   const [stats, setStats] = useState(null);
   const [myQueue, setMyQueue] = useState([]);
   const [escalated, setEscalated] = useState([]);
@@ -61,7 +62,7 @@ export default function OfficerDashboard() {
     };
     load();
     refreshProfile();
-  }, []);
+  }, [location.key]);
 
   const badge = GOVT_BADGE_DATA[user?.govt_badge] || GOVT_BADGE_DATA.new_officer;
   const badgeColor = BADGE_COLORS[user?.govt_badge] || BADGE_COLORS.new_officer;

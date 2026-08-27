@@ -248,9 +248,11 @@ export default function Navbar({ onMenuToggle }) {
           <Link to="/map" style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'none', fontSize: '0.85rem', padding: '6px 12px', borderRadius: 6, fontWeight: 500 }}>
             {t('nav_hotspot_map')}
           </Link>
-          <Link to="/leaderboard" style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'none', fontSize: '0.85rem', padding: '6px 12px', borderRadius: 6, fontWeight: 500 }}>
-            {t('nav_leaderboard')}
-          </Link>
+          {(!user || user.role !== 'citizen') && (
+            <Link to="/leaderboard" style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'none', fontSize: '0.85rem', padding: '6px 12px', borderRadius: 6, fontWeight: 500 }}>
+              {t('nav_leaderboard')}
+            </Link>
+          )}
         </div>
 
         <div className="navbar-actions">

@@ -178,42 +178,22 @@ export default function FileComplaint() {
       async ({ coords: { latitude, longitude } }) => {
         setForm(p => ({ ...p, latitude, longitude }));
         try {
-          const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
-          const d = await r.json();
-          const addr = [d.address?.road, d.address?.suburb, d.address?.city || d.address?.town].filter(Boolean).join(', ');
-          setForm(p => ({ ...p, address: addr || d.display_name, pincode: d.address?.postcode || '' }));
-
-          // Auto-match state from GPS to set state_id for correct dept routing
-          const gpsStateName = d.address?.state || null;
-          if (gpsStateName) {
-            try {
-              const statesRes = await locationAPI.getStates();
-              const matched = (statesRes.states || []).find(s =>
-                gpsStateName.toLowerCase().includes(s.name.toLowerCase()) ||
-                s.name.toLowerCase().includes(gpsStateName.toLowerCase())
-              );
-              if (matched) {
-                // Also fetch districts and try to match
-                const distRes = await locationAPI.getDistricts(matched.id);
-                const gpsDistrict = d.address?.county || d.address?.state_district || d.address?.city_district || null;
-                const matchedDistrict = gpsDistrict
-                  ? (distRes.districts || []).find(dist =>
-                      dist.name.toLowerCase().includes(gpsDistrict.toLowerCase()) ||
-                      gpsDistrict.toLowerCase().includes(dist.name.toLowerCase())
-                    )
-                  : null;
-                setForm(p => ({
-                  ...p,
-                  state_id: matched.id,
-                  state_name: matched.name,
-                  district_id: matchedDistrict?.id || '',
-                }));
-              }
-            } catch { /* silent — user can select manually */ }
-          }
-        } catch { }
+          const resolved = await locationAPI.resolveGPSLocation(latitude, longitude);
+          setForm(prev => ({
+            ...prev,
+            address: resolved.address || prev.address,
+            pincode: resolved.pincode || prev.pincode,
+            state_id: resolved.state_id || prev.state_id,
+            state_name: resolved.state_name || prev.state_name,
+            district_id: resolved.district_id || '',
+            taluka_id: resolved.taluka_id || '',
+            mandal_id: resolved.mandal_id || ''
+          }));
+          toast.success('GPS location captured!');
+        } catch {
+          toast.success('GPS location captured!');
+        }
         setGettingGPS(false);
-        toast.success('GPS location captured!');
       },
       () => { setGettingGPS(false); toast.error('Could not get location. Please enter manually.'); },
       { timeout: 10000, enableHighAccuracy: true }

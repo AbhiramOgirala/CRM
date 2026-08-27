@@ -86,8 +86,150 @@ export const locationAPI = {
   getMunicipalities: (did) => api.get(`/location/municipalities/${did}`),
   getTalukas: (did) => api.get(`/location/talukas/${did}`),
   getMandals: (tid) => api.get(`/location/mandals/${tid}`),
-  getGramPanchayats: (mid) => api.get(`/location/gram-panchayats/${mid}`)
+  getGramPanchayats: (mid) => api.get(`/location/gram-panchayats/${mid}`),
+  resolveGPSLocation: async (latitude, longitude) => {
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`);
+      const d = await r.json();
+      const addr = d.address || {};
+
+      const addressStr = [addr.road, addr.suburb, addr.neighbourhood, addr.city || addr.town || addr.village].filter(Boolean).join(', ');
+      const pincode = addr.postcode || '';
+
+      const searchTerms = new Set();
+      Object.values(addr).forEach(val => {
+        if (val) {
+          searchTerms.add(String(val).toLowerCase());
+          String(val).toLowerCase().split(/[\s\-]/).forEach(t => {
+            if (t && t.length > 2) searchTerms.add(t);
+          });
+        }
+      });
+      if (d.display_name) {
+        d.display_name.split(',').forEach(p => {
+          const clean = p.trim().toLowerCase();
+          if (clean) {
+            searchTerms.add(clean);
+            clean.split(/[\s\-]/).forEach(t => {
+              if (t && t.length > 2) searchTerms.add(t);
+            });
+          }
+        });
+      }
+
+      const hasTerm = (name) => {
+        if (!name) return false;
+        const norm = name.toLowerCase();
+        for (const term of searchTerms) {
+          if (term.includes(norm) || norm.includes(term)) return true;
+        }
+        return false;
+      };
+
+      const statesRes = await locationAPI.getStates();
+      const allStates = statesRes.states || [];
+      let matchedState = allStates.find(s => hasTerm(s.name));
+
+      if (!matchedState) {
+        const fullTxt = JSON.stringify(addr).toLowerCase();
+        if (fullTxt.includes('hyderabad') || fullTxt.includes('telangana')) {
+          matchedState = allStates.find(s => s.name === 'Telangana');
+        } else if (fullTxt.includes('mumbai') || fullTxt.includes('maharashtra')) {
+          matchedState = allStates.find(s => s.name === 'Maharashtra');
+        } else if (fullTxt.includes('kolkata') || fullTxt.includes('west bengal')) {
+          matchedState = allStates.find(s => s.name === 'West Bengal');
+        } else if (fullTxt.includes('bengaluru') || fullTxt.includes('karnataka')) {
+          matchedState = allStates.find(s => s.name === 'Karnataka');
+        } else if (fullTxt.includes('delhi')) {
+          matchedState = allStates.find(s => s.name === 'Delhi');
+        }
+      }
+
+      if (!matchedState) {
+        return { address: addressStr || d.display_name || '', pincode };
+      }
+
+      const distRes = await locationAPI.getDistricts(matchedState.id);
+      const districts = distRes.districts || [];
+
+      const districtData = await Promise.all(
+        districts.map(async (dist) => {
+          const tRes = await locationAPI.getTalukas(dist.id);
+          const talukas = tRes.talukas || [];
+          const talukaData = await Promise.all(
+            talukas.map(async (tal) => {
+              const mRes = await locationAPI.getMandals(tal.id);
+              return {
+                ...tal,
+                mandals: mRes.mandals || []
+              };
+            })
+          );
+          return {
+            ...dist,
+            talukas: talukaData
+          };
+        })
+      );
+
+      for (const dist of districtData) {
+        for (const tal of dist.talukas) {
+          for (const mandal of tal.mandals) {
+            if (hasTerm(mandal.name)) {
+              return {
+                address: addressStr || d.display_name || '',
+                pincode,
+                state_id: matchedState.id,
+                state_name: matchedState.name,
+                district_id: dist.id,
+                taluka_id: tal.id,
+                mandal_id: mandal.id
+              };
+            }
+          }
+        }
+      }
+
+      for (const dist of districtData) {
+        for (const tal of dist.talukas) {
+          if (hasTerm(tal.name)) {
+            return {
+              address: addressStr || d.display_name || '',
+              pincode,
+              state_id: matchedState.id,
+              state_name: matchedState.name,
+              district_id: dist.id,
+              taluka_id: tal.id
+            };
+          }
+        }
+      }
+
+      for (const dist of districtData) {
+        if (hasTerm(dist.name)) {
+          return {
+            address: addressStr || d.display_name || '',
+            pincode,
+            state_id: matchedState.id,
+            state_name: matchedState.name,
+            district_id: dist.id
+          };
+        }
+      }
+
+      return {
+        address: addressStr || d.display_name || '',
+        pincode,
+        state_id: matchedState.id,
+        state_name: matchedState.name
+      };
+    } catch (err) {
+      console.error('[resolveGPSLocation error]', err);
+      return { address: '', pincode: '' };
+    }
+  }
 };
+
 
 // ── Leaderboard ───────────────────────────────────────────────────────
 export const leaderboardAPI = {

@@ -65,7 +65,6 @@ const GET_CITIZEN_LINKS = (t) => [
   { to: '/my-complaints',  icon: Icons.list,         label: t('nav_my_complaints', 'My Complaints') },
   { to: '/feed',           icon: Icons.feed,         label: t('nav_public_feed', 'Public Feed') },
   { to: '/map',            icon: Icons.map,          label: t('nav_hotspot_map', 'Hotspot Map') },
-  { to: '/leaderboard',    icon: Icons.leaderboard,  label: t('nav_leaderboard', 'Leaderboard') },
   { to: '/profile',        icon: Icons.profile,      label: t('nav_my_profile', 'My Profile') },
 ];
 

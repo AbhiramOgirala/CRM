@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { complaintsAPI } from '../../services/api';
 import { ComplaintCard, SkeletonCard } from '../../components/common';
 import useAuthStore from '../../store/authStore';
@@ -26,16 +26,19 @@ const StatIcon = ({ type }) => {
 export default function CitizenDashboard() {
   const { user, refreshProfile } = useAuthStore();
   const { t } = useTranslation();
+  const location = useLocation();
   const [stats, setStats] = useState(null);
   const [recentComplaints, setRecentComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Re-fetch every time the user navigates to this page (e.g., after filing a complaint)
   useEffect(() => {
     loadData();
     refreshProfile();
-  }, []);
+  }, [location.key]);
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const [statsRes, complaintsRes] = await Promise.all([
         complaintsAPI.getDashboard(),
@@ -122,14 +125,7 @@ export default function CitizenDashboard() {
             </div>
             <span className="tile-label">{t('dashboard.act_map', 'Hotspot Map')}</span>
           </Link>
-          <Link to="/leaderboard" className="dash-action-tile">
-            <div className="tile-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
-              </svg>
-            </div>
-            <span className="tile-label">{t('nav_leaderboard', 'Leaderboard')}</span>
-          </Link>
+
         </div>
 
         <div className="card">
@@ -247,6 +243,7 @@ export default function CitizenDashboard() {
             </Link>
           ))}
         </div>
+
 
         {/* Recent complaints */}
         <div className="card">

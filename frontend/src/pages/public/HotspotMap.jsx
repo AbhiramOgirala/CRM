@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { complaintsAPI, locationAPI } from '../../services/api';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -21,6 +22,7 @@ export default function HotspotMap() {
   const [stats, setStats] = useState({ total: 0, byCategory: {} });
   const [error, setError] = useState(null);
   const [totalComplaints, setTotalComplaints] = useState(0);
+  const location = useLocation();
 
   useEffect(() => {
     locationAPI.getStates()
@@ -32,9 +34,10 @@ export default function HotspotMap() {
     initMap();
   }, []);
 
+  // Re-fetch hotspots whenever the page is visited OR filters change
   useEffect(() => {
     loadHotspots();
-  }, [filters]);
+  }, [filters, location.key]);
 
   const initMap = () => {
     if (mapInstanceRef.current || !mapRef.current) return;

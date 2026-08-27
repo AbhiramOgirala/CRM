@@ -1219,8 +1219,8 @@ exports.geocodeExistingComplaints = async (req, res) => {
 exports.getDashboardStats = async (req, res) => {
   try {
     // Build base query with citizen/officer filtering
-    const buildQuery = () => {
-      let q = supabase.from('complaints');
+    const buildQuery = (columns = '*', options = {}) => {
+      let q = supabase.from('complaints').select(columns, options);
       if (req.user?.role === 'citizen') {
         q = q.eq('citizen_id', req.user.id);
         q = q.or(`rejection_reason.is.null,rejection_reason.not.like.${CITIZEN_DELETE_REASON_PREFIX}%`);
@@ -1236,19 +1236,19 @@ exports.getDashboardStats = async (req, res) => {
     };
 
     const [total, pending, inProgress, resolved, escalated] = await Promise.all([
-      buildQuery().select('*', { count: 'exact', head: true }),
-      buildQuery().select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-      buildQuery().select('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
-      buildQuery().select('*', { count: 'exact', head: true }).eq('status', 'resolved'),
-      buildQuery().select('*', { count: 'exact', head: true }).eq('status', 'escalated')
+      buildQuery('*', { count: 'exact', head: true }),
+      buildQuery('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      buildQuery('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
+      buildQuery('*', { count: 'exact', head: true }).eq('status', 'resolved'),
+      buildQuery('*', { count: 'exact', head: true }).eq('status', 'escalated')
     ]);
 
-    const { data: catRaw } = await buildQuery().select('category');
+    const { data: catRaw } = await buildQuery('category');
     const catCounts = {};
     (catRaw || []).forEach(c => (catCounts[c.category] = (catCounts[c.category] || 0) + 1));
     const byCategory = Object.entries(catCounts).map(([cat, count]) => ({ category: cat, count })).sort((a, b) => b.count - a.count);
 
-    const { data: mRaw } = await buildQuery().select('created_at').gte('created_at', new Date(Date.now() - 180 * 24 * 3600000).toISOString());
+    const { data: mRaw } = await buildQuery('created_at').gte('created_at', new Date(Date.now() - 180 * 24 * 3600000).toISOString());
     const monthly = {};
     (mRaw || []).forEach(c => { const m = new Date(c.created_at).toISOString().substring(0, 7); monthly[m] = (monthly[m] || 0) + 1; });
 

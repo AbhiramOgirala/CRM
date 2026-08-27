@@ -4,15 +4,13 @@ import toast from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
 import { locationAPI } from '../../services/api';
 import { useTranslation } from 'react-i18next';
+import { LocationSelector } from '../../components/common';
 
 export default function Register() {
   const { t } = useTranslation();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [states, setStates] = useState([]);
-  const [districts, setDistricts] = useState([]);
-  const [talukas, setTalukas] = useState([]);
-  const [mandals, setMandals] = useState([]);
   const [gettingGPS, setGettingGPS] = useState(false);
 
   const [form, setForm] = useState({
@@ -32,47 +30,17 @@ export default function Register() {
       setStates(filtered);
       // Default to Delhi
       const delhi = filtered.find(s => s.name === 'Delhi');
-      if (delhi) handleStateChange(delhi.id);
+      if (delhi) {
+        setForm(prev => ({
+          ...prev,
+          state_id: delhi.id,
+          state_name: delhi.name
+        }));
+      }
     });
   }, []);
 
   const set = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
-
-  const handleStateChange = async (id) => {
-    set('state_id', id);
-    set('district_id', ''); set('taluka_id', ''); set('mandal_id', '');
-    if (id) {
-      const res = await locationAPI.getDistricts(id);
-      setDistricts(res.districts || []);
-    } else {
-      setDistricts([]);
-      setTalukas([]);
-      setMandals([]);
-    }
-  };
-
-  const handleDistrictChange = async (id) => {
-    set('district_id', id);
-    set('taluka_id', ''); set('mandal_id', '');
-    if (id) {
-      const res = await locationAPI.getTalukas(id);
-      setTalukas(res.talukas || []);
-    } else {
-      setTalukas([]);
-      setMandals([]);
-    }
-  };
-
-  const handleTalukaChange = async (id) => {
-    set('taluka_id', id);
-    set('mandal_id', '');
-    if (id) {
-      const res = await locationAPI.getMandals(id);
-      setMandals(res.mandals || []);
-    } else {
-      setMandals([]);
-    }
-  };
 
   const getGPSLocation = () => {
     if (!navigator.geolocation) { toast.error('GPS not available on this device'); return; }
@@ -80,89 +48,17 @@ export default function Register() {
     navigator.geolocation.getCurrentPosition(
       async ({ coords: { latitude, longitude } }) => {
         try {
-          const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`);
-          const d = await r.json();
-          const addr = d.address || {};
-
-          // Build address string
-          const addressStr = [addr.road, addr.suburb, addr.neighbourhood, addr.city || addr.town || addr.village].filter(Boolean).join(', ');
-          const pincode = addr.postcode || '';
-
-          // 1. Detect State
-          const stateRes = await locationAPI.getStates();
-          const allStates = stateRes.states || states || [];
-          const rawStateName = (addr.state || addr.state_district || '').toLowerCase();
-
-          let matchedState = allStates.find(s => {
-            const sName = s.name.toLowerCase();
-            return rawStateName.includes(sName) || sName.includes(rawStateName);
-          });
-
-          // Special case checks (e.g. Hyderabad -> Telangana)
-          const cityName = (addr.city || addr.town || addr.county || addr.state_district || '').toLowerCase();
-          if (!matchedState && (cityName.includes('hyderabad') || rawStateName.includes('telangana'))) {
-            matchedState = allStates.find(s => s.name.toLowerCase().includes('telangana'));
-          }
-
-          let matchedStateId = matchedState ? matchedState.id : form.state_id;
-          let matchedDistrictId = '';
-          let matchedTalukaId = '';
-          let matchedMandalId = '';
-
-          if (matchedStateId) {
-            // 2. Fetch and match District
-            const distRes = await locationAPI.getDistricts(matchedStateId);
-            const districtList = distRes.districts || [];
-            setDistricts(districtList);
-
-            const districtMatch = districtList.find(dist => {
-              const dName = dist.name.toLowerCase();
-              return cityName.includes(dName) || dName.includes(cityName.split(' ')[0]) ||
-                     (addr.county && addr.county.toLowerCase().includes(dName));
-            });
-
-            if (districtMatch) {
-              matchedDistrictId = districtMatch.id;
-
-              // 3. Fetch and match Taluka
-              const tRes = await locationAPI.getTalukas(districtMatch.id);
-              const talukaList = tRes.talukas || [];
-              setTalukas(talukaList);
-
-              const suburb = (addr.suburb || addr.neighbourhood || addr.quarter || '').toLowerCase();
-              const talukaMatch = talukaList.find(t => {
-                const tName = t.name.toLowerCase();
-                return suburb.includes(tName) || tName.includes(suburb.split(' ')[0]);
-              });
-
-              if (talukaMatch) {
-                matchedTalukaId = talukaMatch.id;
-
-                // 4. Fetch and match Mandal
-                const mRes = await locationAPI.getMandals(talukaMatch.id);
-                const mandalList = mRes.mandals || [];
-                setMandals(mandalList);
-
-                const mandalMatch = mandalList.find(m => {
-                  const mName = m.name.toLowerCase();
-                  return suburb.includes(mName) || mName.includes(suburb.split(' ')[0]);
-                });
-
-                if (mandalMatch) matchedMandalId = mandalMatch.id;
-              }
-            }
-          }
-
+          const resolved = await locationAPI.resolveGPSLocation(latitude, longitude);
           setForm(prev => ({
             ...prev,
-            address: addressStr || d.display_name || '',
-            pincode: pincode || prev.pincode,
-            ...(matchedStateId && { state_id: matchedStateId }),
-            ...(matchedDistrictId && { district_id: matchedDistrictId }),
-            ...(matchedTalukaId && { taluka_id: matchedTalukaId }),
-            ...(matchedMandalId && { mandal_id: matchedMandalId }),
+            address: resolved.address || prev.address,
+            pincode: resolved.pincode || prev.pincode,
+            state_id: resolved.state_id || prev.state_id,
+            state_name: resolved.state_name || prev.state_name,
+            district_id: resolved.district_id || '',
+            taluka_id: resolved.taluka_id || '',
+            mandal_id: resolved.mandal_id || ''
           }));
-
           toast.success('📍 Location detected and fields auto-filled!');
         } catch (err) {
           console.error('[GPS Error]', err);
@@ -302,36 +198,7 @@ export default function Register() {
               <div style={{ textAlign: 'center', margin: '0 0 14px', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
                 — or select manually below —
               </div>
-              <div className="form-group">
-                <label className="form-label">State <span className="required">*</span></label>
-                <select className="form-control" value={form.state_id} onChange={e => handleStateChange(e.target.value)}>
-                  <option value="">Select your state</option>
-                  {states.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">District</label>
-                <select className="form-control" value={form.district_id} onChange={e => handleDistrictChange(e.target.value)} disabled={!form.state_id}>
-                  <option value="">Select district</option>
-                  {districts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </select>
-              </div>
-              <div className="grid-2">
-                <div className="form-group">
-                  <label className="form-label">Taluka / Block</label>
-                  <select className="form-control" value={form.taluka_id} onChange={e => handleTalukaChange(e.target.value)} disabled={!form.district_id}>
-                    <option value="">Select taluka</option>
-                    {talukas.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Mandal</label>
-                  <select className="form-control" value={form.mandal_id} onChange={e => set('mandal_id', e.target.value)} disabled={!form.taluka_id}>
-                    <option value="">Select mandal</option>
-                    {mandals.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                  </select>
-                </div>
-              </div>
+              <LocationSelector value={form} onChange={vals => setForm(p => ({ ...p, ...vals }))} required />
               <div className="form-group">
                 <label className="form-label">Address / Locality</label>
                 <input className="form-control" placeholder="House no, Street, Area" value={form.address} onChange={e => set('address', e.target.value)} />
