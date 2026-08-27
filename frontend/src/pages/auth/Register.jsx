@@ -3,8 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import useAuthStore from '../../store/authStore';
 import { locationAPI } from '../../services/api';
+<<<<<<< HEAD
 
 export default function Register() {
+=======
+import { useTranslation } from 'react-i18next';
+
+export default function Register() {
+  const { t } = useTranslation();
+>>>>>>> b373212 (Revert "autofill_location")
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [states, setStates] = useState([]);
@@ -312,7 +319,11 @@ export default function Register() {
           {step === 3 && (
             <div>
               <div className="form-group">
+<<<<<<< HEAD
                 <label className="form-label">Preferred Language</label>
+=======
+                <label className="form-label">{t('register.pref_lang', 'Preferred Language')}</label>
+>>>>>>> b373212 (Revert "autofill_location")
                 <select className="form-control" value={form.preferred_language} onChange={e => set('preferred_language', e.target.value)}>
                   <option value="en">English</option>
                   <option value="hi">हिंदी (Hindi)</option>

@@ -165,7 +165,40 @@ export default function FileComplaint() {
           const d = await r.json();
           const addr = [d.address?.road, d.address?.suburb, d.address?.city || d.address?.town].filter(Boolean).join(', ');
           setForm(p => ({ ...p, address: addr || d.display_name, pincode: d.address?.postcode || '' }));
+<<<<<<< HEAD
         } catch {}
+=======
+
+          // Auto-match state from GPS to set state_id for correct dept routing
+          const gpsStateName = d.address?.state || null;
+          if (gpsStateName) {
+            try {
+              const statesRes = await locationAPI.getStates();
+              const matched = (statesRes.states || []).find(s =>
+                gpsStateName.toLowerCase().includes(s.name.toLowerCase()) ||
+                s.name.toLowerCase().includes(gpsStateName.toLowerCase())
+              );
+              if (matched) {
+                // Also fetch districts and try to match
+                const distRes = await locationAPI.getDistricts(matched.id);
+                const gpsDistrict = d.address?.county || d.address?.state_district || d.address?.city_district || null;
+                const matchedDistrict = gpsDistrict
+                  ? (distRes.districts || []).find(dist =>
+                      dist.name.toLowerCase().includes(gpsDistrict.toLowerCase()) ||
+                      gpsDistrict.toLowerCase().includes(dist.name.toLowerCase())
+                    )
+                  : null;
+                setForm(p => ({
+                  ...p,
+                  state_id: matched.id,
+                  state_name: matched.name,
+                  district_id: matchedDistrict?.id || '',
+                }));
+              }
+            } catch { /* silent — user can select manually */ }
+          }
+        } catch { }
+>>>>>>> b373212 (Revert "autofill_location")
         setGettingGPS(false);
         toast.success('GPS location captured!');
       },
