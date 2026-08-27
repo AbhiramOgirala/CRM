@@ -45,33 +45,50 @@ export default function Register() {
   const getGPSLocation = () => {
     if (!navigator.geolocation) { toast.error('GPS not available on this device'); return; }
     setGettingGPS(true);
+
+    const onLocationSuccess = async ({ coords: { latitude, longitude } }) => {
+      try {
+        const resolved = await locationAPI.resolveGPSLocation(latitude, longitude);
+        setForm(prev => ({
+          ...prev,
+          address: resolved.address || prev.address,
+          pincode: resolved.pincode || prev.pincode,
+          state_id: resolved.state_id || prev.state_id,
+          state_name: resolved.state_name || prev.state_name,
+          district_id: resolved.district_id || '',
+          taluka_id: resolved.taluka_id || '',
+          mandal_id: resolved.mandal_id || ''
+        }));
+        toast.success('📍 Location detected and fields auto-filled!');
+      } catch (err) {
+        console.error('[GPS Error]', err);
+        toast('📍 GPS captured. Please verify location dropdowns.');
+      }
+      setGettingGPS(false);
+    };
+
+    const onLocationError = (err) => {
+      console.warn('[Geolocation error]', err);
+      if (err && err.code !== 1) {
+        navigator.geolocation.getCurrentPosition(
+          onLocationSuccess,
+          (fallbackErr) => {
+            console.warn('[Geolocation fallback failed]', fallbackErr);
+            setGettingGPS(false);
+            toast.error('Could not get location. Please fill in manually.');
+          },
+          { timeout: 15000, enableHighAccuracy: false, maximumAge: 300000 }
+        );
+        return;
+      }
+      setGettingGPS(false);
+      toast.error('Location access denied or unavailable. Please fill in manually.');
+    };
+
     navigator.geolocation.getCurrentPosition(
-      async ({ coords: { latitude, longitude } }) => {
-        try {
-          const resolved = await locationAPI.resolveGPSLocation(latitude, longitude);
-          setForm(prev => ({
-            ...prev,
-            address: resolved.address || prev.address,
-            pincode: resolved.pincode || prev.pincode,
-            state_id: resolved.state_id || prev.state_id,
-            state_name: resolved.state_name || prev.state_name,
-            district_id: resolved.district_id || '',
-            taluka_id: resolved.taluka_id || '',
-            mandal_id: resolved.mandal_id || ''
-          }));
-          toast.success('📍 Location detected and fields auto-filled!');
-        } catch (err) {
-          console.error('[GPS Error]', err);
-          toast('📍 GPS captured. Please verify location dropdowns.');
-        }
-        setGettingGPS(false);
-      },
-      (err) => {
-        console.warn('[Geolocation error]', err);
-        setGettingGPS(false);
-        toast.error('Could not get location. Please fill in manually.');
-      },
-      { timeout: 10000, enableHighAccuracy: true }
+      onLocationSuccess,
+      onLocationError,
+      { timeout: 8000, enableHighAccuracy: false, maximumAge: 60000 }
     );
   };
 

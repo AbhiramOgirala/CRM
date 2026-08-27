@@ -85,14 +85,13 @@ class ImageProcessingService {
       gemini: null,
 
       consolidated: {
-        textImageMatch: localResult.categoryMatch > 0.7 ? 'match' : 
-                       (localResult.categoryMatch > 0.4 ? 'uncertain' : 'mismatch'),
-        overallConfidence: localResult.categoryMatch,
+        textImageMatch: 'uncertain',
+        overallConfidence: 0.5,
         categoryValid: true,
-        requiresReview: localResult.categoryMatch < 0.7,
-        complaintImageAlignment: localResult.categoryMatch,
-        status: localResult.categoryMatch > 0.7 ? 'VERIFIED' : 'UNCERTAIN',
-        reasoning: 'Using local analysis only (Gemini unavailable)'
+        requiresReview: true,
+        complaintImageAlignment: 0.5,
+        status: 'ATTACHED',
+        reasoning: 'Image attached (AI Vision verification requires a valid Gemini API key)'
       }
     };
   }

@@ -96,51 +96,38 @@ export const locationAPI = {
       const addressStr = [addr.road, addr.suburb, addr.neighbourhood, addr.city || addr.town || addr.village].filter(Boolean).join(', ');
       const pincode = addr.postcode || '';
 
-      const searchTerms = new Set();
-      Object.values(addr).forEach(val => {
-        if (val) {
-          searchTerms.add(String(val).toLowerCase());
-          String(val).toLowerCase().split(/[\s\-]/).forEach(t => {
-            if (t && t.length > 2) searchTerms.add(t);
-          });
-        }
-      });
-      if (d.display_name) {
-        d.display_name.split(',').forEach(p => {
-          const clean = p.trim().toLowerCase();
-          if (clean) {
-            searchTerms.add(clean);
-            clean.split(/[\s\-]/).forEach(t => {
-              if (t && t.length > 2) searchTerms.add(t);
-            });
-          }
-        });
-      }
+      const specificLocal = [
+        addr.suburb,
+        addr.neighbourhood,
+        addr.road,
+        addr.county,
+        addr.village,
+        addr.town,
+        addr.hamlet,
+        addr.quarter
+      ].filter(Boolean).map(s => String(s).toLowerCase().replace(/mandal|block|taluka|colony|road|nagar|village/gi, '').trim()).filter(s => s.length >= 3);
 
-      const hasTerm = (name) => {
-        if (!name) return false;
-        const norm = name.toLowerCase();
-        for (const term of searchTerms) {
-          if (term.includes(norm) || norm.includes(term)) return true;
-        }
-        return false;
-      };
+      const allText = (d.display_name || '').toLowerCase();
+      const districtName = (addr.state_district || addr.city || addr.county || '').toLowerCase();
 
       const statesRes = await locationAPI.getStates();
       const allStates = statesRes.states || [];
-      let matchedState = allStates.find(s => hasTerm(s.name));
+      
+      let matchedState = allStates.find(s => {
+        const sName = s.name.toLowerCase();
+        return (addr.state && addr.state.toLowerCase().includes(sName)) || allText.includes(sName);
+      });
 
       if (!matchedState) {
-        const fullTxt = JSON.stringify(addr).toLowerCase();
-        if (fullTxt.includes('hyderabad') || fullTxt.includes('telangana')) {
+        if (allText.includes('hyderabad') || allText.includes('telangana')) {
           matchedState = allStates.find(s => s.name === 'Telangana');
-        } else if (fullTxt.includes('mumbai') || fullTxt.includes('maharashtra')) {
+        } else if (allText.includes('mumbai') || allText.includes('maharashtra')) {
           matchedState = allStates.find(s => s.name === 'Maharashtra');
-        } else if (fullTxt.includes('kolkata') || fullTxt.includes('west bengal')) {
+        } else if (allText.includes('kolkata') || allText.includes('west bengal')) {
           matchedState = allStates.find(s => s.name === 'West Bengal');
-        } else if (fullTxt.includes('bengaluru') || fullTxt.includes('karnataka')) {
+        } else if (allText.includes('bengaluru') || allText.includes('karnataka')) {
           matchedState = allStates.find(s => s.name === 'Karnataka');
-        } else if (fullTxt.includes('delhi')) {
+        } else if (allText.includes('delhi')) {
           matchedState = allStates.find(s => s.name === 'Delhi');
         }
       }
@@ -172,11 +159,41 @@ export const locationAPI = {
         })
       );
 
+      const scoreMandal = (mName) => {
+        const clean = mName.toLowerCase().trim();
+        if (clean.length < 3) return 0;
+        let score = 0;
+        for (const loc of specificLocal) {
+          if (loc === clean) score = Math.max(score, 1000);
+          else if (loc.length >= 4 && (loc.includes(clean) || clean.includes(loc))) score = Math.max(score, 800);
+        }
+        if (allText.includes(clean)) {
+          score = Math.max(score, 400);
+        }
+        // If it only matches because of district name, downgrade score
+        if (score > 0 && districtName.includes(clean) && !specificLocal.some(l => l.includes(clean))) {
+          score = 50;
+        }
+        return score;
+      };
+
+      let bestMatch = null;
+      let maxScore = 0;
+
       for (const dist of districtData) {
+        const distClean = dist.name.toLowerCase().trim();
+        const distScore = (districtName.includes(distClean) || allText.includes(distClean)) ? 100 : 0;
+
         for (const tal of dist.talukas) {
+          const talClean = tal.name.toLowerCase().trim();
+          const talScore = (allText.includes(talClean) || specificLocal.some(l => l.includes(talClean))) ? 200 : 0;
+
           for (const mandal of tal.mandals) {
-            if (hasTerm(mandal.name)) {
-              return {
+            const mScore = scoreMandal(mandal.name);
+            const total = mScore * 10 + talScore + distScore;
+            if (total > maxScore && mScore > 0) {
+              maxScore = total;
+              bestMatch = {
                 address: addressStr || d.display_name || '',
                 pincode,
                 state_id: matchedState.id,
@@ -190,31 +207,26 @@ export const locationAPI = {
         }
       }
 
-      for (const dist of districtData) {
-        for (const tal of dist.talukas) {
-          if (hasTerm(tal.name)) {
-            return {
-              address: addressStr || d.display_name || '',
-              pincode,
-              state_id: matchedState.id,
-              state_name: matchedState.name,
-              district_id: dist.id,
-              taluka_id: tal.id
-            };
-          }
-        }
+      if (bestMatch) {
+        return bestMatch;
       }
 
-      for (const dist of districtData) {
-        if (hasTerm(dist.name)) {
-          return {
-            address: addressStr || d.display_name || '',
-            pincode,
-            state_id: matchedState.id,
-            state_name: matchedState.name,
-            district_id: dist.id
-          };
-        }
+      // Fallback: match district
+      const matchedDist = districtData.find(dist => {
+        const distClean = dist.name.toLowerCase().trim();
+        return districtName.includes(distClean) || allText.includes(distClean);
+      });
+
+      if (matchedDist) {
+        return {
+          address: addressStr || d.display_name || '',
+          pincode,
+          state_id: matchedState.id,
+          state_name: matchedState.name,
+          district_id: matchedDist.id,
+          taluka_id: matchedDist.talukas[0]?.id || '',
+          mandal_id: matchedDist.talukas[0]?.mandals[0]?.id || ''
+        };
       }
 
       return {

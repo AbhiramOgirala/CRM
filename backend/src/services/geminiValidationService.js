@@ -15,8 +15,8 @@ class GeminiValidationService {
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
     this.client = apiKey ? new GoogleGenerativeAI(apiKey) : null;
-    this.primaryModel = 'gemini-2.5-flash';
-    this.fallbackModel = 'gemini-3.1-flash-lite-preview';
+    this.primaryModel = 'gemini-2.0-flash';
+    this.fallbackModel = 'gemini-1.5-flash';
     this.currentModel = this.primaryModel;
     this.isAvailable = !!this.client;
     this.validationStats = { attempts: 0, successes: 0, failures: 0, fallbackUsed: 0 };
@@ -597,12 +597,12 @@ Respond ONLY with valid JSON:
 
       consolidated: {
         textImageMatch: 'uncertain',
-        overallConfidence: localResult?.categoryMatch || 0,
+        overallConfidence: 0.5,
         categoryValid: true,
-        requiresReview: (localResult?.categoryMatch || 0) < 0.7,
-        complaintImageAlignment: localResult?.categoryMatch || 0,
-        status: (localResult?.categoryMatch || 0) > 0.7 ? 'VERIFIED' : 'UNCERTAIN',
-        reasoning: 'Using local analysis only (Gemini unavailable)'
+        requiresReview: true,
+        complaintImageAlignment: 0.5,
+        status: 'ATTACHED',
+        reasoning: 'Image attached (AI Vision verification offline)'
       }
     };
   }

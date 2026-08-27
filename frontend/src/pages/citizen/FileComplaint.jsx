@@ -1,12 +1,244 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { complaintsAPI, nlpAPI, locationAPI } from '../../services/api';
 import { LocationSelector } from '../../components/common';
 import SpeakButton from '../../components/ui/SpeakButton';
 import { buildFieldPrompt, buildDescriptionReadout, buildClassificationReadout } from '../../hooks/useTextToSpeech';
 import { useLanguage } from '../../context/LanguageContext';
 import useAuthStore from '../../store/authStore';
+
+// Fix Leaflet default marker icon path issue in bundlers
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+});
+
+function InteractiveLocationPicker({ form, setForm }) {
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markerRef = useRef(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const searchTimeoutRef = useRef(null);
+
+  const coords = (form.latitude && form.longitude && !isNaN(parseFloat(form.latitude)) && !isNaN(parseFloat(form.longitude)))
+    ? [parseFloat(form.latitude), parseFloat(form.longitude)]
+    : [17.53, 78.37]; // Default to Hyderabad / Bachupally area
+
+  const handleSearchResultSelect = async (result) => {
+    const lat = parseFloat(result.lat);
+    const lon = parseFloat(result.lon);
+    setSearchResults([]);
+    setSearchQuery(result.display_name.split(',').slice(0, 2).join(', '));
+
+    setForm(prev => ({ ...prev, latitude: lat, longitude: lon }));
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setView([lat, lon], 16);
+      if (markerRef.current) {
+        markerRef.current.setLatLng([lat, lon]);
+      }
+    }
+
+    try {
+      const resolved = await locationAPI.resolveGPSLocation(lat, lon);
+      setForm(prev => ({
+        ...prev,
+        latitude: lat,
+        longitude: lon,
+        address: resolved.address || prev.address || result.display_name,
+        pincode: resolved.pincode || prev.pincode,
+        state_id: resolved.state_id || prev.state_id,
+        state_name: resolved.state_name || prev.state_name,
+        district_id: resolved.district_id || '',
+        taluka_id: resolved.taluka_id || '',
+        mandal_id: resolved.mandal_id || ''
+      }));
+      toast.success('📍 Location pinned & fields updated!');
+    } catch {
+      toast.success('📍 Location pinned!');
+    }
+  };
+
+  const handleSearchChange = (val) => {
+    setSearchQuery(val);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    if (!val || val.trim().length < 3) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=in&q=${encodeURIComponent(val)}&addressdetails=1&limit=5`);
+        const data = await res.json();
+        setSearchResults(data || []);
+      } catch (err) {
+        console.error('[Nominatim search error]', err);
+      } finally {
+        setSearching(false);
+      }
+    }, 350);
+  };
+
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    if (mapInstanceRef.current) {
+      try { mapInstanceRef.current.remove(); } catch (e) {}
+      mapInstanceRef.current = null;
+    }
+
+    try {
+      const initialZoom = (form.latitude && form.longitude) ? 15 : 12;
+      const map = L.map(mapContainerRef.current, { scrollWheelZoom: false }).setView(coords, initialZoom);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+
+      const marker = L.marker(coords, { draggable: true }).addTo(map);
+      marker.bindPopup('📍 <strong>Drag pin or click map</strong> to set exact spot');
+
+      const onMarkerMoved = async (newLat, newLon) => {
+        setForm(p => ({ ...p, latitude: newLat, longitude: newLon }));
+        try {
+          const resolved = await locationAPI.resolveGPSLocation(newLat, newLon);
+          setForm(prev => ({
+            ...prev,
+            latitude: newLat,
+            longitude: newLon,
+            address: resolved.address || prev.address,
+            pincode: resolved.pincode || prev.pincode,
+            state_id: resolved.state_id || prev.state_id,
+            state_name: resolved.state_name || prev.state_name,
+            district_id: resolved.district_id || '',
+            taluka_id: resolved.taluka_id || '',
+            mandal_id: resolved.mandal_id || ''
+          }));
+          toast.success('📍 Pin updated: ' + (resolved.address || 'Location captured'));
+        } catch {
+          toast.success('📍 Pin moved!');
+        }
+      };
+
+      marker.on('dragend', (e) => {
+        const { lat, lng } = e.target.getLatLng();
+        onMarkerMoved(lat, lng);
+      });
+
+      map.on('click', (e) => {
+        const { lat, lng } = e.latlng;
+        marker.setLatLng([lat, lng]);
+        onMarkerMoved(lat, lng);
+      });
+
+      mapInstanceRef.current = map;
+      markerRef.current = marker;
+    } catch (err) {
+      console.warn('[Map init error]', err);
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        try { mapInstanceRef.current.remove(); } catch (e) {}
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (form.latitude && form.longitude && mapInstanceRef.current && markerRef.current) {
+      const lat = parseFloat(form.latitude);
+      const lon = parseFloat(form.longitude);
+      if (!isNaN(lat) && !isNaN(lon)) {
+        markerRef.current.setLatLng([lat, lon]);
+        mapInstanceRef.current.setView([lat, lon], 16);
+      }
+    }
+  }, [form.latitude, form.longitude]);
+
+  return (
+    <div style={{ marginBottom: 18 }}>
+      {/* Search Bar with autocomplete */}
+      <div style={{ position: 'relative', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+          <span style={{ position: 'absolute', left: 12, color: 'var(--text-muted)', fontSize: '1rem', pointerEvents: 'none' }}>🔍</span>
+          <input
+            type="text"
+            className="form-control"
+            style={{ paddingLeft: 38, paddingRight: searching ? 40 : 12, height: 44, borderRadius: 8, fontSize: '0.9rem' }}
+            placeholder="Search your area, colony, or landmark (e.g. Bachupally, Miyapur, Kompally...)"
+            value={searchQuery}
+            onChange={e => handleSearchChange(e.target.value)}
+          />
+          {searching && (
+            <div style={{ position: 'absolute', right: 12 }}>
+              <div className="loading-spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+            </div>
+          )}
+        </div>
+
+        {/* Autocomplete Dropdown */}
+        {searchResults.length > 0 && (
+          <div style={{
+            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 1000,
+            background: 'white', border: '1px solid var(--border)', borderRadius: 8,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.15)', marginTop: 4, maxHeight: 220, overflowY: 'auto'
+          }}>
+            {searchResults.map((item, idx) => (
+              <div
+                key={item.place_id || idx}
+                onClick={() => handleSearchResultSelect(item)}
+                style={{
+                  padding: '10px 14px', borderBottom: '1px solid #f0f0f0', cursor: 'pointer',
+                  fontSize: '0.85rem', display: 'flex', alignItems: 'flex-start', gap: 8,
+                  transition: 'background 0.15s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = '#F0F4F8'}
+                onMouseLeave={e => e.currentTarget.style.background = 'white'}
+              >
+                <span style={{ fontSize: '1rem', marginTop: 2 }}>📍</span>
+                <div>
+                  <div style={{ fontWeight: 600, color: 'var(--text-dark)' }}>
+                    {item.display_name.split(',')[0]}
+                  </div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', lineHeight: 1.3 }}>
+                    {item.display_name.split(',').slice(1).join(',')}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Interactive Map */}
+      <div style={{ position: 'relative', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+        <div ref={mapContainerRef} style={{ height: 230, width: '100%', zIndex: 1 }} />
+        <div style={{
+          position: 'absolute', bottom: 8, left: 8, right: 8, zIndex: 500,
+          background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(4px)',
+          padding: '6px 12px', borderRadius: 6, fontSize: '0.75rem', color: '#333',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          border: '1px solid rgba(0,0,0,0.08)'
+        }}>
+          <span>📍 <strong>Tip:</strong> Drag the pin or click anywhere on the map to place it.</span>
+          {form.latitude && (
+            <span style={{ color: '#2E7D32', fontWeight: 600 }}>
+              {parseFloat(form.latitude).toFixed(4)}, {parseFloat(form.longitude).toFixed(4)}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const LANG_CODES = {
   en: 'en-IN', hi: 'hi-IN', te: 'te-IN', ta: 'ta-IN',
@@ -174,29 +406,51 @@ export default function FileComplaint() {
   const getGPS = () => {
     if (!navigator.geolocation) { toast.error('GPS not available on this device'); return; }
     setGettingGPS(true);
+
+    const onLocationSuccess = async ({ coords: { latitude, longitude } }) => {
+      setForm(p => ({ ...p, latitude, longitude }));
+      try {
+        const resolved = await locationAPI.resolveGPSLocation(latitude, longitude);
+        setForm(prev => ({
+          ...prev,
+          address: resolved.address || prev.address,
+          pincode: resolved.pincode || prev.pincode,
+          state_id: resolved.state_id || prev.state_id,
+          state_name: resolved.state_name || prev.state_name,
+          district_id: resolved.district_id || '',
+          taluka_id: resolved.taluka_id || '',
+          mandal_id: resolved.mandal_id || ''
+        }));
+        toast.success('GPS location captured!');
+      } catch {
+        toast.success('GPS location captured!');
+      }
+      setGettingGPS(false);
+    };
+
+    const onLocationError = (err) => {
+      console.warn('[Geolocation error]', err);
+      // If standard lookup failed, retry with cached / low accuracy
+      if (err && err.code !== 1) {
+        navigator.geolocation.getCurrentPosition(
+          onLocationSuccess,
+          (fallbackErr) => {
+            console.warn('[Geolocation fallback failed]', fallbackErr);
+            setGettingGPS(false);
+            toast.error('Could not get location. Please enter manually.');
+          },
+          { timeout: 15000, enableHighAccuracy: false, maximumAge: 300000 }
+        );
+        return;
+      }
+      setGettingGPS(false);
+      toast.error('Location access denied or unavailable. Please enter manually.');
+    };
+
     navigator.geolocation.getCurrentPosition(
-      async ({ coords: { latitude, longitude } }) => {
-        setForm(p => ({ ...p, latitude, longitude }));
-        try {
-          const resolved = await locationAPI.resolveGPSLocation(latitude, longitude);
-          setForm(prev => ({
-            ...prev,
-            address: resolved.address || prev.address,
-            pincode: resolved.pincode || prev.pincode,
-            state_id: resolved.state_id || prev.state_id,
-            state_name: resolved.state_name || prev.state_name,
-            district_id: resolved.district_id || '',
-            taluka_id: resolved.taluka_id || '',
-            mandal_id: resolved.mandal_id || ''
-          }));
-          toast.success('GPS location captured!');
-        } catch {
-          toast.success('GPS location captured!');
-        }
-        setGettingGPS(false);
-      },
-      () => { setGettingGPS(false); toast.error('Could not get location. Please enter manually.'); },
-      { timeout: 10000, enableHighAccuracy: true }
+      onLocationSuccess,
+      onLocationError,
+      { timeout: 8000, enableHighAccuracy: false, maximumAge: 60000 }
     );
   };
 
@@ -632,34 +886,49 @@ export default function FileComplaint() {
                 </div>
               )}
 
-              {/* Image Analysis Results - Show only MISMATCH warning */}
+              {/* Image Analysis Results - Mismatch Warning */}
               {imageAnalysisResult && imageAnalysisResult.status === 'MISMATCH' && (
                 <div style={{
                   marginTop: 16, padding: 14, borderRadius: 8,
                   background: '#FFEBEE',
                   border: '2px solid #F44336'
                 }}>
-                  <div style={{ fontWeight: 700, marginBottom: 8, fontSize: '0.95rem', color: '#C62828' }}>
-                    ❌ Image Does Not Match Your Issue
+                  <div style={{ fontWeight: 700, marginBottom: 6, fontSize: '0.95rem', color: '#C62828', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>❌</span> Image Does Not Match Your Issue
                   </div>
-                  <div style={{ fontSize: '0.85rem', color: '#B71C1C', lineHeight: 1.6 }}>
-                    ⚠️ Make sure image matches the issue you're reporting
+                  <div style={{ fontSize: '0.85rem', color: '#B71C1C', lineHeight: 1.5 }}>
+                    ⚠️ {imageAnalysisResult.mismatch_details?.analysis_explanation || "The uploaded image does not appear to match what is described in the complaint. Please attach a photo of the actual issue."}
                   </div>
                 </div>
               )}
 
-              {/* Verified status - subtle confirmation */}
+              {/* Verified status */}
               {imageAnalysisResult && imageAnalysisResult.status === 'VERIFIED' && (
                 <div style={{
                   marginTop: 16, padding: 14, borderRadius: 8,
                   background: '#E8F5E9',
                   border: '2px solid #4CAF50'
                 }}>
-                  <div style={{ fontWeight: 700, marginBottom: 8, fontSize: '0.95rem', color: '#2E7D32' }}>
-                    ✅ Image Verified
+                  <div style={{ fontWeight: 700, marginBottom: 6, fontSize: '0.95rem', color: '#2E7D32', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span>✅</span> Image Verified
                   </div>
-                  <div style={{ fontSize: '0.85rem', color: '#1B5E20', lineHeight: 1.6 }}>
+                  <div style={{ fontSize: '0.85rem', color: '#1B5E20', lineHeight: 1.5 }}>
                     Image matches your complaint description
+                  </div>
+                </div>
+              )}
+
+              {/* Attached / Pending status */}
+              {imageAnalysisResult && (imageAnalysisResult.status === 'ATTACHED' || imageAnalysisResult.status === 'UNCERTAIN') && (
+                <div style={{
+                  marginTop: 16, padding: '10px 14px', borderRadius: 8,
+                  background: 'var(--surface-2, #F8F9FA)',
+                  border: '1px solid var(--border, #E0E0E0)',
+                  display: 'flex', alignItems: 'center', gap: 10
+                }}>
+                  <span style={{ fontSize: '1.1rem' }}>📷</span>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #555)' }}>
+                    <strong>Photo attached.</strong> Will be reviewed by the assigned officer.
                   </div>
                 </div>
               )}
@@ -677,14 +946,17 @@ export default function FileComplaint() {
             <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 700, marginBottom: 4 }}>
               Step 2: Where is the Problem?
             </h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 20 }}>
-              Precise location ensures your complaint reaches the correct local authority
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 16 }}>
+              Search your area, drag the pin on the map, or use GPS to pinpoint the exact location
             </p>
+
+            {/* Interactive Map & Locality Search */}
+            <InteractiveLocationPicker form={form} setForm={setForm} />
 
             {/* GPS Button */}
             <button type="button" className="btn w-full" onClick={getGPS} disabled={gettingGPS}
               style={{
-                marginBottom: 16, padding: '14px', fontSize: '0.95rem',
+                marginBottom: 16, padding: '12px', fontSize: '0.9rem',
                 background: form.latitude ? '#E8F5E9' : 'var(--secondary)',
                 color: form.latitude ? '#2E7D32' : 'white',
                 border: form.latitude ? '2px solid #A5D6A7' : 'none',
@@ -694,24 +966,25 @@ export default function FileComplaint() {
               {gettingGPS
                 ? <><div className="loading-spinner" style={{ width: 18, height: 18, borderWidth: 2, borderTopColor: 'white' }} /> Getting your location...</>
                 : form.latitude
-                  ? `GPS Captured: ${parseFloat(form.latitude).toFixed(4)}, ${parseFloat(form.longitude).toFixed(4)}`
-                  : 'Use My Current GPS Location (Recommended)'
+                  ? `📍 GPS Coordinates Locked: ${parseFloat(form.latitude).toFixed(4)}, ${parseFloat(form.longitude).toFixed(4)}`
+                  : '🎯 Use My Current GPS Device Location'
               }
             </button>
 
             {form.latitude && (
-              <div style={{ background: '#E8F5E9', border: '1px solid #A5D6A7', borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: 16, fontSize: '0.85rem', color: '#2E7D32' }}>
-                <strong>GPS location captured.</strong> Your complaint will be pinned on the map automatically.
-                {form.address && <div style={{ marginTop: 4, color: '#388E3C' }}>Address: {form.address}</div>}
+              <div style={{ background: '#E8F5E9', border: '1px solid #A5D6A7', borderRadius: 'var(--radius)', padding: '10px 14px', marginBottom: 16, fontSize: '0.85rem', color: '#2E7D32', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <strong>Location pinned.</strong> {form.address && <span>{form.address}</span>}
+                </div>
                 <button type="button" onClick={() => setForm(p => ({ ...p, latitude: '', longitude: '' }))}
-                  style={{ marginTop: 6, background: 'none', border: 'none', color: '#C62828', cursor: 'pointer', fontSize: '0.8rem', padding: 0 }}>
-                  ✕ Clear GPS and enter manually
+                  style={{ background: 'none', border: 'none', color: '#C62828', cursor: 'pointer', fontSize: '0.8rem', padding: '2px 6px', fontWeight: 600 }}>
+                  ✕ Reset Pin
                 </button>
               </div>
             )}
 
             <div style={{ textAlign: 'center', margin: '8px 0 16px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              — {form.latitude ? 'optionally refine with dropdowns below' : 'or select your location manually below'} —
+              — Verify or adjust administrative zone dropdowns below —
             </div>
 
             {/* Location hierarchy */}
