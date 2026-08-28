@@ -1,6 +1,7 @@
-﻿import React from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
+import useAuthStore from '../../store/authStore';
 
 const FEATURES = [
   { 
@@ -45,6 +46,10 @@ const STATS = [
 ];
 
 export default function Landing() {
+  const { user } = useAuthStore();
+  const isLoggedIn = !!user;
+  const dashboardPath = ['admin', 'super_admin'].includes(user?.role) ? '/admin' : ['officer'].includes(user?.role) ? '/officer' : '/dashboard';
+
   return (
     <div>
       <Navbar />
@@ -72,12 +77,25 @@ export default function Landing() {
               From Gram Panchayat to State — every complaint reaches the right authority.
             </p>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link to="/register" className="btn btn-primary btn-lg">
-                Register as Citizen
-              </Link>
-              <Link to="/feed" className="btn" style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '2px solid rgba(255,255,255,0.5)' }}>
-                View Public Feed
-              </Link>
+              {isLoggedIn ? (
+                <>
+                  <Link to={dashboardPath} className="btn btn-primary btn-lg" style={{ fontSize: '1.1rem', padding: '14px 36px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)', animation: 'pulse 2s infinite' }}>
+                    🏠 Go to Dashboard
+                  </Link>
+                  <Link to="/feed" className="btn" style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '2px solid rgba(255,255,255,0.5)' }}>
+                    View Public Feed
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link to="/register" className="btn btn-primary btn-lg">
+                    Register as Citizen
+                  </Link>
+                  <Link to="/feed" className="btn" style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: '2px solid rgba(255,255,255,0.5)' }}>
+                    View Public Feed
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -44,7 +44,7 @@ export default function AdminUsers() {
 
   const handleToggle = async (id, currentStatus) => {
     try {
-      await adminAPI.toggleUserStatus(id);
+      await adminAPI.toggleStatus(id);
       toast.success(`User ${currentStatus ? 'deactivated' : 'activated'}`);
       load();
     } catch (err) { toast.error(err.message); }

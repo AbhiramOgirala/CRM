@@ -20,20 +20,20 @@ const PATTERNS = {
 };
 
 const DEPT = {
-  roads:            { code:'PWD',   name:'Public Works Department (PWD Delhi)',      reason:'Roads, bridges and infrastructure managed by PWD' },
-  infrastructure:   { code:'PWD',   name:'Public Works Department (PWD Delhi)',      reason:'Building and structural issues handled by PWD' },
-  water_supply:     { code:'DJB',   name:'Delhi Jal Board (DJB)',                    reason:'Water supply and pipeline issues handled by Delhi Jal Board' },
-  drainage:         { code:'DJB',   name:'Delhi Jal Board (DJB)',                    reason:'Drainage and sewage handled by Delhi Jal Board' },
-  electricity:      { code:'BSES',  name:'BSES / TPDDL — Electricity Distribution', reason:'Power supply issues managed by BSES/TPDDL' },
-  street_lights:    { code:'NDMC',  name:'New Delhi Municipal Council (NDMC)',       reason:'Street lights managed by NDMC' },
-  waste_management: { code:'MCD',   name:'Municipal Corporation of Delhi (MCD)',     reason:'Garbage collection managed by MCD' },
-  parks:            { code:'PRD',   name:'Parks & Garden Society — Delhi',           reason:'Parks and gardens maintained by Parks & Garden Society' },
-  health:           { code:'HFW',   name:'Health & Family Welfare — Delhi',          reason:'Health concerns handled by Health & Family Welfare' },
-  education:        { code:'EDU',   name:'Directorate of Education — Delhi',         reason:'School issues handled by Directorate of Education' },
-  public_services:  { code:'MCD',   name:'Municipal Corporation of Delhi (MCD)',     reason:'Govt service issues handled by MCD' },
-  law_enforcement:  { code:'DPOL',  name:'Delhi Police',                             reason:'Safety issues handled by Delhi Police' },
-  noise_pollution:  { code:'DPOL',  name:'Delhi Police',                             reason:'Noise violations handled by Delhi Police' },
-  other:            { code:'MCD',   name:'Municipal Corporation of Delhi (MCD)',     reason:'General civic issues routed to MCD' }
+  roads:            { code:'GHMC',    name:'Greater Hyderabad Municipal Corporation (GHMC)',   reason:'Roads, bridges and infrastructure managed by GHMC' },
+  infrastructure:   { code:'GHMC',    name:'Greater Hyderabad Municipal Corporation (GHMC)',   reason:'Building and structural issues handled by GHMC' },
+  water_supply:     { code:'HMWSSB',  name:'Hyderabad Metro Water Supply & Sewerage Board',   reason:'Water supply and pipeline issues handled by HMWSSB' },
+  drainage:         { code:'HMWSSB',  name:'Hyderabad Metro Water Supply & Sewerage Board',   reason:'Drainage and sewage handled by HMWSSB' },
+  electricity:      { code:'TSSPDCL', name:'TS Southern Power Distribution Company',          reason:'Power supply issues managed by TSSPDCL' },
+  street_lights:    { code:'GHMC',    name:'Greater Hyderabad Municipal Corporation (GHMC)',   reason:'Street lights managed by GHMC' },
+  waste_management: { code:'GHMC',    name:'Greater Hyderabad Municipal Corporation (GHMC)',   reason:'Garbage collection managed by GHMC' },
+  parks:            { code:'GHMC',    name:'Greater Hyderabad Municipal Corporation (GHMC)',   reason:'Parks and gardens maintained by GHMC' },
+  health:           { code:'TSHFW',   name:'Health & Family Welfare — Telangana',             reason:'Health concerns handled by Telangana Health Dept' },
+  education:        { code:'TSEDU',   name:'School Education Department — Telangana',         reason:'School issues handled by Telangana Education Dept' },
+  public_services:  { code:'GHMC',    name:'Greater Hyderabad Municipal Corporation (GHMC)',   reason:'Govt service issues handled by GHMC' },
+  law_enforcement:  { code:'HYDPOL',  name:'Hyderabad City Police',                           reason:'Safety issues handled by Hyderabad Police' },
+  noise_pollution:  { code:'HYDPOL',  name:'Hyderabad City Police',                           reason:'Noise violations handled by Hyderabad Police' },
+  other:            { code:'GHMC',    name:'Greater Hyderabad Municipal Corporation (GHMC)',   reason:'General civic issues routed to GHMC' }
 };
 
 const SLA_BASE = { electricity:12, water_supply:18, drainage:24, waste_management:24, roads:48, street_lights:36, health:24, law_enforcement:12, infrastructure:72, parks:96, education:96, public_services:120, noise_pollution:48, other:72 };

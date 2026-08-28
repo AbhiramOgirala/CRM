@@ -307,17 +307,6 @@ export default function ComplaintDetail() {
               }}>
                 {complaint.title}
               </h1>
-
-              <div className="complaint-read-aloud">
-                <SpeakButton
-                  text={buildComplaintReadout(complaint, activeLang)}
-                  lang={activeLang}
-                  variant="pill"
-                  label="🔊 Read aloud"
-                  translate={false}
-                />
-              </div>
-
               {/* Meta info */}
               <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: 12 }}>
                 {complaint.category && (

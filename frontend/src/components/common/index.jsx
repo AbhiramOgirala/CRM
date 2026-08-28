@@ -208,20 +208,20 @@ export function LocationSelector({ value, onChange, required = false }) {
     import('../../services/api').then(({ locationAPI }) => {
       locationAPI.getStates().then(res => {
         const all = res.states || [];
-        // Only show the 5 cities we have full data for
-        const supported = ['Delhi', 'Telangana', 'Maharashtra', 'West Bengal', 'Karnataka'];
+        // Only show Telangana
+        const supported = ['Telangana'];
         const filtered = all.filter(s => supported.includes(s.name));
         setStates(filtered);
-        // Auto-select Delhi by default only if nothing chosen yet
+        // Auto-select Telangana by default only if nothing chosen yet
         // Use ref to get the CURRENT value, not the stale mount-time value
         const currentValue = valueRef.current;
         if (!currentValue.state_id) {
-          const delhi = filtered.find(s => s.name === 'Delhi');
-          if (delhi) {
+          const telangana = filtered.find(s => s.name === 'Telangana');
+          if (telangana) {
             onChange({
               ...currentValue,
-              state_id: delhi.id,
-              state_name: delhi.name,
+              state_id: telangana.id,
+              state_name: telangana.name,
               district_id: '',
               taluka_id: '',
               mandal_id: '',

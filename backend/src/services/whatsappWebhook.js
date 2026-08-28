@@ -4,21 +4,14 @@ const nlp = require('./nlpService');
 const { sendWhatsApp } = require('./whatsappService');
 const geocodingService = require('./geocodingService');
 
-// ── Supported states ──────────────────────────────────────────────
+// ── Supported states (Telangana-only) ─────────────────────────────
 const SUPPORTED_STATES = [
-  { num: '1', name: 'Delhi',       id: 'd1aebdaf-e535-4ad5-81bf-c39f753681eb' },
-  { num: '2', name: 'Telangana',   id: '8261b780-f104-48bb-8877-74fb73d8d4b1' },
-  { num: '3', name: 'Maharashtra', id: '0b6000f8-90a2-4ce7-a4ca-84c7fbb5d369' },
-  { num: '4', name: 'Karnataka',   id: '14c66249-f10c-4f33-820f-5c19581084cc' },
-  { num: '5', name: 'West Bengal', id: '7de38ae7-e651-4387-b1e1-9f4014355b79' },
+  { num: '1', name: 'Telangana',   id: '8261b780-f104-48bb-8877-74fb73d8d4b1' },
 ];
 
-// City-aware dept routing (same as complaintsController)
+// City-aware dept routing (Telangana-only, same as complaintsController)
 const CITY_DEPT_MAP = {
   'Telangana':    { roads:'GHMC', infrastructure:'GHMC', waste_management:'GHMC', parks:'GHMC', public_services:'GHMC', street_lights:'GHMC', water_supply:'HMWSSB', drainage:'HMWSSB', electricity:'TSSPDCL', law_enforcement:'HYDPOL', noise_pollution:'HYDPOL', health:'TSHFW', education:'TSEDU', other:'GHMC' },
-  'Maharashtra':  { roads:'BMC',  infrastructure:'BMC',  waste_management:'BMC',  parks:'BMC',  public_services:'BMC',  street_lights:'BMC',  water_supply:'MWRRA',  drainage:'MWRRA',  electricity:'MSEDCL', law_enforcement:'MUMPOL', noise_pollution:'MUMPOL', health:'MHFW', education:'MHEDU', other:'BMC' },
-  'West Bengal':  { roads:'KMC',  infrastructure:'KMC',  waste_management:'KMC',  parks:'KMC',  public_services:'KMC',  street_lights:'KMC',  water_supply:'WBPHED', drainage:'WBPHED', electricity:'CESC',   law_enforcement:'KOLPOL', noise_pollution:'KOLPOL', health:'WBHFW', education:'WBEDU', other:'KMC' },
-  'Karnataka':    { roads:'BBMP', infrastructure:'BBMP', waste_management:'BBMP', parks:'BBMP', public_services:'BBMP', street_lights:'BBMP', water_supply:'BWSSB',  drainage:'BWSSB',  electricity:'BESCOM', law_enforcement:'BLRPOL', noise_pollution:'BLRPOL', health:'KARHFW', education:'KAREDU', other:'BBMP' },
 };
 
 // ── In-memory session store ───────────────────────────────────────

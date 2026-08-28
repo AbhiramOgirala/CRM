@@ -31,7 +31,7 @@ export default function TermsOfUse() {
             { title: '4. Prohibited Conduct', content: 'You may not use JanSamadhan to harass government officials, post defamatory content, upload inappropriate images, attempt to hack or disrupt the service, or impersonate other citizens.' },
             { title: '5. Content Ownership', content: 'You retain ownership of the complaint content you post. By submitting, you grant the Government of India a non-exclusive licence to use, publish and share your complaint data for public interest purposes.' },
             { title: '6. Disclaimer', content: 'The Government of India provides JanSamadhan on an "as is" basis. We do not guarantee the resolution of any specific complaint within any particular timeframe, though we are bound by SLA guidelines.' },
-            { title: '7. Governing Law', content: 'These Terms are governed by the laws of India. Disputes shall be subject to the jurisdiction of courts in New Delhi.' },
+            { title: '7. Governing Law', content: 'These Terms are governed by the laws of India. Disputes shall be subject to the jurisdiction of courts in Hyderabad.' },
           ].map(section => (
             <div key={section.title} className="card" style={{ marginBottom: 16 }}>
               <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.05rem', fontWeight: 700, marginBottom: 10, color: 'var(--secondary)' }}>

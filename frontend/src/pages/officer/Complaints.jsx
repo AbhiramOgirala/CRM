@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { complaintsAPI } from '../../services/api';
+import { complaintsAPI, adminAPI } from '../../services/api';
 import { SkeletonCard, Pagination, StatusBadge, PriorityBadge, Modal } from '../../components/common';
 import useAuthStore from '../../store/authStore';
 
@@ -16,7 +16,7 @@ export default function OfficerComplaints() {
   const navigate = useNavigate();
   const isAdmin = ['admin', 'super_admin'].includes(user?.role);
 
-  const [activeTab, setActiveTab] = useState('mine');
+  const [activeTab, setActiveTab] = useState(isAdmin ? 'all' : 'mine');
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
@@ -95,6 +95,17 @@ export default function OfficerComplaints() {
     }
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to completely delete this complaint? This cannot be undone.')) return;
+    try {
+      await adminAPI.deleteComplaint(id);
+      toast.success('Complaint deleted successfully');
+      load();
+    } catch (err) {
+      toast.error(err.message || 'Failed to delete complaint');
+    }
+  };
+
   const canAct = (complaint) => {
     if (isAdmin) return true;
     return user?.role === 'officer' && complaint.department_id === user?.department_id;
@@ -148,7 +159,7 @@ export default function OfficerComplaints() {
 
       {/* Tabs */}
       <div className="tabs" style={{ marginBottom: 0 }}>
-        {TABS.filter(t => isAdmin || t.key !== 'all').map(t => (
+        {TABS.filter(t => isAdmin ? t.key !== 'mine' : t.key !== 'all').map(t => (
           <button key={t.key} className={`tab ${activeTab === t.key ? 'active' : ''}`}
             onClick={() => { setActiveTab(t.key); setFilters(p => ({ ...p, status: '', page: 1 })); }}>
             {t.label}
@@ -272,7 +283,12 @@ export default function OfficerComplaints() {
                               Update
                             </button>
                           )}
-                          {!canAct(c) && (
+                          {isAdmin && (
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c.id)}>
+                              Delete
+                            </button>
+                          )}
+                          {!canAct(c) && !isAdmin && (
                             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', padding: '4px 8px' }}>View only</span>
                           )}
                         </div>

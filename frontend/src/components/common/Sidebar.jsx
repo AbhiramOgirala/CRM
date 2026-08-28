@@ -79,7 +79,6 @@ const GET_OFFICER_LINKS = (t) => [
 
 const GET_ADMIN_LINKS = (t) => [
   { to: '/admin/dashboard',   icon: Icons.dashboard,   label: t('nav_dashboard', 'Dashboard') },
-  { to: '/officer/portal',    icon: Icons.portal,      label: t('nav_govt_portal', 'Govt Portal') },
   { to: '/admin/complaints',  icon: Icons.list,        label: t('nav_all_complaints', 'All Complaints') },
   { to: '/admin/users',       icon: Icons.users,       label: t('nav_users', 'Users') },
   { to: '/map',               icon: Icons.map,         label: t('nav_hotspot_map', 'Hotspot Map') },

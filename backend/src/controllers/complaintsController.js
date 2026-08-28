@@ -24,7 +24,7 @@ const enhancedOrchestrator = USE_ENHANCED_CLASSIFICATION ? require('../services/
 const MAX_COMPLAINT_IMAGES = 5;
 
 // Map complaint category → department code per state
-// Falls back to Delhi codes if state not matched
+// Telangana-only deployment
 const CITY_DEPT_MAP = {
   'Telangana': {
     roads: 'GHMC', infrastructure: 'GHMC', waste_management: 'GHMC',
@@ -33,30 +33,6 @@ const CITY_DEPT_MAP = {
     electricity: 'TSSPDCL',
     law_enforcement: 'HYDPOL', noise_pollution: 'HYDPOL',
     health: 'TSHFW', education: 'TSEDU', other: 'GHMC'
-  },
-  'Maharashtra': {
-    roads: 'BMC', infrastructure: 'BMC', waste_management: 'BMC',
-    parks: 'BMC', public_services: 'BMC', street_lights: 'BMC',
-    water_supply: 'MWRRA', drainage: 'MWRRA',
-    electricity: 'MSEDCL',
-    law_enforcement: 'MUMPOL', noise_pollution: 'MUMPOL',
-    health: 'MHFW', education: 'MHEDU', other: 'BMC'
-  },
-  'West Bengal': {
-    roads: 'KMC', infrastructure: 'KMC', waste_management: 'KMC',
-    parks: 'KMC', public_services: 'KMC', street_lights: 'KMC',
-    water_supply: 'WBPHED', drainage: 'WBPHED',
-    electricity: 'CESC',
-    law_enforcement: 'KOLPOL', noise_pollution: 'KOLPOL',
-    health: 'WBHFW', education: 'WBEDU', other: 'KMC'
-  },
-  'Karnataka': {
-    roads: 'BBMP', infrastructure: 'BBMP', waste_management: 'BBMP',
-    parks: 'BBMP', public_services: 'BBMP', street_lights: 'BBMP',
-    water_supply: 'BWSSB', drainage: 'BWSSB',
-    electricity: 'BESCOM',
-    law_enforcement: 'BLRPOL', noise_pollution: 'BLRPOL',
-    health: 'KARHFW', education: 'KAREDU', other: 'BBMP'
   }
 };
 
@@ -140,7 +116,7 @@ const autoAssignOfficer = async (complaintId, departmentId, districtId) => {
       .eq('is_active', true);
 
     if (districtId) {
-      const { data: areaOfficer } = await query.eq('district_id', districtId).limit(1).single();
+      const { data: areaOfficer, error: areaErr } = await query.eq('district_id', districtId).limit(1).maybeSingle();
       if (areaOfficer) {
         await supabase.from('complaints').update({
           assigned_officer_id: areaOfficer.id,
@@ -155,13 +131,13 @@ const autoAssignOfficer = async (complaintId, departmentId, districtId) => {
       }
     }
     // Fallback: any officer in the department
-    const { data: deptOfficer } = await supabase.from('users')
+    const { data: deptOfficer, error: deptErr } = await supabase.from('users')
       .select('id')
       .eq('role', 'officer')
       .eq('department_id', departmentId)
       .eq('is_active', true)
       .limit(1)
-      .single();
+      .maybeSingle();
     if (deptOfficer) {
       await supabase.from('complaints').update({
         assigned_officer_id: deptOfficer.id,
@@ -244,9 +220,9 @@ exports.previewClassification = async (req, res) => {
 
         // Log preview classification with enhanced confidence
         if (enhanced.priority === 'critical') {
-          console.log(`🚨 [PREVIEW-ENHANCED-CRITICAL] Category: ${enhanced.final_category.toUpperCase()} | Department: ${dept?.name || enhanced.department} | State: ${resolvedStateName || 'Delhi'} | URGENT`);
+          console.log(`🚨 [PREVIEW-ENHANCED-CRITICAL] Category: ${enhanced.final_category.toUpperCase()} | Department: ${dept?.name || enhanced.department} | State: ${resolvedStateName || 'Telangana'} | URGENT`);
         } else {
-          console.log(`🔍 [PREVIEW-ENHANCED] Category: ${enhanced.final_category} | Priority: ${enhanced.priority} | Department: ${dept?.name || enhanced.department} | State: ${resolvedStateName || 'Delhi'}`);
+          console.log(`🔍 [PREVIEW-ENHANCED] Category: ${enhanced.final_category} | Priority: ${enhanced.priority} | Department: ${dept?.name || enhanced.department} | State: ${resolvedStateName || 'Telangana'}`);
         }
 
         return res.json({
@@ -568,42 +544,7 @@ exports.fileComplaint = async (req, res) => {
     }
 
     // ── City-aware department resolution ─────────────────────────────────────
-    // Map complaint category → department code per state
-    // Falls back to Delhi codes if state not matched
-    const CITY_DEPT_MAP = {
-      'Telangana': {
-        roads: 'GHMC', infrastructure: 'GHMC', waste_management: 'GHMC',
-        parks: 'GHMC', public_services: 'GHMC', street_lights: 'GHMC',
-        water_supply: 'HMWSSB', drainage: 'HMWSSB',
-        electricity: 'TSSPDCL',
-        law_enforcement: 'HYDPOL', noise_pollution: 'HYDPOL',
-        health: 'TSHFW', education: 'TSEDU', other: 'GHMC'
-      },
-      'Maharashtra': {
-        roads: 'BMC', infrastructure: 'BMC', waste_management: 'BMC',
-        parks: 'BMC', public_services: 'BMC', street_lights: 'BMC',
-        water_supply: 'MWRRA', drainage: 'MWRRA',
-        electricity: 'MSEDCL',
-        law_enforcement: 'MUMPOL', noise_pollution: 'MUMPOL',
-        health: 'MHFW', education: 'MHEDU', other: 'BMC'
-      },
-      'West Bengal': {
-        roads: 'KMC', infrastructure: 'KMC', waste_management: 'KMC',
-        parks: 'KMC', public_services: 'KMC', street_lights: 'KMC',
-        water_supply: 'WBPHED', drainage: 'WBPHED',
-        electricity: 'CESC',
-        law_enforcement: 'KOLPOL', noise_pollution: 'KOLPOL',
-        health: 'WBHFW', education: 'WBEDU', other: 'KMC'
-      },
-      'Karnataka': {
-        roads: 'BBMP', infrastructure: 'BBMP', waste_management: 'BBMP',
-        parks: 'BBMP', public_services: 'BBMP', street_lights: 'BBMP',
-        water_supply: 'BWSSB', drainage: 'BWSSB',
-        electricity: 'BESCOM',
-        law_enforcement: 'BLRPOL', noise_pollution: 'BLRPOL',
-        health: 'KARHFW', education: 'KAREDU', other: 'BBMP'
-      }
-    };
+    // Uses module-level CITY_DEPT_MAP (Telangana-only)
 
     // Get state name from state_id if provided
     let stateName = null;
@@ -616,7 +557,7 @@ exports.fileComplaint = async (req, res) => {
     const cityMap = stateName ? CITY_DEPT_MAP[stateName] : null;
     const resolvedDeptCode = cityMap
       ? (cityMap[classificaton.category] || cityMap.other)
-      : classificaton.deptCode; // fallback to NLP's Delhi code
+      : classificaton.deptCode; // fallback to NLP's Telangana code
 
     // Fetch dept from DB using resolved code
     let dept = null;
@@ -629,7 +570,7 @@ exports.fileComplaint = async (req, res) => {
       dept = fallbackDept;
     }
 
-    console.log(`[Routing] State: ${stateName || 'Delhi'} | Category: ${classificaton.category} | Dept Code: ${resolvedDeptCode} | Dept: ${dept?.name || 'not found'}`);
+    console.log(`[Routing] State: ${stateName || 'Telangana'} | Category: ${classificaton.category} | Dept Code: ${resolvedDeptCode} | Dept: ${dept?.name || 'not found'}`);
     const slaHours = classificaton.slaHours || dept?.sla_hours || 72;
     const slaDeadline = new Date(Date.now() + slaHours * 3600000);
     const ticket = await genTicket();
@@ -970,11 +911,6 @@ exports.getComplaints = async (req, res) => {
       if (req.user.state_id) {
         q = q.eq('state_id', req.user.state_id);
       }
-    } else if (role === 'officer') {
-      // Officers only see complaints in their department AND their district
-      if (req.user.department_id) q = q.eq('department_id', req.user.department_id);
-      if (req.user.district_id) q = q.eq('district_id', req.user.district_id);
-      else if (req.user.state_id) q = q.eq('state_id', req.user.state_id);
     }
     // admin / super_admin see ALL complaints
 

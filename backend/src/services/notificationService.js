@@ -47,7 +47,7 @@ const buildEmailHtml = ({ heading, body, ticketNumber, ctaLabel, ctaUrl }) => `
               <span style="background:#138808;display:inline-block;width:6px;height:36px;border-radius:3px;"></span>
             </div>
             <h1 style="color:#FFD54F;font-size:22px;margin:12px 0 4px;letter-spacing:-0.5px;">JanSamadhan</h1>
-            <p style="color:rgba(255,255,255,0.7);font-size:11px;margin:0;text-transform:uppercase;letter-spacing:2px;">Government of NCT of Delhi — Grievance Portal</p>
+            <p style="color:rgba(255,255,255,0.7);font-size:11px;margin:0;text-transform:uppercase;letter-spacing:2px;">Government of Telangana — Grievance Portal</p>
           </td>
         </tr>
         <!-- Body -->
@@ -68,8 +68,8 @@ const buildEmailHtml = ({ heading, body, ticketNumber, ctaLabel, ctaUrl }) => `
         <tr>
           <td style="background:#F5F6FA;padding:20px 32px;border-top:1px solid #E0E3EF;text-align:center;">
             <p style="color:#9EA3B8;font-size:11px;margin:0;line-height:1.6;">
-              This is an automated notification from <strong>JanSamadhan</strong> — Delhi Government Grievance Portal.<br/>
-              Do not reply to this email. For support, visit <a href="https://jansamadhan.delhi.gov.in" style="color:#E65100;">jansamadhan.delhi.gov.in</a>
+              This is an automated notification from <strong>JanSamadhan</strong> — Telangana Government Grievance Portal.<br/>
+              Do not reply to this email. For support, visit <a href="https://jansamadhan.telangana.gov.in" style="color:#E65100;">jansamadhan.telangana.gov.in</a>
             </p>
           </td>
         </tr>
@@ -116,7 +116,7 @@ const sendEmail = async (to, { subject, html, text }) => {
   }
   try {
     await resend.emails.send({
-      from: `${process.env.NOTIFICATIONS_FROM_NAME || 'JanSamadhan Delhi'} <${process.env.NOTIFICATIONS_FROM_EMAIL || 'noreply@jansamadhan.delhi.gov.in'}>`,
+      from: `${process.env.NOTIFICATIONS_FROM_NAME || 'JanSamadhan Telangana'} <${process.env.NOTIFICATIONS_FROM_EMAIL || 'noreply@jansamadhan.telangana.gov.in'}>`,
       to: [to],
       subject,
       html: html || `<p>${text}</p>`,
@@ -189,7 +189,7 @@ const notifyComplaintFiled = async (complaint, citizen, _department, officers) =
   // 3. Citizen — SMS
   if (citizen.phone) {
     await sendSMS(citizen.phone,
-      `Complaint filed: "${complaint.title.substring(0, 50)}" (${complaint.ticket_number}). Track at jansamadhan.delhi.gov.in - JanSamadhan Delhi`
+      `Complaint filed: "${complaint.title.substring(0, 50)}" (${complaint.ticket_number}). Track at jansamadhan.telangana.gov.in - JanSamadhan Telangana`
     );
   }
 
@@ -273,7 +273,7 @@ const notifyStatusUpdate = async (complaint, citizen, newStatus, notes) => {
             <p>Dear <strong>${citizen.full_name || 'Citizen'}</strong>,</p>
             <p>We are pleased to inform you that your complaint <strong>"${complaint.title}"</strong> has been resolved.</p>
             ${notes ? `<p><strong>Resolution Notes:</strong> ${notes}</p>` : ''}
-            <p>Thank you for using JanSamadhan. Your feedback helps us improve civic services in Delhi.</p>
+            <p>Thank you for using JanSamadhan. Your feedback helps us improve civic services in Telangana.</p>
           `,
           ctaLabel: 'View Resolution Details',
           ctaUrl: complaintUrl,
@@ -282,7 +282,7 @@ const notifyStatusUpdate = async (complaint, citizen, newStatus, notes) => {
     }
     if (citizen.phone) {
       await sendSMS(citizen.phone,
-        `Your complaint ${complaint.ticket_number} has been RESOLVED. View details at jansamadhan.delhi.gov.in - JanSamadhan Delhi`
+        `Your complaint ${complaint.ticket_number} has been RESOLVED. View details at jansamadhan.telangana.gov.in - JanSamadhan Telangana`
       );
     }
   }
@@ -307,7 +307,7 @@ const notifyStatusUpdate = async (complaint, citizen, newStatus, notes) => {
 
   if (newStatus === 'escalated' && citizen.phone) {
     await sendSMS(citizen.phone,
-      `Your complaint ${complaint.ticket_number} has been escalated to senior authority for priority attention. - JanSamadhan Delhi`
+      `Your complaint ${complaint.ticket_number} has been escalated to senior authority for priority attention. - JanSamadhan Telangana`
     );
   }
 };
@@ -351,7 +351,7 @@ const notifyEscalation = async (complaint, level, admins) => {
     // Citizen — SMS
     if (complaint.citizen_phone) {
       await sendSMS(complaint.citizen_phone,
-        `Your complaint ${complaint.ticket_number} has been escalated to ${escalatedTo} for priority attention. - JanSamadhan Delhi`
+        `Your complaint ${complaint.ticket_number} has been escalated to ${escalatedTo} for priority attention. - JanSamadhan Telangana`
       );
     }
   }
@@ -394,7 +394,7 @@ const notifyBadgeUnlocked = async (userId, badgeLabel, isOfficer = false) => {
   await sendInApp(userId, {
     type: 'badge',
     title: isOfficer ? 'Achievement Unlocked' : 'New Badge Unlocked',
-    message: `You have earned the "${badgeLabel.replace(/_/g, ' ')}" ${isOfficer ? 'officer badge' : 'badge'}! Keep contributing to improve Delhi.`,
+    message: `You have earned the "${badgeLabel.replace(/_/g, ' ')}" ${isOfficer ? 'officer badge' : 'badge'}! Keep contributing to improve Telangana.`,
     complaint_id: null,
   });
 };

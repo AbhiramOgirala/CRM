@@ -137,3 +137,15 @@ exports.getEscalated = async (_req, res) => {
     return res.json({ complaints:data||[] });
   } catch (err) { return res.status(500).json({ error:'Internal server error' }); }
 };
+
+// ── Delete complaint (Admin only) ─────────────────────────────────────────────
+exports.deleteComplaint = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { error } = await supabase.from('complaints').delete().eq('id', id);
+    if (error) return res.status(500).json({ error: 'Failed to delete complaint' });
+    return res.json({ message: 'Complaint deleted successfully' });
+  } catch (err) {
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};

@@ -64,7 +64,7 @@ export default function PrivacyPolicy() {
             },
             {
               title: '10. Contact',
-              content: `For privacy-related queries, contact: Designated Privacy Officer, JanSamadhan, Secretariat, New Delhi — 110002. Email: privacy@jansamadhan.gov.in`
+              content: `For privacy-related queries, contact: Designated Privacy Officer, JanSamadhan, Secretariat, Hyderabad — 500022. Email: privacy@jansamadhan.gov.in`
             }
           ].map(section => (
             <div key={section.title} className="card" style={{ marginBottom: 16 }}>

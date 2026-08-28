@@ -40,7 +40,7 @@ export default function GovtPortal() {
   const navigate = useNavigate();
   const fileInputRef = useRef();
 
-  const [activeTab, setActiveTab] = useState('my_dept');  // 'my_dept' | 'all' | 'leaderboard'
+  const [activeTab, setActiveTab] = useState('my_dept');  // 'my_dept' | 'leaderboard'
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
@@ -58,19 +58,12 @@ export default function GovtPortal() {
     setLoading(true);
     try {
       const params = { ...filters, limit: 20 };
-      if (activeTab === 'my_dept') {
-        // Officer sees only their dept + district
-        if (user?.department_id) params.department_id = user.department_id;
-        if (user?.district_id) params.district_id = user.district_id;
-        const res = await api.get('/complaints', { params });
-        setComplaints(res.complaints || []);
-        setPagination(res.pagination || {});
-      } else {
-        // View all (read-only)
-        const res = await api.get('/complaints', { params: { ...params, dept_view: 'all' } });
-        setComplaints(res.complaints || []);
-        setPagination(res.pagination || {});
-      }
+      // Officer always sees only their dept + district
+      if (user?.department_id) params.department_id = user.department_id;
+      if (user?.district_id) params.district_id = user.district_id;
+      const res = await api.get('/complaints', { params });
+      setComplaints(res.complaints || []);
+      setPagination(res.pagination || {});
     } catch (err) {
       toast.error('Failed to load complaints');
     } finally {
@@ -82,18 +75,18 @@ export default function GovtPortal() {
     if (activeTab !== 'leaderboard') loadComplaints();
   }, [loadComplaints, activeTab]);
 
-  const loadLeaderboard = async (level) => {
+  const loadLeaderboard = async () => {
     setLbLoading(true);
-    setLeaderboard({ level, data: [] });
+    setLeaderboard({ level: 'officer', data: [] });
     try {
-      const res = await api.get('/leaderboard/govt', { params: { level, month: new Date().getMonth() + 1, year: new Date().getFullYear() } });
-      setLeaderboard({ level, data: res.leaderboard || [] });
+      const res = await api.get('/leaderboard/officers', { params: { department_id: user?.department_id } });
+      setLeaderboard({ level: 'officer', data: res.leaderboard || res || [] });
     } catch { }
     setLbLoading(false);
   };
 
   useEffect(() => {
-    if (activeTab === 'leaderboard') loadLeaderboard(leaderboard.level);
+    if (activeTab === 'leaderboard') loadLeaderboard();
   }, [activeTab]);
 
   const setFilter = (k, v) => setFilters(prev => ({ ...prev, [k]: v, page: 1 }));
@@ -159,22 +152,14 @@ export default function GovtPortal() {
         <button className={`tab ${activeTab === 'my_dept' ? 'active' : ''}`} onClick={() => setActiveTab('my_dept')}>
           📋 My Department Queue
         </button>
-        <button className={`tab ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>
-          👁️ All Complaints (View Only)
-        </button>
         <button className={`tab ${activeTab === 'leaderboard' ? 'active' : ''}`} onClick={() => setActiveTab('leaderboard')}>
-          🏆 Performance Leaderboard
+          🏆 Department Leaderboard
         </button>
       </div>
 
-      {/* ===== MY DEPT / ALL COMPLAINTS ===== */}
-      {(activeTab === 'my_dept' || activeTab === 'all') && (
+      {/* ===== MY DEPT COMPLAINTS ===== */}
+      {activeTab === 'my_dept' && (
         <div>
-          {activeTab === 'all' && (
-            <div style={{ background: 'var(--info-bg)', border: '1px solid #90CAF9', borderRadius: 'var(--radius-sm)', padding: '10px 14px', marginBottom: 12, fontSize: '0.82rem', color: 'var(--info)' }}>
-              👁️ <strong>View-Only Mode:</strong> You can see all complaints but can only update complaints in your department ({user?.department?.name || 'your dept'}).
-            </div>
-          )}
 
           {/* Filters */}
           <div className="filter-bar">
@@ -287,29 +272,14 @@ export default function GovtPortal() {
         </div>
       )}
 
-      {/* ===== LEADERBOARD ===== */}
+      {/* ===== DEPARTMENT LEADERBOARD ===== */}
       {activeTab === 'leaderboard' && (
         <div>
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontWeight: 700, marginBottom: 8, fontSize: '0.9rem' }}>View Rankings By Level</div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {[
-                { key: 'area', label: '📍 Area / Ward' },
-                { key: 'mandal', label: '🗺️ Mandal' },
-                { key: 'district', label: '🏙️ District' },
-                { key: 'state', label: '🏛️ State' },
-                { key: 'officer', label: '👮 Officer' },
-              ].map(l => (
-                <button key={l.key} onClick={() => loadLeaderboard(l.key)}
-                  className={`btn btn-sm ${leaderboard.level === l.key ? 'btn-primary' : 'btn-ghost'}`}>
-                  {l.label}
-                </button>
-              ))}
+          <div style={{ background: 'linear-gradient(135deg, #1B5E20, #2E7D32)', borderRadius: 'var(--radius)', padding: '14px 20px', marginBottom: 16, color: 'white' }}>
+            <div style={{ fontWeight: 700, fontSize: '1rem' }}>👮 {user?.departments?.name || 'Department'} — Officer Rankings</div>
+            <div style={{ fontSize: '0.82rem', opacity: 0.85, marginTop: 4 }}>
+              🏆 Rankings based on: Complaints resolved × Priority multiplier (Critical=25pts, High=20, Medium=15, Low=10) — Current month
             </div>
-          </div>
-
-          <div style={{ background: 'var(--warning-bg)', border: '1px solid var(--primary-border)', borderRadius: 'var(--radius)', padding: '10px 16px', marginBottom: 12, fontSize: '0.82rem', color: 'var(--warning)' }}>
-            🏆 Rankings are based on: Complaints resolved × Priority multiplier (Critical=25pts, High=20, Medium=15, Low=10) — Current month
           </div>
 
           {lbLoading ? (

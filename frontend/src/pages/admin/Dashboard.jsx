@@ -127,10 +127,9 @@ export default function AdminDashboard() {
         <div className="grid-3">
           {[
             { to: '/admin/users', label: 'Manage Users', desc: 'Add officers, manage accounts', color: 'var(--secondary)' },
-            { to: '/admin/complaints', label: 'All Complaints', desc: 'View and assign all complaints', color: 'var(--primary)' },
+            { to: '/admin/complaints', label: 'All Complaints', desc: 'View and manage all complaints', color: 'var(--primary)' },
             { to: '/leaderboard', label: 'Leaderboard', desc: 'View citizen & officer rankings', color: 'var(--accent)' },
             { to: '/map', label: 'Hotspot Map', desc: 'Identify problem areas geographically', color: '#880E4F' },
-            { to: '/feed', label: 'Public Feed', desc: 'Monitor public complaint activity', color: '#004D40' },
           ].map(a => (
             <Link key={a.to} to={a.to} style={{ textDecoration: 'none' }}>
               <div style={{

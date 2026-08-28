@@ -84,6 +84,7 @@ router.put('/admin/users/:id/department', authenticate, authorize('admin', 'supe
 router.get('/admin/departments', authenticate, adminCtrl.getDepartments);
 router.get('/admin/stats', authenticate, authorize('admin', 'super_admin'), adminCtrl.getSystemStats);
 router.get('/admin/escalated', authenticate, authorize('admin', 'super_admin'), adminCtrl.getEscalated);
+router.delete('/admin/complaints/:id', authenticate, authorize('admin', 'super_admin'), adminCtrl.deleteComplaint);
 router.post('/admin/geocode-complaints', authenticate, authorize('admin', 'super_admin'), complaintsCtrl.geocodeExistingComplaints);
 
 module.exports = router;

@@ -25,16 +25,16 @@ export default function Register() {
   useEffect(() => {
     locationAPI.getStates().then(res => {
       const all = res.states || [];
-      const supported = ['Delhi', 'Telangana', 'Maharashtra', 'West Bengal', 'Karnataka'];
+      const supported = ['Telangana'];
       const filtered = all.filter(s => supported.includes(s.name));
       setStates(filtered);
-      // Default to Delhi
-      const delhi = filtered.find(s => s.name === 'Delhi');
-      if (delhi) {
+      // Default to Telangana
+      const telangana = filtered.find(s => s.name === 'Telangana');
+      if (telangana) {
         setForm(prev => ({
           ...prev,
-          state_id: delhi.id,
-          state_name: delhi.name
+          state_id: telangana.id,
+          state_name: telangana.name
         }));
       }
     });

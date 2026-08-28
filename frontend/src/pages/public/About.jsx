@@ -47,8 +47,8 @@ export default function About() {
               <div>
                 <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: 4 }}>Department of Urban Development</div>
                 <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', lineHeight: 1.6 }}>
-                  Government of India<br />
-                  Secretariat, New Delhi — 110002
+                  Government of Telangana<br />
+                  Secretariat, Hyderabad — 500022
                 </div>
               </div>
               <div>
@@ -71,7 +71,7 @@ export default function About() {
               <strong>Name:</strong> Sh. Rajesh Kumar, IAS<br />
               <strong>Designation:</strong> Principal Secretary, Urban Development<br />
               <strong>Email:</strong> <a href="mailto:grievance@jansamadhan.gov.in" style={{ color: 'var(--primary)' }}>grievance@jansamadhan.gov.in</a><br />
-              <strong>Phone:</strong> 011-XXXX-XXXX (Mon–Fri, 9 AM – 5 PM)
+              <strong>Phone:</strong> 040-XXXX-XXXX (Mon–Fri, 9 AM – 5 PM)
             </div>
           </div>
 
@@ -89,8 +89,8 @@ export default function About() {
               <div>
                 <strong>Postal Address:</strong><br />
                 JanSamadhan Help Desk<br />
-                Secretariat, New Delhi<br />
-                New Delhi — 110002
+                Secretariat, Hyderabad<br />
+                Hyderabad — 500022
               </div>
             </div>
           </div>

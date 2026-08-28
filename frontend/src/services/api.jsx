@@ -125,7 +125,8 @@ export const adminAPI = {
   assignDept: (id, d) => api.put(`/admin/users/${id}/department`, d),
   getDepartments: () => api.get('/admin/departments'),
   getStats: () => api.get('/admin/stats'),
-  getEscalated: () => api.get('/admin/escalated')
+  getEscalated: () => api.get('/admin/escalated'),
+  deleteComplaint: (id) => api.delete(`/admin/complaints/${id}`)
 };
 
 export default api;
