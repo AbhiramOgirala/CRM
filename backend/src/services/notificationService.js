@@ -193,6 +193,25 @@ const notifyComplaintFiled = async (complaint, citizen, _department, officers) =
     );
   }
 
+  // 3b. Citizen — WhatsApp
+  if (citizen.phone) {
+    try {
+      const { sendWhatsApp } = require('./whatsappService');
+      const priorityEmoji = { critical:'🚨', high:'🔴', medium:'🟡', low:'🟢' }[complaint.priority] || '🟡';
+      const body = `🏛️ *JanSamadhan Notification*\n\n` +
+        `✅ *Complaint Filed Successfully!*\n\n` +
+        `🎫 *Ticket:* ${complaint.ticket_number}\n` +
+        `📝 *Issue:* ${complaint.title}\n` +
+        `🏢 *Department:* ${_department?.name || complaint.category?.replace(/_/g, ' ')}\n` +
+        `${priorityEmoji} *Priority:* ${complaint.priority?.toUpperCase()}\n\n` +
+        `We will keep you updated on the progress.\n` +
+        `Track online: ${complaintUrl}`;
+      await sendWhatsApp(citizen.phone, body);
+    } catch (wsErr) {
+      console.error('[WhatsApp Notification] Failed to send on complaint filing:', wsErr.message);
+    }
+  }
+
   // 4. Officers — in-app
   if (officers?.length) {
     await sendInAppBulk(officers.map(o => o.id), {
