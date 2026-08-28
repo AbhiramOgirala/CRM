@@ -387,7 +387,7 @@ export default function FileComplaint() {
   // ── Live NLP Preview ─────────────────────────────────────────────
   const triggerNLPPreview = useCallback((text) => {
     if (nlpTimer.current) clearTimeout(nlpTimer.current);
-    if (!text || text.trim().length < 15) { setNlpResult(null); return; }
+    if (!text || text.trim().length < 3) { setNlpResult(null); return; }
     nlpTimer.current = setTimeout(async () => {
       setNlpLoading(true);
       try {
@@ -395,62 +395,80 @@ export default function FileComplaint() {
         setNlpResult(result);
       } catch { /* silent fail */ }
       finally { setNlpLoading(false); }
-    }, 600);
+    }, 250);
   }, [form.title, form.state_id, user?.state_id]);
 
   useEffect(() => {
     triggerNLPPreview(form.description);
   }, [form.description, form.title, form.state_id, triggerNLPPreview]);
 
+  // Automatically trigger image analysis when NLP category arrives
+  useEffect(() => {
+    if (form.images.length > 0 && nlpResult?.category && !imageAnalysisLoading && !imageAnalysisResult) {
+      analyzeImageContent(form.images);
+    }
+  }, [nlpResult?.category, form.images]);
+
   // ── GPS Location ─────────────────────────────────────────────────
   const getGPS = () => {
     if (!navigator.geolocation) { toast.error('GPS not available on this device'); return; }
     setGettingGPS(true);
+    toast('📡 Getting your location...', { duration: 2000 });
 
-    const onLocationSuccess = async ({ coords: { latitude, longitude } }) => {
+    const resolveAndFill = async (latitude, longitude) => {
+      // Immediately set coordinates so the map updates
       setForm(p => ({ ...p, latitude, longitude }));
+
       try {
         const resolved = await locationAPI.resolveGPSLocation(latitude, longitude);
+        console.log('[GPS] Resolved location:', resolved);
+
         setForm(prev => ({
           ...prev,
+          latitude,
+          longitude,
           address: resolved.address || prev.address,
           pincode: resolved.pincode || prev.pincode,
           state_id: resolved.state_id || prev.state_id,
           state_name: resolved.state_name || prev.state_name,
-          district_id: resolved.district_id || '',
-          taluka_id: resolved.taluka_id || '',
-          mandal_id: resolved.mandal_id || ''
+          district_id: resolved.district_id || prev.district_id,
+          taluka_id: resolved.taluka_id || prev.taluka_id,
+          mandal_id: resolved.mandal_id || prev.mandal_id
         }));
-        toast.success('GPS location captured!');
-      } catch {
-        toast.success('GPS location captured!');
+
+        const parts = [];
+        if (resolved.address) parts.push(resolved.address);
+        if (resolved.state_name) parts.push(resolved.state_name);
+        toast.success(parts.length > 0 ? `📍 Location: ${parts.join(', ')}` : 'GPS location captured!');
+      } catch (err) {
+        console.warn('[GPS] Address resolution failed:', err);
+        toast.success('GPS coordinates captured!');
       }
       setGettingGPS(false);
     };
 
-    const onLocationError = (err) => {
-      console.warn('[Geolocation error]', err);
-      // If standard lookup failed, retry with cached / low accuracy
-      if (err && err.code !== 1) {
+    // Try fast cached position first (instant), then high-accuracy
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => resolveAndFill(coords.latitude, coords.longitude),
+      (err) => {
+        console.warn('[GPS] First attempt failed:', err.message);
+        if (err.code === 1) {
+          // Permission denied — can't retry
+          setGettingGPS(false);
+          toast.error('Location access denied. Please enter your location manually.');
+          return;
+        }
+        // Retry with low accuracy and longer cache
         navigator.geolocation.getCurrentPosition(
-          onLocationSuccess,
-          (fallbackErr) => {
-            console.warn('[Geolocation fallback failed]', fallbackErr);
+          ({ coords }) => resolveAndFill(coords.latitude, coords.longitude),
+          () => {
             setGettingGPS(false);
             toast.error('Could not get location. Please enter manually.');
           },
-          { timeout: 15000, enableHighAccuracy: false, maximumAge: 300000 }
+          { timeout: 12000, enableHighAccuracy: false, maximumAge: 300000 }
         );
-        return;
-      }
-      setGettingGPS(false);
-      toast.error('Location access denied or unavailable. Please enter manually.');
-    };
-
-    navigator.geolocation.getCurrentPosition(
-      onLocationSuccess,
-      onLocationError,
-      { timeout: 8000, enableHighAccuracy: false, maximumAge: 60000 }
+      },
+      { timeout: 5000, enableHighAccuracy: false, maximumAge: 60000 }
     );
   };
 
@@ -537,6 +555,14 @@ export default function FileComplaint() {
       }
       if ((form.description + form.audio_transcript).trim().length < 10) {
         toast.error('Please provide more detail (at least 10 characters)'); return false;
+      }
+      if (imageAnalysisLoading) {
+        toast('Analyzing image with AI... please wait a moment.', { icon: '⏳' });
+        return false;
+      }
+      if (form.images.length > 0 && imageAnalysisResult && imageAnalysisResult.status === 'MISMATCH') {
+        toast.error('Uploaded image does not match your complaint. Please upload a related photo or remove it to proceed.');
+        return false;
       }
     }
     if (step === 2) {
@@ -861,7 +887,15 @@ export default function FileComplaint() {
                     <div key={i} style={{ position: 'relative' }}>
                       <img src={img} alt="" style={{ width: 76, height: 76, objectFit: 'cover', borderRadius: 8, border: '2px solid var(--border)' }} />
                       <button type="button"
-                        onClick={() => setForm(p => ({ ...p, images: p.images.filter((_, j) => j !== i) }))}
+                        onClick={() => {
+                          const updated = form.images.filter((_, j) => j !== i);
+                          setForm(p => ({ ...p, images: updated }));
+                          if (updated.length === 0) {
+                            setImageAnalysisResult(null);
+                          } else {
+                            analyzeImageContent(updated);
+                          }
+                        }}
                         style={{
                           position: 'absolute', top: -6, right: -6, width: 20, height: 20,
                           borderRadius: '50%', background: 'var(--danger)', color: 'white',
@@ -882,7 +916,7 @@ export default function FileComplaint() {
                   fontSize: '0.85rem', color: '#1976D2'
                 }}>
                   <div className="loading-spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
-                  <span>Analyzing image automatically...</span>
+                  <span>Analyzing photo with AI Vision...</span>
                 </div>
               )}
 
@@ -896,8 +930,32 @@ export default function FileComplaint() {
                   <div style={{ fontWeight: 700, marginBottom: 6, fontSize: '0.95rem', color: '#C62828', display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span>❌</span> Image Does Not Match Your Issue
                   </div>
-                  <div style={{ fontSize: '0.85rem', color: '#B71C1C', lineHeight: 1.5 }}>
-                    ⚠️ {imageAnalysisResult.mismatch_details?.analysis_explanation || "The uploaded image does not appear to match what is described in the complaint. Please attach a photo of the actual issue."}
+                  <div style={{ fontSize: '0.85rem', color: '#B71C1C', lineHeight: 1.5, marginBottom: 12 }}>
+                    ⚠️ {imageAnalysisResult.mismatch_details?.analysis_explanation || "The uploaded image does not appear to match the reported issue. Please upload a photo of the actual issue to proceed."}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{
+                        background: '#C62828', color: 'white', border: 'none',
+                        borderRadius: 6, padding: '7px 14px', fontSize: '0.82rem',
+                        fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6
+                      }}>
+                      🔄 Upload Related Photo
+                    </button>
+                    <button type="button"
+                      onClick={() => {
+                        setForm(p => ({ ...p, images: [] }));
+                        setImageAnalysisResult(null);
+                        toast.success('Mismatched photo removed');
+                      }}
+                      style={{
+                        background: 'white', color: '#C62828', border: '1px solid #C62828',
+                        borderRadius: 6, padding: '7px 14px', fontSize: '0.82rem',
+                        fontWeight: 700, cursor: 'pointer'
+                      }}>
+                      🗑️ Remove Photo & Proceed
+                    </button>
                   </div>
                 </div>
               )}

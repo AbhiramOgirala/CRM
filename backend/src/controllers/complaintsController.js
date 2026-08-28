@@ -939,7 +939,7 @@ exports.getComplaints = async (req, res) => {
     let q = supabase.from('complaints').select(`
       id,ticket_number,title,description,category,sub_category,status,priority,
       latitude,longitude,address,is_public,is_anonymous,is_duplicate,duplicate_count,
-      upvote_count,comment_count,images,created_at,updated_at,sla_deadline,sla_breached,
+      upvote_count,comment_count,created_at,updated_at,sla_deadline,sla_breached,
       sla_hours_allotted,escalation_level,escalated_to,citizen_id,assigned_officer_id,
       department_id,state_id,district_id,mandal_id,nlp_confidence,nlp_category,
       departments:department_id(name,code),
@@ -1235,27 +1235,39 @@ exports.getDashboardStats = async (req, res) => {
       return q;
     };
 
-    const [total, pending, inProgress, resolved, escalated] = await Promise.all([
-      buildQuery('*', { count: 'exact', head: true }),
-      buildQuery('*', { count: 'exact', head: true }).eq('status', 'pending'),
-      buildQuery('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
-      buildQuery('*', { count: 'exact', head: true }).eq('status', 'resolved'),
-      buildQuery('*', { count: 'exact', head: true }).eq('status', 'escalated')
-    ]);
+    const { data: allComplaints, error } = await buildQuery('status, category, created_at');
+    if (error) throw error;
 
-    const { data: catRaw } = await buildQuery('category');
+    let total = 0, pending = 0, inProgress = 0, resolved = 0, escalated = 0;
     const catCounts = {};
-    (catRaw || []).forEach(c => (catCounts[c.category] = (catCounts[c.category] || 0) + 1));
-    const byCategory = Object.entries(catCounts).map(([cat, count]) => ({ category: cat, count })).sort((a, b) => b.count - a.count);
-
-    const { data: mRaw } = await buildQuery('created_at').gte('created_at', new Date(Date.now() - 180 * 24 * 3600000).toISOString());
     const monthly = {};
-    (mRaw || []).forEach(c => { const m = new Date(c.created_at).toISOString().substring(0, 7); monthly[m] = (monthly[m] || 0) + 1; });
+    
+    const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 3600000);
+
+    (allComplaints || []).forEach(c => {
+      total++;
+      if (c.status === 'pending') pending++;
+      else if (c.status === 'in_progress') inProgress++;
+      else if (c.status === 'resolved') resolved++;
+      else if (c.status === 'escalated') escalated++;
+
+      catCounts[c.category] = (catCounts[c.category] || 0) + 1;
+
+      const d = new Date(c.created_at);
+      if (d >= sixMonthsAgo) {
+        const m = d.toISOString().substring(0, 7);
+        monthly[m] = (monthly[m] || 0) + 1;
+      }
+    });
+
+    const byCategory = Object.entries(catCounts).map(([cat, count]) => ({ category: cat, count })).sort((a, b) => b.count - a.count);
+    const monthlyTrends = Object.entries(monthly).map(([month, count]) => ({ month, count })).sort((a, b) => a.month.localeCompare(b.month));
+    const resolutionRate = total ? ((resolved / total) * 100).toFixed(1) : '0';
 
     return res.json({
-      stats: { total: total.count || 0, pending: pending.count || 0, inProgress: inProgress.count || 0, resolved: resolved.count || 0, escalated: escalated.count || 0, resolutionRate: total.count ? ((resolved.count / total.count) * 100).toFixed(1) : '0' },
+      stats: { total, pending, inProgress, resolved, escalated, resolutionRate },
       byCategory,
-      monthlyTrends: Object.entries(monthly).map(([month, count]) => ({ month, count })).sort((a, b) => a.month.localeCompare(b.month))
+      monthlyTrends
     });
   } catch (err) {
     console.error('getDashboardStats:', err);

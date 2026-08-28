@@ -59,6 +59,7 @@ router.get('/location/municipalities/:district_id', locationCtrl.getMunicipaliti
 router.get('/location/talukas/:district_id', locationCtrl.getTalukas);
 router.get('/location/mandals/:taluka_id', locationCtrl.getMandals);
 router.get('/location/gram-panchayats/:mandal_id', locationCtrl.getGramPanchayats);
+router.post('/location/resolve-gps', locationCtrl.resolveGPS);
 
 // ── Leaderboard ───────────────────────────────────────────────────
 router.get('/leaderboard/citizens', locationCtrl.getCitizenLeaderboard);

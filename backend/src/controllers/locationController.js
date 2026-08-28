@@ -33,6 +33,172 @@ exports.getGramPanchayats = async (req, res) => {
   return res.json({ gram_panchayats: data || [] });
 };
 
+// ── GPS Resolution (server-side) ─────────────────────────────────
+exports.resolveGPS = async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    if (!latitude || !longitude) {
+      return res.status(400).json({ error: 'latitude and longitude required' });
+    }
+
+    console.log(`[ResolveGPS] Resolving ${latitude}, ${longitude}`);
+
+    // 1. Reverse geocode via Nominatim (single external call)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const nominatimRes = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
+      { headers: { 'User-Agent': 'JanSamadhan-CRM/1.0' }, signal: controller.signal }
+    );
+    clearTimeout(timeout);
+    const geo = await nominatimRes.json();
+    const addr = geo.address || {};
+
+    const addressStr = [addr.road, addr.suburb, addr.neighbourhood, addr.city || addr.town || addr.village].filter(Boolean).join(', ');
+    const pincode = addr.postcode || '';
+    const displayName = (geo.display_name || '').toLowerCase();
+
+    console.log(`[ResolveGPS] Nominatim address: ${addressStr}`);
+
+    // Build list of location tokens from address for matching
+    const localTokens = [
+      addr.suburb, addr.neighbourhood, addr.road, addr.county,
+      addr.village, addr.town, addr.hamlet, addr.quarter,
+      addr.city, addr.state_district
+    ].filter(Boolean).map(s => String(s).toLowerCase().trim()).filter(s => s.length >= 3);
+
+    // 2. Match state (single DB query)
+    const { data: allStates } = await supabase.from('states').select('id, name').order('name');
+    const supported = ['Delhi', 'Telangana', 'Maharashtra', 'West Bengal', 'Karnataka'];
+    const states = (allStates || []).filter(s => supported.includes(s.name));
+
+    let matchedState = states.find(s => {
+      const sName = s.name.toLowerCase();
+      return (addr.state && addr.state.toLowerCase().includes(sName)) || displayName.includes(sName);
+    });
+
+    // Fallback city-based state matching
+    if (!matchedState) {
+      const cityStateMap = {
+        'hyderabad': 'Telangana', 'telangana': 'Telangana',
+        'mumbai': 'Maharashtra', 'maharashtra': 'Maharashtra', 'pune': 'Maharashtra',
+        'kolkata': 'West Bengal', 'west bengal': 'West Bengal',
+        'bengaluru': 'Karnataka', 'karnataka': 'Karnataka', 'bangalore': 'Karnataka',
+        'delhi': 'Delhi', 'new delhi': 'Delhi'
+      };
+      for (const [key, stateName] of Object.entries(cityStateMap)) {
+        if (displayName.includes(key)) {
+          matchedState = states.find(s => s.name === stateName);
+          if (matchedState) break;
+        }
+      }
+    }
+
+    if (!matchedState) {
+      console.log('[ResolveGPS] No matching state found');
+      return res.json({ address: addressStr || geo.display_name || '', pincode });
+    }
+
+    console.log(`[ResolveGPS] State matched: ${matchedState.name}`);
+
+    // 3. Load full hierarchy for the matched state in 3 parallel DB queries
+    const { data: districts } = await supabase.from('districts').select('id, name').eq('state_id', matchedState.id).order('name');
+
+    if (!districts || districts.length === 0) {
+      return res.json({ address: addressStr || geo.display_name || '', pincode, state_id: matchedState.id, state_name: matchedState.name });
+    }
+
+    const districtIds = districts.map(d => d.id);
+    const { data: allTalukas } = await supabase.from('talukas').select('id, name, district_id').in('district_id', districtIds).order('name');
+
+    const talukaIds = (allTalukas || []).map(t => t.id);
+    let allMandals = [];
+    if (talukaIds.length > 0) {
+      const { data: mandalsData } = await supabase.from('mandals').select('id, name, taluka_id').in('taluka_id', talukaIds).order('name');
+      allMandals = mandalsData || [];
+    }
+
+    console.log(`[ResolveGPS] Loaded ${districts.length} districts, ${(allTalukas || []).length} talukas, ${allMandals.length} mandals`);
+
+    // 4. Score and find best match
+    const districtName = (addr.state_district || addr.city || addr.county || '').toLowerCase();
+
+    const scoreName = (name) => {
+      const clean = name.toLowerCase().trim();
+      if (clean.length < 3) return 0;
+      let score = 0;
+      for (const tok of localTokens) {
+        if (tok === clean) score = Math.max(score, 1000);
+        else if (tok.length >= 4 && (tok.includes(clean) || clean.includes(tok))) score = Math.max(score, 800);
+      }
+      if (displayName.includes(clean)) score = Math.max(score, 400);
+      // Downgrade if it only matches due to district name
+      if (score > 0 && districtName.includes(clean) && !localTokens.some(l => l.includes(clean) && l !== districtName)) {
+        score = Math.min(score, 50);
+      }
+      return score;
+    };
+
+    let bestMatch = null;
+    let maxScore = 0;
+
+    for (const dist of districts) {
+      const distClean = dist.name.toLowerCase().trim();
+      const distScore = (districtName.includes(distClean) || displayName.includes(distClean)) ? 100 : 0;
+
+      const distTalukas = (allTalukas || []).filter(t => t.district_id === dist.id);
+      for (const tal of distTalukas) {
+        const talClean = tal.name.toLowerCase().trim();
+        const talScore = (displayName.includes(talClean) || localTokens.some(l => l.includes(talClean))) ? 200 : 0;
+
+        const talMandals = allMandals.filter(m => m.taluka_id === tal.id);
+        for (const mandal of talMandals) {
+          const mScore = scoreName(mandal.name);
+          const total = mScore * 10 + talScore + distScore;
+          if (total > maxScore && mScore > 0) {
+            maxScore = total;
+            bestMatch = { district_id: dist.id, taluka_id: tal.id, mandal_id: mandal.id };
+          }
+        }
+      }
+    }
+
+    // Fallback: match district only
+    if (!bestMatch) {
+      const matchedDist = districts.find(dist => {
+        const distClean = dist.name.toLowerCase().trim();
+        return districtName.includes(distClean) || displayName.includes(distClean);
+      });
+      if (matchedDist) {
+        const firstTaluka = (allTalukas || []).find(t => t.district_id === matchedDist.id);
+        const firstMandal = firstTaluka ? allMandals.find(m => m.taluka_id === firstTaluka.id) : null;
+        bestMatch = {
+          district_id: matchedDist.id,
+          taluka_id: firstTaluka?.id || '',
+          mandal_id: firstMandal?.id || ''
+        };
+      }
+    }
+
+    const result = {
+      address: addressStr || geo.display_name || '',
+      pincode,
+      state_id: matchedState.id,
+      state_name: matchedState.name,
+      district_id: bestMatch?.district_id || '',
+      taluka_id: bestMatch?.taluka_id || '',
+      mandal_id: bestMatch?.mandal_id || ''
+    };
+
+    console.log(`[ResolveGPS] Result: district=${result.district_id}, taluka=${result.taluka_id}, mandal=${result.mandal_id}`);
+    return res.json(result);
+
+  } catch (err) {
+    console.error('[ResolveGPS] Error:', err.message);
+    return res.status(500).json({ error: 'GPS resolution failed', details: err.message });
+  }
+};
+
 // ── LEADERBOARD ───────────────────────────────────────────────────
 exports.getCitizenLeaderboard = async (req, res) => {
   try {

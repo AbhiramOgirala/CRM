@@ -1,4 +1,5 @@
 'use strict';
+require('dotenv').config();
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const NodeCache = require('node-cache');
 
@@ -8,15 +9,15 @@ const geminiCache = new NodeCache({ stdTTL: 43200 });
 /**
  * Gemini Validation Service (using official SDK)
  * Uses Google's Gemini API to validate and refine classifications
- * Primary model: gemini-2.5-flash
- * Fallback model: gemini-3.1-flash-lite-preview
+ * Primary model: gemini-3.6-flash
+ * Fallback model: gemini-flash-latest
  */
 class GeminiValidationService {
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
     this.client = apiKey ? new GoogleGenerativeAI(apiKey) : null;
-    this.primaryModel = 'gemini-2.0-flash';
-    this.fallbackModel = 'gemini-1.5-flash';
+    this.primaryModel = 'gemini-3.6-flash';
+    this.fallbackModel = 'gemini-flash-latest';
     this.currentModel = this.primaryModel;
     this.isAvailable = !!this.client;
     this.validationStats = { attempts: 0, successes: 0, failures: 0, fallbackUsed: 0 };

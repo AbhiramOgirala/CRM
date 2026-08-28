@@ -31,7 +31,7 @@ export default function OfficerComplaints() {
     try {
       const params = { ...filters, limit: 15 };
       // Tab filters
-      if (activeTab === 'mine' && !isAdmin) {
+      if (!isAdmin) {
         params.department_id = user?.department_id;
         if (user?.district_id) params.district_id = user.district_id;
       }
@@ -148,7 +148,7 @@ export default function OfficerComplaints() {
 
       {/* Tabs */}
       <div className="tabs" style={{ marginBottom: 0 }}>
-        {TABS.map(t => (
+        {TABS.filter(t => isAdmin || t.key !== 'all').map(t => (
           <button key={t.key} className={`tab ${activeTab === t.key ? 'active' : ''}`}
             onClick={() => { setActiveTab(t.key); setFilters(p => ({ ...p, status: '', page: 1 })); }}>
             {t.label}

@@ -200,6 +200,10 @@ export function LocationSelector({ value, onChange, required = false }) {
   const [corporations, setCorporations] = React.useState([]);
   const [municipalities, setMunicipalities] = React.useState([]);
 
+  // Use a ref to always have the latest value (avoid stale closure in async callbacks)
+  const valueRef = React.useRef(value);
+  React.useEffect(() => { valueRef.current = value; }, [value]);
+
   React.useEffect(() => {
     import('../../services/api').then(({ locationAPI }) => {
       locationAPI.getStates().then(res => {
@@ -209,11 +213,13 @@ export function LocationSelector({ value, onChange, required = false }) {
         const filtered = all.filter(s => supported.includes(s.name));
         setStates(filtered);
         // Auto-select Delhi by default only if nothing chosen yet
-        if (!value.state_id) {
+        // Use ref to get the CURRENT value, not the stale mount-time value
+        const currentValue = valueRef.current;
+        if (!currentValue.state_id) {
           const delhi = filtered.find(s => s.name === 'Delhi');
           if (delhi) {
             onChange({
-              ...value,
+              ...currentValue,
               state_id: delhi.id,
               state_name: delhi.name,
               district_id: '',
