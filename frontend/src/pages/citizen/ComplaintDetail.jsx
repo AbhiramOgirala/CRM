@@ -67,6 +67,9 @@ export default function ComplaintDetail() {
   const [deleteReasons, setDeleteReasons] = useState([]);
   const [deleteForm, setDeleteForm] = useState({ reason_code: '', reason_text: '' });
   const [updateForm, setUpdateForm] = useState({ status: '', notes: '', rejection_reason: '' });
+  const [completionImages, setCompletionImages] = useState([]);
+  const [updating, setUpdating] = useState(false);
+  const fileInputRef = useRef(null);
   const [mapCoords, setMapCoords] = useState(null);
   const { activeLang } = useLanguage();
 
@@ -150,14 +153,38 @@ export default function ComplaintDetail() {
     }
   };
 
+  const handleCompletionImageUpload = (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = ev => setCompletionImages(prev => [...prev, ev.target.result]);
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleStatusUpdate = async (e) => {
     e.preventDefault();
+    if (!updateForm.status) { toast.error('Please select a status'); return; }
+    if (updateForm.status === 'resolved' && completionImages.length === 0) {
+      toast.error('Please upload at least one completion photo to resolve this complaint');
+      return;
+    }
+    if (updateForm.status === 'resolved' && !updateForm.notes?.trim()) {
+      toast.error('Please add resolution notes');
+      return;
+    }
+    setUpdating(true);
     try {
-      await complaintsAPI.updateStatus(id, updateForm);
+      await complaintsAPI.updateStatus(id, { ...updateForm, proof_images: completionImages });
+      toast.success('Complaint updated successfully');
       setShowUpdateModal(false);
+      setCompletionImages([]);
+      setUpdateForm({ status: '', notes: '', rejection_reason: '' });
       loadDetail();
     } catch (err) {
       toast.error(err.message);
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -753,12 +780,12 @@ export default function ComplaintDetail() {
       {/* Update Status Modal */}
       <Modal
         isOpen={showUpdateModal}
-        onClose={() => setShowUpdateModal(false)}
+        onClose={() => { setShowUpdateModal(false); setCompletionImages([]); }}
         title="Update Complaint Status"
         footer={
           <>
-            <button className="btn btn-ghost" onClick={() => setShowUpdateModal(false)}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleStatusUpdate}>Update</button>
+            <button className="btn btn-ghost" onClick={() => { setShowUpdateModal(false); setCompletionImages([]); }}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleStatusUpdate} disabled={updating}>{updating ? 'Updating...' : '✅ Update Status'}</button>
           </>
         }
       >
@@ -775,11 +802,39 @@ export default function ComplaintDetail() {
             </select>
           </div>
           {updateForm.status === 'resolved' && (
-            <div className="form-group">
-              <label className="form-label">Resolution Notes <span className="required">*</span></label>
-              <textarea className="form-control" placeholder="Describe what was done to resolve this issue..."
-                value={updateForm.notes} onChange={e => setUpdateForm(prev => ({ ...prev, notes: e.target.value }))} rows={3} required />
-            </div>
+            <>
+              <div className="form-group">
+                <label className="form-label">Resolution Notes <span className="required">*</span></label>
+                <textarea className="form-control" placeholder="Describe what was done to resolve this issue..."
+                  value={updateForm.notes} onChange={e => setUpdateForm(prev => ({ ...prev, notes: e.target.value }))} rows={3} required />
+              </div>
+
+              {/* COMPLETION PHOTO — MANDATORY */}
+              <div className="form-group">
+                <label className="form-label">Completion Photos <span className="required">* (Required to resolve)</span></label>
+                <div style={{ background: 'var(--warning-bg)', border: '2px dashed var(--warning)', borderRadius: 'var(--radius-sm)', padding: 16, textAlign: 'center', cursor: 'pointer', marginBottom: 8 }}
+                  onClick={() => fileInputRef.current?.click()}>
+                  <div style={{ fontSize: '1.5rem' }}>📸</div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--warning)', fontWeight: 700 }}>Upload photos of completed work (mandatory)</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>Before/after photos show accountability</div>
+                </div>
+                <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*" multiple onChange={handleCompletionImageUpload} />
+                {completionImages.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {completionImages.map((img, i) => (
+                      <div key={i} style={{ position: 'relative' }}>
+                        <img src={img} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, border: '2px solid var(--success)' }} />
+                        <button type="button" onClick={() => setCompletionImages(prev => prev.filter((_, j) => j !== i))}
+                          style={{ position: 'absolute', top: -6, right: -6, width: 18, height: 18, borderRadius: '50%', background: 'var(--danger)', color: 'white', border: 'none', cursor: 'pointer', fontSize: '0.6rem' }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {completionImages.length === 0 && (
+                  <div style={{ color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 600 }}>⚠️ At least 1 photo required to resolve complaint</div>
+                )}
+              </div>
+            </>
           )}
           {updateForm.status === 'rejected' && (
             <div className="form-group">
